@@ -1,5 +1,96 @@
 # Health App
 
+A React Native health tracking application built with Expo and Supabase.
+
+## Features
+
+- 🔐 User authentication (sign up, sign in, sign out)
+- 📊 Health record tracking (weight, height, heart rate, blood pressure)
+- 📱 Cross-platform support (iOS, Android, Web)
+- 🎨 Modern UI with TailwindCSS/NativeWind
+- ☁️ Cloud-based data storage with Supabase
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v16 or higher)
+- npm or yarn
+- Expo CLI (`npm install -g @expo/cli`)
+- A Supabase account
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone <your-repo-url>
+   cd Health-app
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Set up Supabase:
+   - Follow the detailed instructions in `SUPABASE_SETUP.md`
+   - Create a `.env` file with your Supabase credentials
+
+4. Start the development server:
+   ```bash
+   npm start
+   ```
+
+### Supabase Setup
+
+Please refer to `SUPABASE_SETUP.md` for detailed instructions on setting up your Supabase project and database.
+
+## Project Structure
+
+```
+src/
+├── components/          # React components
+│   ├── HealthCard.tsx
+│   ├── HealthDashboard.tsx
+│   ├── LoginScreen.tsx
+│   └── index.ts
+├── hooks/              # Custom React hooks
+│   ├── useAuth.ts
+│   └── useHealthRecords.ts
+├── lib/                # Utility libraries
+│   └── supabase.ts
+└── types/              # TypeScript type definitions
+    └── database.types.ts
+```
+
+## Available Scripts
+
+- `npm start` - Start the Expo development server
+- `npm run android` - Run on Android device/emulator
+- `npm run ios` - Run on iOS device/simulator
+- `npm run web` - Run in web browser
+
+## Technologies Used
+
+- **React Native** - Mobile app framework
+- **Expo** - Development platform
+- **Supabase** - Backend as a Service
+- **TypeScript** - Type-safe JavaScript
+- **TailwindCSS/NativeWind** - Styling
+- **React Hooks** - State management
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
+
 A React Native application built with Expo and styled with NativeWind (Tailwind CSS for React Native).
 
 ## 🚀 Features
