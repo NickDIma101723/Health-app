@@ -1,3 +1,13 @@
 export { HealthCard } from './HealthCard';
-export { default as LoginScreen } from './LoginScreen';
-export { default as HealthDashboard } from './HealthDashboard';
+export { StatCard } from './StatCard';
+export { QuickActionButton } from './QuickActionButton';
+export { BottomNavigation } from './BottomNavigation';
+export { CircularProgress } from './CircularProgress';
+export { ProgressBar } from './ProgressBar';
+export { EnhancedStatCard } from './EnhancedStatCard';
+export { SuggestionCard } from './SuggestionCard';
+export { BackgroundDecorations } from './BackgroundDecorations';
+export { HeartRateMonitor } from './HeartRateMonitor';
+export { SleepTracker } from './SleepTracker';
+export { StepTracker } from './StepTracker';
+export { CoachBottomNavigation } from './CoachBottomNavigation';
