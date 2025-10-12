@@ -1,0 +1,13 @@
+export { SplashScreen } from './SplashScreen';
+export { LoginScreen } from './LoginScreen';
+export { RegisterScreen } from './RegisterScreen';
+export { HomeScreen } from './HomeScreen';
+export { MindfulnessScreen } from './MindfulnessScreen';
+export { ChatScreen } from './ChatScreen';
+export { ScheduleScreen } from './ScheduleScreen';
+export { NutritionScreen } from './NutritionScreen';
+export { ProfileScreen } from './ProfileScreen';
+export { CoachDashboardScreen } from './CoachDashboardScreen';
+export { CoachClientDetailScreen } from './CoachClientDetailScreen';
+export { CoachNotesScreen } from './CoachNotesScreen';
+export { AssignClientScreen } from './AssignClientScreen';
