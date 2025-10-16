@@ -54,6 +54,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showHeartRateMonitor, setShowHeartRateMonitor] = useState(false);
   const [showSleepTracker, setShowSleepTracker] = useState(false);
   const [showStepTracker, setShowStepTracker] = useState(false);
@@ -288,21 +289,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
     }
   };
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Sign Out', 
-          style: 'destructive',
-          onPress: async () => {
-            await signOut();
-          }
-        },
-      ]
-    );
+  const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = async () => {
+    setShowLogoutConfirm(false);
+    await signOut();
   };
 
   const getRecommendations = () => {
@@ -775,7 +768,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
 
       </ScrollView>
 
-      <BottomNavigation activeTab="home" onTabChange={onNavigate} />
+      <BottomNavigation 
+        activeTab="home" 
+        onTabChange={(tab) => {
+          console.log('[HomeScreen] Navigation requested to:', tab);
+          if (onNavigate) {
+            onNavigate(tab);
+          } else {
+            console.log('[HomeScreen] WARNING: onNavigate prop is undefined!');
+          }
+        }} 
+      />
 
       <Modal
         visible={showNotifications}
@@ -881,6 +884,43 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         onSave={handleSaveSteps}
         currentSteps={metrics?.steps || 0}
       />
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        visible={showLogoutConfirm}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowLogoutConfirm(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.logoutModal}>
+            <View style={styles.logoutIconContainer}>
+              <MaterialIcons name="logout" size={48} color={colors.error} />
+            </View>
+            
+            <Text style={styles.logoutTitle}>Sign Out</Text>
+            <Text style={styles.logoutMessage}>
+              Are you sure you want to sign out?
+            </Text>
+
+            <View style={styles.logoutButtons}>
+              <TouchableOpacity 
+                style={styles.logoutCancelButton}
+                onPress={() => setShowLogoutConfirm(false)}
+              >
+                <Text style={styles.logoutCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.logoutConfirmButton}
+                onPress={confirmLogout}
+              >
+                <Text style={styles.logoutConfirmText}>Sign Out</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1525,5 +1565,68 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     color: colors.textSecondary,
     fontFamily: 'Quicksand_500Medium',
+  },
+  logoutModal: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xxl,
+    padding: spacing.xl,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    ...shadows.lg,
+  },
+  logoutIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 69, 58, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  logoutTitle: {
+    fontSize: fontSizes.xxl,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    fontFamily: 'Poppins_700Bold',
+    marginBottom: spacing.sm,
+  },
+  logoutMessage: {
+    fontSize: fontSizes.md,
+    color: colors.textSecondary,
+    fontFamily: 'Quicksand_500Medium',
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+  },
+  logoutButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    width: '100%',
+  },
+  logoutCancelButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.border,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  logoutCancelText: {
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    fontFamily: 'Quicksand_600SemiBold',
+  },
+  logoutConfirmButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.error,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  logoutConfirmText: {
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+    color: colors.textLight,
+    fontFamily: 'Quicksand_600SemiBold',
   },
 });
