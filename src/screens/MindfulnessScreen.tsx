@@ -163,8 +163,8 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
   const slideAnim = useRef(new Animated.Value(30)).current;
   const breatheAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const breathingLoopRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const breathingLoopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isBreathingActiveRef = useRef(false);
   const breathingAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
 
@@ -1188,10 +1188,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sessionCard: {
-    width: '48%',
+    width: width > 600 ? (width * 0.45) : '100%',
+    minWidth: 250,
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 150, 255, 0.08)',
   },
   sessionIconContainer: {
     width: 56,

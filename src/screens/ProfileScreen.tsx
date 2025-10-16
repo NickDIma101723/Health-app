@@ -15,11 +15,13 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BottomNavigation, BackgroundDecorations, CoachBottomNavigation } from '../components';
 import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { pickImageFromGallery, uploadMediaToStorage } from '../lib/mediaUpload';
 
 interface ProfileScreenProps {
   onNavigate?: (screen: string) => void;
@@ -35,6 +37,7 @@ interface UserProfile {
   bio: string;
   fitness_level: string;
   goals: string;
+  avatar_url?: string | null;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
@@ -56,6 +59,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
   const [editedProfile, setEditedProfile] = useState<UserProfile>(profile);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -94,11 +99,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
           bio: coachData.bio || '',
           fitness_level: coachData.specialization || 'advanced',
           goals: profileData?.goals || '',
+          avatar_url: profileData?.avatar_url || null,
         };
         
         console.log('[ProfileScreen] Setting combined coach profile to:', combinedProfile);
         setProfile(combinedProfile);
         setEditedProfile(combinedProfile);
+        setAvatarUrl(profileData?.avatar_url || null);
         setLoading(false);
         return;
       }
@@ -124,15 +131,85 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
           bio: data.bio || '',
           fitness_level: data.fitness_level || 'beginner',
           goals: data.goals || '',
+          avatar_url: data.avatar_url || null,
         };
         setProfile(profileData);
         setEditedProfile(profileData);
+        setAvatarUrl(data.avatar_url || null);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
       Alert.alert('Error', 'Failed to load profile');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePickAvatar = async () => {
+    try {
+      // Request permission
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant permission to access your photos');
+        return;
+      }
+
+      // Pick image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setUploadingAvatar(true);
+        const asset = result.assets[0];
+        
+        // Convert image to blob for upload
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        const fileName = `${user?.id}-${Date.now()}.jpg`;
+        
+        // Upload to Supabase storage
+        const { data, error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, blob, {
+            contentType: 'image/jpeg',
+            upsert: true,
+          });
+        
+        if (uploadError) {
+          Alert.alert('Upload Error', uploadError.message);
+          setUploadingAvatar(false);
+          return;
+        }
+        
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+        
+        // Update profile with avatar URL
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ avatar_url: urlData.publicUrl })
+          .eq('user_id', user?.id);
+        
+        if (updateError) {
+          Alert.alert('Error', 'Failed to update profile with avatar');
+        } else {
+          setAvatarUrl(urlData.publicUrl);
+          Alert.alert('Success', 'Profile picture updated!');
+          await loadProfile(); // Reload profile to show new avatar
+        }
+        
+        setUploadingAvatar(false);
+      }
+    } catch (error) {
+      console.error('Error picking avatar:', error);
+      Alert.alert('Error', 'Failed to pick image');
+      setUploadingAvatar(false);
     }
   };
 
@@ -560,15 +637,36 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
           showsVerticalScrollIndicator={false}
         >
         <View style={styles.avatarSection}>
-          <LinearGradient
-            colors={[colors.primary, colors.primaryLight] as [string, string, ...string[]]}
-            style={styles.avatar}
+          <TouchableOpacity 
+            onPress={handlePickAvatar}
+            style={styles.avatarContainer}
+            disabled={uploadingAvatar}
           >
-            <Text style={styles.avatarText}>
-              {profile.full_name ? profile.full_name.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || 'U'}
-            </Text>
-          </LinearGradient>
+            {avatarUrl || profile.avatar_url ? (
+              <Image 
+                source={{ uri: avatarUrl || profile.avatar_url || '' }}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <LinearGradient
+                colors={[colors.primary, colors.primaryLight] as [string, string, ...string[]]}
+                style={styles.avatar}
+              >
+                <Text style={styles.avatarText}>
+                  {profile.full_name ? profile.full_name.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || 'U'}
+                </Text>
+              </LinearGradient>
+            )}
+            <View style={styles.avatarEditBadge}>
+              {uploadingAvatar ? (
+                <MaterialIcons name="hourglass-empty" size={16} color={colors.textLight} />
+              ) : (
+                <MaterialIcons name="camera-alt" size={16} color={colors.textLight} />
+              )}
+            </View>
+          </TouchableOpacity>
           <Text style={styles.email}>{user?.email}</Text>
+          <Text style={styles.avatarHint}>Tap to change photo</Text>
         </View>
 
         {!editing && (
@@ -916,13 +1014,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xl,
   },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: spacing.md,
+  },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.md,
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: colors.primary,
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: colors.surface,
+  },
+  avatarHint: {
+    fontSize: fontSizes.xs,
+    color: colors.textSecondary,
+    fontFamily: 'Quicksand_500Medium',
+    marginTop: spacing.xs,
   },
   avatarText: {
     fontSize: 40,

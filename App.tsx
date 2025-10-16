@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Animated, Dimensions } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { Quicksand_500Medium, Quicksand_600SemiBold } from '@expo-google-fonts/quicksand';
 import './global.css';
@@ -45,7 +46,12 @@ function AppContent() {
   });
 
   const navigateWithTransition = (targetScreen: Screen, params?: any) => {
-    if (isTransitioning) return;
+    console.log('[App] Navigation requested:', targetScreen, params);
+    
+    if (isTransitioning) {
+      console.log('[App] Navigation blocked - transition in progress');
+      return;
+    }
     
     if (targetScreen === 'coach-client-detail') {
       setClientDetailParams(params);
@@ -58,6 +64,7 @@ function AppContent() {
     setIsTransitioning(true);
     
     requestAnimationFrame(() => {
+      console.log('[App] Navigating to:', targetScreen);
       setCurrentScreen(targetScreen);
       setDisplayScreen(targetScreen);
       
@@ -196,14 +203,16 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ScheduleProvider>
-        <NutritionProvider>
-          <AppContent />
-          <StatusBar style="auto" />
-        </NutritionProvider>
-      </ScheduleProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <ScheduleProvider>
+          <NutritionProvider>
+            <AppContent />
+            <StatusBar style="auto" />
+          </NutritionProvider>
+        </ScheduleProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 

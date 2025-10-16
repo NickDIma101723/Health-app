@@ -31,8 +31,14 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   const [active, setActive] = useState<TabType>(activeTab);
 
   const handleTabPress = (tab: TabType) => {
+    console.log('[BottomNavigation] Tab pressed:', tab);
     setActive(tab);
-    onTabChange?.(tab);
+    if (onTabChange) {
+      console.log('[BottomNavigation] Calling onTabChange with:', tab);
+      onTabChange(tab);
+    } else {
+      console.log('[BottomNavigation] WARNING: onTabChange is not defined!');
+    }
   };
 
   return (
