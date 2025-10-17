@@ -271,9 +271,15 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
                   {assigning === coach.id ? (
                     <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
-                    <View style={styles.arrowButton}>
-                      <MaterialIcons name="arrow-forward" size={20} color={colors.primary} />
-                    </View>
+                    // Quick assign & chat button
+                    <TouchableOpacity
+                      style={styles.arrowButton}
+                      onPress={() => handleAssignCoach(coach.id, coach.full_name)}
+                      activeOpacity={0.7}
+                      disabled={assigning === coach.id}
+                    >
+                      <MaterialIcons name="chat" size={20} color={colors.primary} />
+                    </TouchableOpacity>
                   )}
                 </View>
               </TouchableOpacity>
