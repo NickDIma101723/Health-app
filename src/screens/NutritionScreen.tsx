@@ -20,10 +20,12 @@ import {
   BottomNavigation,
   BackgroundDecorations,
 } from '../components';
+import { RecipeBrowser } from '../components/RecipeBrowser';
 import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
 import { useNutritionAdapter } from '../hooks/useNutritionAdapter';
 import { Meal } from '../contexts/NutritionContext';
 import { useAuth } from '../contexts/AuthContext';
+import { Recipe } from '../data/recipes';
 
 const { width } = Dimensions.get('window');
 const CIRCLE_SIZE = 140;
@@ -59,6 +61,7 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
   const today = new Date().toISOString().split('T')[0];
   const [selectedDate] = useState(today);
   const [showAddMeal, setShowAddMeal] = useState(false);
+  const [showRecipeBrowser, setShowRecipeBrowser] = useState(false);
   const [showWaterModal, setShowWaterModal] = useState(false);
   const [showMealDetail, setShowMealDetail] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
@@ -183,24 +186,27 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
     setShowWaterModal(false);
   };
 
-  const handleDeleteMeal = () => {
+  const handleSelectRecipe = async (recipe: Recipe) => {
+    const now = new Date();
+    await addMeal({
+      name: recipe.name,
+      type: recipe.type,
+      calories: recipe.calories,
+      protein: recipe.protein,
+      carbs: recipe.carbs,
+      fats: recipe.fats,
+      time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      date: selectedDate,
+      ingredients: recipe.ingredients,
+      notes: `${recipe.description}\n\nPrep time: ${recipe.prepTime} min | Cook time: ${recipe.cookTime} min`,
+    });
+  };
+
+  const handleDeleteMeal = async () => {
     if (selectedMeal) {
-      Alert.alert(
-        'Delete Meal',
-        `Are you sure you want to delete "${selectedMeal.name}"?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: async () => {
-              await deleteMeal(selectedMeal.id);
-              setShowMealDetail(false);
-              setSelectedMeal(null);
-            },
-          },
-        ]
-      );
+      setShowMealDetail(false);
+      setSelectedMeal(null);
+      await deleteMeal(selectedMeal.id);
     }
   };
 
@@ -344,22 +350,157 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
     );
   };
 
+  const renderSuggestedRecipes = () => {
+    // Get suggested recipes based on remaining calories and current time
+    const remainingCalories = goals.calories - dailyNutrition.calories;
+    const currentHour = new Date().getHours();
+    
+    // Determine meal type based on time
+    let suggestedType: 'breakfast' | 'lunch' | 'dinner' | 'snack' = 'dinner';
+    if (currentHour < 11) suggestedType = 'breakfast';
+    else if (currentHour < 15) suggestedType = 'lunch';
+    else if (currentHour < 18) suggestedType = 'snack';
+
+    // Get recipes from database
+    const { RECIPE_DATABASE, filterRecipesByType, filterRecipesByCalories } = require('../data/recipes');
+    let suggestions = filterRecipesByType(RECIPE_DATABASE, suggestedType);
+    
+    // Filter by remaining calories if significant calories left
+    if (remainingCalories > 200) {
+      suggestions = filterRecipesByCalories(suggestions, remainingCalories / 2, remainingCalories);
+    }
+    
+    // Take top 3 suggestions
+    suggestions = suggestions.slice(0, 3);
+
+    if (suggestions.length === 0) return null;
+
+    return (
+      <View style={styles.suggestedRecipesSection}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Suggested for You</Text>
+          <TouchableOpacity onPress={() => setShowRecipeBrowser(true)}>
+            <Text style={styles.viewAllText}>View All</Text>
+          </TouchableOpacity>
+        </View>
+        
+        <Text style={styles.suggestionSubtext}>
+          Based on your remaining {Math.round(remainingCalories)} calories
+        </Text>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.suggestedScroll}>
+          {suggestions.map((recipe: any) => (
+            <TouchableOpacity
+              key={recipe.id}
+              style={styles.suggestedCard}
+              onPress={() => handleSelectRecipe(recipe)}
+            >
+              <View style={styles.suggestedCardContent}>
+                <View style={styles.suggestedImagePlaceholder}>
+                  <MaterialIcons name="restaurant" size={48} color={colors.primary} />
+                </View>
+                
+                <View style={styles.suggestedCardBody}>
+                  <View style={styles.suggestedCardTop}>
+                    <Text style={styles.suggestedCardTitle} numberOfLines={2}>
+                      {recipe.name}
+                    </Text>
+                    <View style={[styles.difficultyBadgeSmall, { 
+                      backgroundColor: recipe.difficulty === 'easy' ? colors.success + '20' : 
+                                      recipe.difficulty === 'medium' ? colors.accent + '20' : 
+                                      colors.error + '20',
+                      borderWidth: 1,
+                      borderColor: recipe.difficulty === 'easy' ? colors.success : 
+                                   recipe.difficulty === 'medium' ? colors.accent : 
+                                   colors.error,
+                    }]}>
+                      <Text style={[styles.difficultyBadgeText, {
+                        color: recipe.difficulty === 'easy' ? colors.success : 
+                               recipe.difficulty === 'medium' ? colors.accent : 
+                               colors.error,
+                      }]}>{recipe.difficulty}</Text>
+                    </View>
+                  </View>
+                  
+                  <Text style={styles.suggestedCardDescription} numberOfLines={3}>
+                    {recipe.description}
+                  </Text>
+
+                  <View style={styles.suggestedCardStatsRow}>
+                    <View style={styles.suggestedCardStatBox}>
+                      <MaterialIcons name="local-fire-department" size={20} color={colors.accent} />
+                      <Text style={styles.suggestedCardStatValue}>{recipe.calories}</Text>
+                      <Text style={styles.suggestedCardStatLabel}>cal</Text>
+                    </View>
+                    <View style={styles.suggestedCardStatBox}>
+                      <MaterialIcons name="timer" size={20} color={colors.primary} />
+                      <Text style={styles.suggestedCardStatValue}>{recipe.prepTime + recipe.cookTime}</Text>
+                      <Text style={styles.suggestedCardStatLabel}>min</Text>
+                    </View>
+                    <View style={styles.suggestedCardStatBox}>
+                      <MaterialIcons name="emoji-food-beverage" size={20} color={colors.teal} />
+                      <Text style={styles.suggestedCardStatValue}>{recipe.servings}</Text>
+                      <Text style={styles.suggestedCardStatLabel}>serv</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.suggestedCardMacrosRow}>
+                    <View style={styles.macroChip}>
+                      <Text style={styles.macroChipLabel}>Protein</Text>
+                      <Text style={styles.macroChipValue}>{recipe.protein}g</Text>
+                    </View>
+                    <View style={styles.macroChip}>
+                      <Text style={styles.macroChipLabel}>Carbs</Text>
+                      <Text style={styles.macroChipValue}>{recipe.carbs}g</Text>
+                    </View>
+                    <View style={styles.macroChip}>
+                      <Text style={styles.macroChipLabel}>Fats</Text>
+                      <Text style={styles.macroChipValue}>{recipe.fats}g</Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity 
+                    style={styles.addRecipeButton}
+                    onPress={() => handleSelectRecipe(recipe)}
+                  >
+                    <MaterialIcons name="add-circle" size={20} color={colors.textLight} />
+                    <Text style={styles.addRecipeButtonText}>Add to Meals</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
   const renderMealSection = () => {
     return (
       <View style={styles.mealsSection}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Today's Meals</Text>
-          <TouchableOpacity
-            style={styles.addMealButton}
-            onPress={() => setShowAddMeal(true)}
-          >
-            <MaterialIcons name="add-circle" size={24} color={colors.primary} />
-          </TouchableOpacity>
+          <View style={styles.mealActionsRow}>
+            <TouchableOpacity
+              style={styles.recipeBrowserButton}
+              onPress={() => setShowRecipeBrowser(true)}
+            >
+              <MaterialIcons name="restaurant-menu" size={20} color={colors.teal} />
+              <Text style={styles.recipeBrowserButtonText}>Browse</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.addMealButton}
+              onPress={() => setShowAddMeal(true)}
+            >
+              <MaterialIcons name="add-circle" size={20} color={colors.textLight} />
+              <Text style={styles.addMealButtonText}>Custom</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {mealTypes.map(({ type, label, icon, color }) => {
-          const meals = getMealsByType(type);
-          if (meals.length === 0) return null;
+          const typeMeals = getMealsByType(type);
+          if (typeMeals.length === 0) return null;
 
           return (
             <View key={type} style={styles.mealTypeSection}>
@@ -370,7 +511,7 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
                 <Text style={styles.mealTypeLabel}>{label}</Text>
               </View>
 
-              {meals.map(meal => (
+              {typeMeals.map(meal => (
                 <TouchableOpacity
                   key={meal.id}
                   style={styles.mealCard}
@@ -445,6 +586,8 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
           <View style={styles.waterSection}>
             {renderWaterTracker()}
           </View>
+
+          {renderSuggestedRecipes()}
 
           {renderMealSection()}
 
@@ -687,6 +830,12 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
           )}
         </View>
       </Modal>
+
+      <RecipeBrowser
+        visible={showRecipeBrowser}
+        onClose={() => setShowRecipeBrowser(false)}
+        onSelectRecipe={handleSelectRecipe}
+      />
 
       <BottomNavigation
         activeTab="nutrition"
@@ -1156,11 +1305,39 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_700Bold',
     color: colors.textPrimary,
   },
-  addMealButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
+  mealActionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  recipeBrowserButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.teal,
+  },
+  recipeBrowserButtonText: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: colors.teal,
+  },
+  addMealButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    gap: spacing.xs,
+  },
+  addMealButtonText: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: colors.textLight,
   },
   mealTypeSection: {
     marginBottom: spacing.md,
@@ -1196,6 +1373,9 @@ const styles = StyleSheet.create({
   mealCardLeft: {
     flex: 1,
   },
+  mealCardRight: {
+    alignItems: 'flex-end',
+  },
   mealName: {
     fontSize: fontSizes.md,
     fontFamily: 'Quicksand_600SemiBold',
@@ -1206,9 +1386,6 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     fontFamily: 'Quicksand_500Medium',
     color: colors.textSecondary,
-  },
-  mealCardRight: {
-    alignItems: 'flex-end',
   },
   mealCalories: {
     fontSize: fontSizes.lg,
@@ -1239,7 +1416,9 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
   },
   modalContent: {
     backgroundColor: colors.surface,
@@ -1329,10 +1508,9 @@ const styles = StyleSheet.create({
   waterModalContent: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xxl,
-    margin: spacing.lg,
     padding: spacing.xl,
-    marginTop: 'auto',
-    marginBottom: 'auto',
+    maxWidth: 400,
+    width: '100%',
   },
   waterModalTitle: {
     fontSize: fontSizes.xl,
@@ -1353,9 +1531,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.md,
     marginBottom: spacing.lg,
+    justifyContent: 'center',
   },
   waterAmountOption: {
-    width: (width - spacing.lg * 2 - spacing.xl * 2 - spacing.md) / 2,
+    width: Math.min(140, (width - spacing.xl * 4 - spacing.md) / 2),
     aspectRatio: 1,
     backgroundColor: colors.background,
     borderRadius: borderRadius.xl,
@@ -1626,5 +1805,164 @@ const styles = StyleSheet.create({
   },
   toggleKnobActive: {
     transform: [{ translateX: 22 }],
+  },
+  suggestedRecipesSection: {
+    marginBottom: spacing.lg,
+  },
+  viewAllText: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: colors.primary,
+  },
+  suggestionSubtext: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+  },
+  suggestedScroll: {
+    marginHorizontal: -spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  suggestedCard: {
+    width: width * 0.85,
+    marginRight: spacing.md,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.surface,
+    ...shadows.md,
+  },
+  suggestedCardContent: {
+    flex: 1,
+  },
+  suggestedImagePlaceholder: {
+    height: 120,
+    backgroundColor: colors.primaryPale,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+  },
+  suggestedCardBody: {
+    padding: spacing.md,
+  },
+  suggestedCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  difficultyBadgeSmall: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.md,
+  },
+  difficultyBadgeText: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Quicksand_600SemiBold',
+    textTransform: 'capitalize',
+  },
+  suggestedCardTitle: {
+    flex: 1,
+    fontSize: fontSizes.md,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.textPrimary,
+    marginRight: spacing.sm,
+  },
+  suggestedCardDescription: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+    lineHeight: 20,
+  },
+  suggestedCardStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.md,
+  },
+  suggestedCardStatBox: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  suggestedCardStatValue: {
+    fontSize: fontSizes.lg,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.textPrimary,
+    marginTop: 2,
+  },
+  suggestedCardStatLabel: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  suggestedCardMacrosRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+  },
+  macroChip: {
+    flex: 1,
+    backgroundColor: colors.background,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  macroChipLabel: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  macroChipValue: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.primary,
+  },
+  addRecipeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.success,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    gap: spacing.xs,
+  },
+  addRecipeButtonText: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: colors.textLight,
+  },
+  suggestedCardStats: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  suggestedCardStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  suggestedCardStatText: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textLight,
+  },
+  suggestedCardFooter: {
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  suggestedCardMacros: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textLight,
+    opacity: 0.9,
   },
 });

@@ -11,3 +11,5 @@ export { CoachDashboardScreen } from './CoachDashboardScreen';
 export { CoachClientDetailScreen } from './CoachClientDetailScreen';
 export { CoachNotesScreen } from './CoachNotesScreen';
 export { AssignClientScreen } from './AssignClientScreen';
+export { CoachSelectionScreen } from './CoachSelectionScreen';
+export { BecomeCoachScreen } from './BecomeCoachScreen';

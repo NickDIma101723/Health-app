@@ -153,12 +153,8 @@ export const useNutritionAdapter = () => {
   };
 
   const deleteMeal = async (id: string) => {
-    const result = await dbDeleteMeal(id);
-    if (result.error) {
-      console.error('Failed to delete meal:', result.error);
-    } else {
-      await refetch();
-    }
+    await dbDeleteMeal(id);
+    await refetch();
   };
 
   const addWaterIntake = async (amount: number) => {

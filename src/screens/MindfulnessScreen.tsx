@@ -648,6 +648,65 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
               </View>
             </View>
 
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Relaxing Songs</Text>
+              <Text style={styles.sectionSubtitle}>Soothing sounds to calm your mind</Text>
+
+              <View style={styles.songsGrid}>
+                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.9}>
+                  <View style={[styles.songIconContainer, { backgroundColor: `${colors.primary}15` }]}>
+                    <MaterialIcons name="music-note" size={28} color={colors.primary} />
+                  </View>
+                  <View style={styles.songInfo}>
+                    <Text style={styles.songTitle}>Ocean Waves</Text>
+                    <Text style={styles.songArtist}>Nature Sounds</Text>
+                  </View>
+                  <TouchableOpacity style={styles.songPlayIcon}>
+                    <MaterialIcons name="play-circle-filled" size={32} color={colors.primary} />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.9}>
+                  <View style={[styles.songIconContainer, { backgroundColor: `${colors.secondary}15` }]}>
+                    <MaterialIcons name="music-note" size={28} color={colors.secondary} />
+                  </View>
+                  <View style={styles.songInfo}>
+                    <Text style={styles.songTitle}>Forest Rain</Text>
+                    <Text style={styles.songArtist}>Ambient Nature</Text>
+                  </View>
+                  <TouchableOpacity style={styles.songPlayIcon}>
+                    <MaterialIcons name="play-circle-filled" size={32} color={colors.secondary} />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.9}>
+                  <View style={[styles.songIconContainer, { backgroundColor: `${colors.purple}15` }]}>
+                    <MaterialIcons name="music-note" size={28} color={colors.purple} />
+                  </View>
+                  <View style={styles.songInfo}>
+                    <Text style={styles.songTitle}>Peaceful Piano</Text>
+                    <Text style={styles.songArtist}>Instrumental Calm</Text>
+                  </View>
+                  <TouchableOpacity style={styles.songPlayIcon}>
+                    <MaterialIcons name="play-circle-filled" size={32} color={colors.purple} />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.9}>
+                  <View style={[styles.songIconContainer, { backgroundColor: `${colors.accent}15` }]}>
+                    <MaterialIcons name="music-note" size={28} color={colors.accent} />
+                  </View>
+                  <View style={styles.songInfo}>
+                    <Text style={styles.songTitle}>Tibetan Bowls</Text>
+                    <Text style={styles.songArtist}>Healing Sounds</Text>
+                  </View>
+                  <TouchableOpacity style={styles.songPlayIcon}>
+                    <MaterialIcons name="play-circle-filled" size={32} color={colors.accent} />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             <TouchableOpacity
               style={styles.featuredSection}
               activeOpacity={0.9}
@@ -726,21 +785,15 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
             <View style={styles.benefitsSection}>
               <Text style={styles.benefitsTitle}>Benefits of Quick Practice</Text>
               <View style={styles.benefitItem}>
-                <View style={styles.benefitIcon}>
-                  <MaterialIcons name="check-circle" size={20} color={colors.primary} />
-                </View>
+                <MaterialIcons name="check-circle" size={20} color={colors.primary} />
                 <Text style={styles.benefitText}>Reduces stress in moments</Text>
               </View>
               <View style={styles.benefitItem}>
-                <View style={styles.benefitIcon}>
-                  <MaterialIcons name="check-circle" size={20} color={colors.primary} />
-                </View>
+                <MaterialIcons name="check-circle" size={20} color={colors.primary} />
                 <Text style={styles.benefitText}>Improves focus and clarity</Text>
               </View>
               <View style={styles.benefitItem}>
-                <View style={styles.benefitIcon}>
-                  <MaterialIcons name="check-circle" size={20} color={colors.primary} />
-                </View>
+                <MaterialIcons name="check-circle" size={20} color={colors.primary} />
                 <Text style={styles.benefitText}>Easy to fit into busy schedules</Text>
               </View>
             </View>
@@ -1182,14 +1235,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   sessionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.md,
-    justifyContent: 'space-between',
   },
   sessionCard: {
-    width: width > 600 ? (width * 0.45) : '100%',
-    minWidth: 250,
+    width: '100%',
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
@@ -1356,6 +1405,7 @@ const styles = StyleSheet.create({
   },
   benefitsSection: {
     marginBottom: spacing.xl,
+    alignItems: 'center',
   },
   benefitsTitle: {
     fontSize: fontSizes.md,
@@ -1363,21 +1413,20 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontFamily: 'Poppins_700Bold',
     marginBottom: spacing.md,
+    textAlign: 'center',
   },
   benefitItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.sm,
     marginBottom: spacing.sm,
   },
-  benefitIcon: {
-    flexShrink: 0,
-  },
   benefitText: {
-    flex: 1,
     fontSize: fontSizes.sm,
     color: colors.textSecondary,
     fontFamily: 'Quicksand_500Medium',
+    textAlign: 'center',
   },
   sessionModal: {
     flex: 1,
@@ -1701,6 +1750,43 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     color: colors.textSecondary,
     fontFamily: 'Quicksand_600SemiBold',
+  },
+  songsGrid: {
+    gap: spacing.sm,
+  },
+  songCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 150, 255, 0.08)',
+  },
+  songIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  songInfo: {
+    flex: 1,
+  },
+  songTitle: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  songArtist: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+  },
+  songPlayIcon: {
+    marginLeft: spacing.sm,
   },
 });
 

@@ -453,6 +453,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
           </View>
           <View style={styles.headerButtons}>
             <TouchableOpacity 
+              style={styles.coachButton}
+              onPress={() => onNavigate?.('coach-selection')}
+            >
+              <MaterialIcons name="person-search" size={24} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity 
               style={styles.notificationButton}
               onPress={() => setShowNotifications(true)}
             >
@@ -964,6 +970,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  coachButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.sm,
   },
   notificationButton: {
     width: 44,

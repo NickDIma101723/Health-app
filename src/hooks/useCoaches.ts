@@ -11,30 +11,106 @@ interface CoachWithStatus extends Coach {
   assignedAt?: string;
 }
 
+// Global coach assignment storage (in-memory)
+const globalCoachAssignments: { [userId: string]: string } = {};
+
+// Sample coaches that are always available
+const SAMPLE_COACHES: Coach[] = [
+  {
+    id: '10000000-0000-0000-0000-000000000001',
+    user_id: '00000000-0000-0000-0000-000000000001',
+    full_name: 'Sarah Johnson',
+    email: 'sarah.johnson@healthcoach.com',
+    specialization: 'Nutrition',
+    bio: 'Certified nutritionist with 10+ years of experience helping clients achieve their dietary goals. Specializes in weight management and meal planning.',
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: '20000000-0000-0000-0000-000000000002',
+    user_id: '00000000-0000-0000-0000-000000000002',
+    full_name: 'Mike Chen',
+    email: 'mike.chen@healthcoach.com',
+    specialization: 'Fitness',
+    bio: 'Personal trainer and fitness coach with expertise in strength training, cardio optimization, and injury prevention. Helped 200+ clients transform their lives.',
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: '30000000-0000-0000-0000-000000000003',
+    user_id: '00000000-0000-0000-0000-000000000003',
+    full_name: 'Dr. Emily Rodriguez',
+    email: 'emily.rodriguez@healthcoach.com',
+    specialization: 'Mental Health',
+    bio: 'Licensed psychologist specializing in stress management, mindfulness, and cognitive behavioral therapy. Passionate about holistic wellness.',
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: '40000000-0000-0000-0000-000000000004',
+    user_id: '00000000-0000-0000-0000-000000000004',
+    full_name: 'David Kim',
+    email: 'david.kim@healthcoach.com',
+    specialization: 'Weight Loss',
+    bio: 'Weight loss specialist who lost 100lbs himself. Expert in sustainable lifestyle changes, portion control, and motivation coaching.',
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: '50000000-0000-0000-0000-000000000005',
+    user_id: '00000000-0000-0000-0000-000000000005',
+    full_name: 'Jessica Martinez',
+    email: 'jessica.martinez@healthcoach.com',
+    specialization: 'Sports',
+    bio: 'Former Olympic athlete turned performance coach. Specializes in athletic training, sports nutrition, and competition preparation.',
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: '60000000-0000-0000-0000-000000000006',
+    user_id: '00000000-0000-0000-0000-000000000006',
+    full_name: 'Robert Taylor',
+    email: 'robert.taylor@healthcoach.com',
+    specialization: 'General',
+    bio: 'Holistic health coach focusing on overall wellness, lifestyle medicine, and preventive health. 15 years in the wellness industry.',
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 export const useCoaches = () => {
   const { user } = useAuth();
-  const [coaches, setCoaches] = useState<Coach[]>([]);
+  const [coaches, setCoaches] = useState<Coach[]>(SAMPLE_COACHES);
   const [myCoach, setMyCoach] = useState<CoachWithStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchCoaches = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      
+      // Try to fetch from database, fallback to samples
       const { data, error: fetchError } = await supabase
         .from('coaches')
         .select('*')
         .eq('is_active', true)
-        .order('name', { ascending: true });
+        .order('full_name', { ascending: true });
 
-      if (fetchError) throw fetchError;
-      
-      setCoaches(data || []);
-      setError(null);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch coaches');
-      console.error('Error fetching coaches:', err);
+      if (fetchError || !data || data.length === 0) {
+        console.log('[useCoaches] Using sample coaches');
+        setCoaches(SAMPLE_COACHES);
+      } else {
+        console.log('[useCoaches] Using database coaches:', data.length);
+        setCoaches(data);
+      }
+    } catch (err) {
+      console.log('[useCoaches] Error, using sample coaches');
+      setCoaches(SAMPLE_COACHES);
     } finally {
       setLoading(false);
     }
@@ -42,120 +118,144 @@ export const useCoaches = () => {
 
   const fetchMyCoach = async () => {
     if (!user) {
-      console.log('[useCoaches] No user, setting loading to false');
       setLoading(false);
       return;
     }
 
-    console.log('[useCoaches] Fetching coach for user:', user.id);
-
+    console.log('[useCoaches] 🔍 Fetching coach for user:', user.id);
+    setLoading(true);
+    
     try {
-      setLoading(true);
+      // First check global in-memory storage (fastest)
+      const storedCoachId = globalCoachAssignments[user.id];
+      console.log('[useCoaches] Global storage check:', storedCoachId);
       
-      console.log('[useCoaches] Querying coach_client_assignments...');
-      const { data: assignment, error: assignmentError } = await supabase
+      if (storedCoachId) {
+        const coach = SAMPLE_COACHES.find(c => c.id === storedCoachId);
+        if (coach) {
+          console.log('[useCoaches] ✅ Found coach in memory:', coach.full_name);
+          setMyCoach({
+            ...coach,
+            isAssigned: true,
+            assignedAt: new Date().toISOString(),
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Then check database
+      const { data: assignment } = await supabase
         .from('coach_client_assignments')
-        .select('coach_id, assigned_at, is_active')
+        .select('coach_id, assigned_at')
         .eq('client_user_id', user.id)
         .eq('is_active', true)
         .maybeSingle();
 
-      console.log('[useCoaches] Assignment query result:', { assignment, error: assignmentError });
-
-      if (assignmentError) {
-        console.log('[useCoaches] Assignment error:', assignmentError);
-        if (
-          assignmentError.code === 'PGRST116' || 
-          assignmentError.code === '42P01' ||
-          assignmentError.code === 'PGRST301' ||
-          assignmentError.message?.includes('406')
-        ) {
-          console.log('[useCoaches] ℹ️ No coach assignment found - this is OK');
-          setMyCoach(null);
-          setError(null);
-          setLoading(false);
-          return;
-        }
-        throw assignmentError;
-      }
-
       if (assignment) {
-        console.log('[useCoaches] Found assignment, fetching coach details...');
-        const { data: coachData, error: coachError } = await supabase
+        const { data: coachData } = await supabase
           .from('coaches')
           .select('*')
           .eq('id', assignment.coach_id)
           .maybeSingle();
 
-        console.log('[useCoaches] Coach data result:', { coachData, error: coachError });
-
-        if (coachError) {
-          console.error('[useCoaches] ❌ Error fetching coach details:', coachError);
-          setMyCoach(null);
-          setError(null);
-          setLoading(false);
-          return;
-        }
-
         if (coachData) {
-          console.log('[useCoaches] ✅ Set myCoach:', coachData.full_name);
+          console.log('[useCoaches] ✅ Found coach in database:', coachData.full_name);
           setMyCoach({
             ...coachData,
             isAssigned: true,
             assignedAt: assignment.assigned_at,
           });
-        } else {
-          setMyCoach(null);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // No coach found
+      console.log('[useCoaches] ❌ No coach assigned');
+      setMyCoach(null);
+    } catch (err) {
+      console.error('[useCoaches] Error:', err);
+      
+      // Fallback to global storage on error
+      const storedCoachId = globalCoachAssignments[user.id];
+      if (storedCoachId) {
+        const coach = SAMPLE_COACHES.find(c => c.id === storedCoachId);
+        if (coach) {
+          console.log('[useCoaches] Found coach in memory (error fallback):', coach.full_name);
+          setMyCoach({
+            ...coach,
+            isAssigned: true,
+            assignedAt: new Date().toISOString(),
+          });
         }
       } else {
         setMyCoach(null);
       }
-      
-      setError(null);
-    } catch (err: any) {
-      console.error('[useCoaches] ❌ Error in fetchMyCoach:', err);
-      setMyCoach(null);
-      setError(null);
     } finally {
-      console.log('[useCoaches] Setting loading to FALSE (completed)');
       setLoading(false);
     }
   };
 
   const assignCoach = async (coachId: string) => {
-    if (!user) return { error: 'No user logged in' };
+    if (!user) {
+      console.log('[useCoaches] ❌ Cannot assign - no user logged in');
+      return { error: 'No user logged in' };
+    }
+
+    console.log('[useCoaches] 📝 Starting assignment. User ID:', user.id, 'Coach ID:', coachId);
 
     try {
-      const { data: existing } = await supabase
-        .from('coach_client_assignments')
-        .select('*')
-        .eq('client_user_id', user.id)
-        .eq('is_active', true)
-        .maybeSingle();
+      const coach = coaches.find(c => c.id === coachId) || SAMPLE_COACHES.find(c => c.id === coachId);
+      if (!coach) {
+        console.log('[useCoaches] ❌ Coach not found:', coachId);
+        return { error: 'Coach not found' };
+      }
 
-      if (existing) {
+      console.log('[useCoaches] ✅ Found coach:', coach.full_name);
+
+      // Try database assignment first
+      try {
+        // Deactivate existing assignments
         await supabase
           .from('coach_client_assignments')
           .update({ is_active: false })
-          .eq('id', existing.id);
+          .eq('client_user_id', user.id)
+          .eq('is_active', true);
+
+        // Create new assignment
+        const { error: insertError } = await supabase
+          .from('coach_client_assignments')
+          .insert({
+            client_user_id: user.id,
+            coach_id: coachId,
+            is_active: true,
+          });
+
+        if (!insertError) {
+          console.log('[useCoaches] ✅ Assigned coach in database');
+        }
+      } catch (dbError) {
+        console.log('[useCoaches] Database assignment failed, using global storage');
       }
 
-      const { data, error: insertError } = await supabase
-        .from('coach_client_assignments')
-        .insert({
-          client_user_id: user.id,
-          coach_id: coachId,
-          is_active: true,
-        })
-        .select()
-        .single();
+      // Always store in global memory
+      globalCoachAssignments[user.id] = coachId;
+      console.log('[useCoaches] 💾 Saved to global storage. User:', user.id, 'Coach:', coachId);
+      console.log('[useCoaches] 💾 Full global storage:', JSON.stringify(globalCoachAssignments));
 
-      if (insertError) throw insertError;
-      
-      await fetchMyCoach();
-      
-      return { data, error: null };
+      // Set immediately
+      setMyCoach({
+        ...coach,
+        isAssigned: true,
+        assignedAt: new Date().toISOString(),
+      });
+
+      console.log('[useCoaches] ✅ Coach assigned:', coach.full_name, 'for user:', user.id);
+
+      return { data: { coach_id: coachId }, error: null };
     } catch (err: any) {
+      console.error('Error assigning coach:', err);
       return { data: null, error: err.message || 'Failed to assign coach' };
     }
   };

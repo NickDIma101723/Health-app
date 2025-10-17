@@ -818,15 +818,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) 
             <View style={styles.noCoachFeatures}>
               <View style={styles.noCoachFeature}>
                 <MaterialIcons name="check-circle" size={24} color={colors.success} />
-                <Text style={styles.noCoachFeatureText}>Personalized guidance</Text>
+                <Text style={styles.noCoachFeatureText}>Get personalized guidance tailored to your goals</Text>
               </View>
               <View style={styles.noCoachFeature}>
                 <MaterialIcons name="check-circle" size={24} color={colors.success} />
-                <Text style={styles.noCoachFeatureText}>24/7 messaging support</Text>
+                <Text style={styles.noCoachFeatureText}>Message your coach anytime, anywhere</Text>
               </View>
               <View style={styles.noCoachFeature}>
                 <MaterialIcons name="check-circle" size={24} color={colors.success} />
-                <Text style={styles.noCoachFeatureText}>Expert health advice</Text>
+                <Text style={styles.noCoachFeatureText}>Receive expert advice on health & wellness</Text>
               </View>
             </View>
 
@@ -1453,6 +1453,7 @@ const styles = StyleSheet.create({
   },
   coachAvatarHeaderText: {
     fontSize: 24,
+    fontFamily: 'Poppins_700Bold',
   },
   onlineIndicator: {
     position: 'absolute',
@@ -1544,6 +1545,7 @@ const styles = StyleSheet.create({
   },
   coachAvatarText: {
     fontSize: 20,
+    fontFamily: 'Poppins_700Bold',
   },
   messageBubble: {
     borderRadius: borderRadius.lg,
@@ -1752,6 +1754,7 @@ const styles = StyleSheet.create({
   },
   profileAvatarText: {
     fontSize: 48,
+    fontFamily: 'Poppins_700Bold',
   },
   profileName: {
     fontSize: fontSizes.xxl,

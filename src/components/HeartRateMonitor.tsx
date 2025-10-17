@@ -40,7 +40,7 @@ export const HeartRateMonitor: React.FC<HeartRateMonitorProps> = ({
   const measurementData = useRef<number[]>([]);
   const frameCount = useRef(0);
   const fingerDetectionCount = useRef(0);
-  const detectionInterval = useRef<NodeJS.Timeout | null>(null);
+  const detectionInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (measuring && fingerDetected) {
@@ -64,7 +64,7 @@ export const HeartRateMonitor: React.FC<HeartRateMonitorProps> = ({
   }, [measuring, fingerDetected]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (measuring && countdownStarted && countdown > 0) {
       interval = setInterval(() => {
         setCountdown((prev) => prev - 1);
