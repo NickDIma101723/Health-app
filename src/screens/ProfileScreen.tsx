@@ -23,6 +23,7 @@ import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { pickImageFromGallery, uploadMediaToStorage } from '../lib/mediaUpload';
+import { useNetworkStatus } from '../hooks';
 
 interface ProfileScreenProps {
   onNavigate?: (screen: string) => void;
@@ -43,6 +44,7 @@ interface UserProfile {
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
   const { user, signOut, isCoach, coachData, checkIsCoach } = useAuth();
+  const { isOnline, isInternetReachable } = useNetworkStatus();
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile>({
@@ -149,6 +151,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
   const handlePickAvatar = async () => {
     try {
       console.log('[ProfileScreen] Starting avatar pick...');
+      
+      // Check network status
+      if (!isOnline) {
+        Alert.alert(
+          'No Internet Connection',
+          'You need an active internet connection to update your profile picture. Please check your network settings and try again.'
+        );
+        return;
+      }
+      
       // Request permission
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       console.log('[ProfileScreen] Permission status:', status);
@@ -171,82 +183,161 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setUploadingAvatar(true);
         const asset = result.assets[0];
-        console.log('[ProfileScreen] Selected image URI:', asset.uri);
+        console.log('[ProfileScreen] Selected image:', {
+          uri: asset.uri,
+          fileName: asset.fileName,
+          mimeType: asset.mimeType,
+        });
         
         try {
-          // Try uploading the image to Supabase storage first
-          if (user) {
-            console.log('[ProfileScreen] Attempting to upload image to storage...');
-            
-            // Convert URI to blob
-            const response = await fetch(asset.uri);
-            const blob = await response.blob();
-            
-            // Generate a unique filename
-            const fileExt = asset.uri.split('.').pop();
-            const fileName = `${Date.now()}.${fileExt}`;
-            const filePath = `avatars/${user.id}/${fileName}`;
-            
-            console.log('[ProfileScreen] Uploading to storage path:', filePath);
-            
-            // Upload to Supabase Storage
-            const { data, error } = await supabase.storage
-              .from('profile-images')
-              .upload(filePath, blob);
-              
-            if (error) {
-              console.error('[ProfileScreen] Storage upload error:', error);
-              throw new Error('Failed to upload image to storage');
-            }
-            
-            console.log('[ProfileScreen] Upload successful:', data);
-            
-            // Get the public URL
-            const { data: urlData } = supabase.storage
-              .from('profile-images')
-              .getPublicUrl(filePath);
-              
-            if (urlData && urlData.publicUrl) {
-              console.log('[ProfileScreen] Public URL:', urlData.publicUrl);
-              
-              // Update profile with public URL
-              const { error: updateError } = await supabase
-                .from('profiles')
-                .update({ avatar_url: urlData.publicUrl })
-                .eq('user_id', user.id);
-              
-              if (updateError) {
-                console.error('[ProfileScreen] Profile update error:', updateError);
-                throw new Error('Failed to update profile with image URL');
-              }
-              
-              // Update local state with public URL
-              setAvatarUrl(urlData.publicUrl);
-              setProfile(prev => ({ ...prev, avatar_url: urlData.publicUrl }));
-              Alert.alert('Success', 'Profile picture updated!');
-              return;
-            }
+          if (!user) {
+            throw new Error('User not authenticated');
           }
+
+          // For now, just use local storage until Supabase buckets are configured
+          console.log('[ProfileScreen] Storing avatar locally (Supabase storage not configured)');
           
-          // Fallback to using the local URI if the upload fails
-          console.log('[ProfileScreen] Using local URI as fallback');
           const { error: updateError } = await supabase
             .from('profiles')
             .update({ avatar_url: asset.uri })
-            .eq('user_id', user?.id);
+            .eq('user_id', user.id);
           
           if (updateError) {
+            // Detect missing column error from Supabase/PostgREST schema cache
+            const msg = typeof updateError.message === 'string' ? updateError.message : JSON.stringify(updateError);
+            if (msg.includes("Could not find the 'avatar_url' column") || msg.includes('column "avatar_url" does not exist')) {
+              console.error('[ProfileScreen] profiles table is missing avatar_url column');
+              Alert.alert(
+                'Database schema issue',
+                'The `profiles` table is missing the `avatar_url` column required to save profile pictures. Run the migration to add the column (see instructions).'
+              );
+              // Provide developer-friendly console guidance
+              console.info('[ProfileScreen] Run this SQL in Supabase SQL editor to fix:');
+              console.info("ALTER TABLE profiles ADD COLUMN avatar_url text;");
+              throw new Error('Missing avatar_url column in profiles table');
+            }
             throw new Error('Failed to update profile: ' + updateError.message);
           }
           
           // Update local state
           setAvatarUrl(asset.uri);
           setProfile(prev => ({ ...prev, avatar_url: asset.uri }));
-          Alert.alert('Success', 'Profile picture updated (local storage)');
+          Alert.alert('Success', 'Profile picture updated!\n\nNote: Image is stored locally. For cloud storage, please configure Supabase storage buckets (see SUPABASE_STORAGE_SETUP.md)');
+          
+          /* Cloud storage upload (uncomment when buckets are configured)
+          console.log('[ProfileScreen] Attempting to upload image to storage...');
+          
+          // Convert URI to blob
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          
+          // Generate a unique filename with proper extension
+          let fileExt = 'jpg'; // default
+          if (asset.fileName) {
+            const parts = asset.fileName.split('.');
+            if (parts.length > 1) {
+              fileExt = parts[parts.length - 1].toLowerCase();
+            }
+          } else if (asset.mimeType) {
+            // Extract extension from mime type
+            const mimeMap: { [key: string]: string } = {
+              'image/jpeg': 'jpg',
+              'image/jpg': 'jpg',
+              'image/png': 'png',
+              'image/gif': 'gif',
+              'image/webp': 'webp',
+            };
+            fileExt = mimeMap[asset.mimeType.toLowerCase()] || 'jpg';
+          }
+          
+          const fileName = `${Date.now()}.${fileExt}`;
+          const filePath = `avatars/${user.id}/${fileName}`;
+          
+          console.log('[ProfileScreen] Uploading to storage path:', filePath);
+          
+          // Try profile-images bucket
+          let bucketName = 'profile-images';
+          let uploadError: any = null;
+          let uploadData: any = null;
+          
+          const uploadResult = await supabase.storage
+            .from(bucketName)
+            .upload(filePath, blob, {
+              contentType: asset.mimeType || 'image/jpeg',
+              cacheControl: '3600',
+              upsert: true,
+            });
+          
+          if (uploadResult.error) {
+            console.log('[ProfileScreen] profile-images bucket failed, trying chat-media bucket...');
+            bucketName = 'chat-media';
+            const fallbackResult = await supabase.storage
+              .from(bucketName)
+              .upload(filePath, blob, {
+                contentType: asset.mimeType || 'image/jpeg',
+                cacheControl: '3600',
+                upsert: true,
+              });
+            
+            uploadError = fallbackResult.error;
+            uploadData = fallbackResult.data;
+          } else {
+            uploadData = uploadResult.data;
+            uploadError = uploadResult.error;
+          }
+          
+          if (uploadError) {
+            console.error('[ProfileScreen] Storage upload failed for both buckets:', uploadError);
+            throw uploadError;
+          }
+          
+          console.log('[ProfileScreen] Upload successful to bucket:', bucketName);
+          
+          // Get the public URL
+          const { data: urlData } = supabase.storage
+            .from(bucketName)
+            .getPublicUrl(filePath);
+            
+          if (urlData && urlData.publicUrl) {
+            console.log('[ProfileScreen] Public URL:', urlData.publicUrl);
+            
+            // Update profile with public URL
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update({ avatar_url: urlData.publicUrl })
+              .eq('user_id', user.id);
+            
+            if (updateError) {
+              console.error('[ProfileScreen] Profile update error:', updateError);
+              throw new Error('Failed to update profile with image URL');
+            }
+            
+            // Update local state with public URL
+            setAvatarUrl(urlData.publicUrl);
+            setProfile(prev => ({ ...prev, avatar_url: urlData.publicUrl }));
+            Alert.alert('Success', 'Profile picture updated!');
+          } else {
+            throw new Error('Failed to generate public URL');
+          }
+          */
           
         } catch (uploadError: any) {
           console.error('[ProfileScreen] Error in avatar upload process:', uploadError);
-          Alert.alert('Upload Error', uploadError.message || 'Failed to process image');
+          
+          // Check if it's a network error
+          if (uploadError.message?.includes('Failed to fetch') || 
+              uploadError.message?.includes('Network request failed') ||
+              uploadError.message?.includes('ERR_INTERNET_DISCONNECTED')) {
+            Alert.alert(
+              'Network Error', 
+              'Unable to connect to the server. Please check your internet connection and try again.'
+            );
+          } else {
+            Alert.alert(
+              'Upload Error', 
+              uploadError.message || 'Failed to process image.'
+            );
+          }
         }
       }
     } catch (error: any) {
@@ -642,6 +733,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
     <SafeAreaView style={styles.container}>
       <BackgroundDecorations />
 
+      {!isOnline && (
+        <View style={styles.offlineBanner}>
+          <MaterialIcons name="wifi-off" size={20} color={colors.textLight} />
+          <Text style={styles.offlineBannerText}>
+            You're offline. Some features may not work properly.
+          </Text>
+        </View>
+      )}
+
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
@@ -1033,6 +1133,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  offlineBanner: {
+    backgroundColor: colors.error,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    justifyContent: 'center',
+  },
+  offlineBannerText: {
+    color: colors.textLight,
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_600SemiBold',
   },
   header: {
     flexDirection: 'row',
