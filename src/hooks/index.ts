@@ -9,3 +9,4 @@ export { useActivities } from './useActivities';
 export { useNutritionData } from './useNutritionData';
 export { useNutritionAdapter } from './useNutritionAdapter';
 export { useScheduleAdapter } from './useScheduleAdapter';
+export { useNetworkStatus } from './useNetworkStatus';
