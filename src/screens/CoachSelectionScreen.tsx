@@ -69,16 +69,21 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
           onPress: async () => {
             setAssigning(coachId);
             try {
+              console.log('[CoachSelection] Assigning coach:', coachId, coachName);
               const result = await assignCoach(coachId);
               if (result.error) {
+                console.error('[CoachSelection] Assignment error:', result.error);
                 Alert.alert('Error', result.error);
               } else {
-                // Force a delay to ensure state updates, then navigate
-                setTimeout(() => {
-                  onNavigate?.('chat');
-                }, 300);
+                console.log('[CoachSelection] ✅ Coach assigned successfully');
+                // Force refresh of coach data before navigating
+                await fetchCoaches();
+                // Navigate to chat
+                console.log('[CoachSelection] Navigating to chat...');
+                onNavigate?.('chat');
               }
             } catch (error) {
+              console.error('[CoachSelection] Exception during assignment:', error);
               Alert.alert('Error', 'Failed to assign coach');
             } finally {
               setAssigning(null);
