@@ -86,7 +86,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) 
   const [clientsList, setClientsList] = useState<any[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
   
-  const { myCoach, loading: coachLoading } = useCoaches();
+  const { myCoach, loading: coachLoading, fetchMyCoach } = useCoaches();
   const chatPartnerId = isCoach ? selectedClient?.user_id : myCoach?.user_id;
   
   const { 
@@ -120,6 +120,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) 
   const scrollViewRef = useRef<ScrollView>(null);
   const typingDots = useRef(new Animated.Value(0)).current;
   const inputRef = useRef<TextInput>(null);
+
+  // Refresh coach assignment when screen loads
+  useEffect(() => {
+    console.log('[ChatScreen] Screen mounted - refreshing coach data');
+    if (!isCoach && user) {
+      fetchMyCoach();
+    }
+  }, []);
 
   useEffect(() => {
     const loadClients = async () => {
