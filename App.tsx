@@ -21,11 +21,13 @@ import { CoachDashboardScreen } from './src/screens/CoachDashboardScreen';
 import { CoachClientDetailScreen } from './src/screens/CoachClientDetailScreen';
 import { CoachNotesScreen } from './src/screens/CoachNotesScreen';
 import { AssignClientScreen } from './src/screens/AssignClientScreen';
+import { CoachSelectionScreen } from './src/screens/CoachSelectionScreen';
+import { BecomeCoachScreen } from './src/screens/BecomeCoachScreen';
 import { colors } from './src/constants/theme';
 
 const { width } = Dimensions.get('window');
 
-type Screen = 'splash' | 'login' | 'register' | 'home' | 'mindfulness' | 'mindfulness-insights' | 'chat' | 'schedule' | 'nutrition' | 'profile' | 'coach-dashboard' | 'coach-client-detail' | 'coach-notes' | 'assign-client';
+type Screen = 'splash' | 'login' | 'register' | 'home' | 'mindfulness' | 'mindfulness-insights' | 'chat' | 'schedule' | 'nutrition' | 'profile' | 'coach-dashboard' | 'coach-client-detail' | 'coach-notes' | 'assign-client' | 'coach-selection' | 'become-coach';
 
 function AppContent() {
   const { user, loading: authLoading, isCoach } = useAuth();
@@ -193,6 +195,20 @@ function AppContent() {
         )}
         {displayScreen === 'assign-client' && (
           <AssignClientScreen 
+            onNavigate={(screen) => navigateWithTransition(screen as Screen)}
+          />
+        )}
+        {displayScreen === 'coach-selection' && (
+          <CoachSelectionScreen 
+            onNavigate={(screen) => navigateWithTransition(screen as Screen)}
+            onSelectCoach={(coachId) => {
+              console.log('Coach selected:', coachId);
+              navigateWithTransition('chat');
+            }}
+          />
+        )}
+        {displayScreen === 'become-coach' && (
+          <BecomeCoachScreen 
             onNavigate={(screen) => navigateWithTransition(screen as Screen)}
           />
         )}

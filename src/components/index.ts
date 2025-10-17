@@ -11,3 +11,4 @@ export { HeartRateMonitor } from './HeartRateMonitor';
 export { SleepTracker } from './SleepTracker';
 export { StepTracker } from './StepTracker';
 export { CoachBottomNavigation } from './CoachBottomNavigation';
+export { RecipeBrowser } from './RecipeBrowser';

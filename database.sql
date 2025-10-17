@@ -303,3 +303,12 @@ CREATE TABLE public.weekly_goals (
   CONSTRAINT weekly_goals_pkey PRIMARY KEY (id),
   CONSTRAINT weekly_goals_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+
+INSERT INTO public.coaches (id, user_id, full_name, email, specialization, bio, is_active) VALUES
+  ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Sarah Johnson', 'sarah.johnson@healthcoach.com', 'Nutrition', 'Certified nutritionist with 10+ years of experience helping clients achieve their dietary goals. Specializes in weight management and meal planning.', true),
+  ('20000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002', 'Mike Chen', 'mike.chen@healthcoach.com', 'Fitness', 'Personal trainer and fitness coach with expertise in strength training, cardio optimization, and injury prevention. Helped 200+ clients transform their lives.', true),
+  ('30000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000003', 'Dr. Emily Rodriguez', 'emily.rodriguez@healthcoach.com', 'Mental Health', 'Licensed psychologist specializing in stress management, mindfulness, and cognitive behavioral therapy. Passionate about holistic wellness.', true),
+  ('40000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000004', 'David Kim', 'david.kim@healthcoach.com', 'Weight Loss', 'Weight loss specialist who lost 100lbs himself. Expert in sustainable lifestyle changes, portion control, and motivation coaching.', true),
+  ('50000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000005', 'Jessica Martinez', 'jessica.martinez@healthcoach.com', 'Sports', 'Former Olympic athlete turned performance coach. Specializes in athletic training, sports nutrition, and competition preparation.', true),
+  ('60000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000006', 'Robert Taylor', 'robert.taylor@healthcoach.com', 'General', 'Holistic health coach focusing on overall wellness, lifestyle medicine, and preventive health. 15 years in the wellness industry.', true)
+ON CONFLICT (id) DO NOTHING;

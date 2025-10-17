@@ -232,20 +232,45 @@ export const useNutritionData = () => {
   };
 
   const deleteMeal = async (id: string) => {
-    if (!user) return { error: 'Not authenticated' };
+    console.log('💾 deleteMeal called with id:', id);
+    console.log('💾 Current user:', user?.id);
+    console.log('💾 Current meals count:', meals.length);
+    
+    if (!user) {
+      console.error('❌ Not authenticated');
+      return { error: 'Not authenticated' };
+    }
 
     try {
+      console.log('💾 Removing meal from UI...');
+      // Immediately remove from UI
+      setMeals(prev => {
+        const filtered = prev.filter(meal => meal.id !== id);
+        console.log('💾 Meals after filter:', filtered.length);
+        return filtered;
+      });
+      
+      console.log('💾 Calling Supabase delete...');
+      // Then delete from database
       const { error: deleteError } = await supabase
         .from('meals')
         .delete()
         .eq('id', id)
         .eq('user_id', user.id);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('❌ Delete error:', deleteError);
+        // Refetch to restore if delete failed
+        await fetchMeals();
+        return { error: deleteError.message };
+      }
       
+      console.log('✅ Delete successful');
       return { error: null };
     } catch (err: any) {
-      console.error('Error deleting meal:', err);
+      console.error('❌ Error deleting meal:', err);
+      // Refetch to restore if delete failed
+      await fetchMeals();
       return { error: err.message || 'Failed to delete meal' };
     }
   };
