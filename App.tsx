@@ -16,6 +16,7 @@ import { MindfulnessScreen } from './src/screens/MindfulnessScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { ScheduleScreen } from './src/screens/ScheduleScreen';
 import { NutritionScreen } from './src/screens/NutritionScreen';
+import { NutritionCalculatorScreen } from './src/screens/NutritionCalculatorScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { CoachDashboardScreen } from './src/screens/CoachDashboardScreen';
 import { CoachClientDetailScreen } from './src/screens/CoachClientDetailScreen';
@@ -27,7 +28,7 @@ import { colors } from './src/constants/theme';
 
 const { width } = Dimensions.get('window');
 
-type Screen = 'splash' | 'login' | 'register' | 'home' | 'mindfulness' | 'mindfulness-insights' | 'chat' | 'schedule' | 'nutrition' | 'profile' | 'coach-dashboard' | 'coach-client-detail' | 'coach-notes' | 'assign-client' | 'coach-selection' | 'become-coach';
+type Screen = 'splash' | 'login' | 'register' | 'home' | 'mindfulness' | 'mindfulness-insights' | 'chat' | 'schedule' | 'nutrition' | 'nutrition-calculator' | 'profile' | 'coach-dashboard' | 'coach-client-detail' | 'coach-notes' | 'assign-client' | 'coach-selection' | 'become-coach';
 
 function AppContent() {
   const { user, loading: authLoading, isCoach } = useAuth();
@@ -173,6 +174,9 @@ function AppContent() {
         )}
         {displayScreen === 'nutrition' && (
           <NutritionScreen onNavigate={(screen) => navigateWithTransition(screen as Screen)} />
+        )}
+        {displayScreen === 'nutrition-calculator' && (
+          <NutritionCalculatorScreen onNavigate={(screen) => navigateWithTransition(screen as Screen)} />
         )}
         {displayScreen === 'profile' && (
           <ProfileScreen onNavigate={(screen) => navigateWithTransition(screen as Screen)} />

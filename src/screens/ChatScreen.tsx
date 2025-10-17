@@ -2081,7 +2081,7 @@ const styles = StyleSheet.create({
   },
   noCoachButtonText: {
     fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: 'Quicksand_600SemiBold',
     color: colors.textLight,
     textAlign: 'center',
   },

@@ -6,6 +6,7 @@ export { MindfulnessScreen } from './MindfulnessScreen';
 export { ChatScreen } from './ChatScreen';
 export { ScheduleScreen } from './ScheduleScreen';
 export { NutritionScreen } from './NutritionScreen';
+export { NutritionCalculatorScreen } from './NutritionCalculatorScreen';
 export { ProfileScreen } from './ProfileScreen';
 export { CoachDashboardScreen } from './CoachDashboardScreen';
 export { CoachClientDetailScreen } from './CoachClientDetailScreen';

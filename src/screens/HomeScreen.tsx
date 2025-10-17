@@ -22,6 +22,7 @@ import {
   HeartRateMonitor,
   SleepTracker,
   StepTracker,
+  TestImage,
 } from '../components';
 import { colors, spacing, fontSizes, borderRadius, shadows, gradients } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
@@ -60,9 +61,29 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const [showStepTracker, setShowStepTracker] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('Just now');
   const [pedometerAvailable, setPedometerAvailable] = useState(false);
+  const [profileName, setProfileName] = useState<string>('');
   const lastStepCount = useRef<number | null>(null);
 
   const loading = metricsLoading || goalsLoading;
+
+  // Fetch user profile to get updated name
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (data && !error) {
+        setProfileName(data.full_name || '');
+      }
+    };
+    
+    fetchProfile();
+  }, [user]);
 
   useEffect(() => {
     const updateRelativeTime = () => {
@@ -417,7 +438,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
 
   const recommendations = getRecommendations();
 
-  const firstName = user?.user_metadata?.name?.split(' ')[0] || 'there';
+  const firstName = profileName 
+    ? profileName.split(' ')[0] 
+    : (user?.user_metadata?.name?.split(' ')[0] || 'there');
   const stepsProgress = metrics && goals 
     ? ((metrics.steps || 0) / (goals.steps_daily || 1)) * 100 
     : 0;
@@ -718,10 +741,34 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                 <MaterialIcons name="arrow-forward" size={18} color={colors.textLight} />
               </LinearGradient>
             </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.actionPill, shadows.sm]}
+              onPress={() => onNavigate?.('nutrition-calculator')}
+            >
+              <LinearGradient
+                colors={[colors.purple, colors.lavender] as [string, string, ...string[]]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.actionPillGradient}
+              >
+                <View style={styles.actionPillIcon}>
+                  <MaterialIcons name="calculate" size={20} color={colors.textLight} />
+                </View>
+                <Text style={styles.actionPillText}>Nutrition Calculator</Text>
+                <MaterialIcons name="arrow-forward" size={18} color={colors.textLight} />
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         </Animated.View>
 
         <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Image Test</Text>
+          </View>
+          
+          <TestImage />
+          
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recommendations</Text>
           </View>

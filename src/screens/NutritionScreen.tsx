@@ -554,12 +554,20 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
           <Text style={styles.headerSubtitle}>Nutrition</Text>
           <Text style={styles.headerTitle}>October 10, 2025</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.settingsButton}
-          onPress={() => setShowSettings(true)}
-        >
-          <MaterialIcons name="settings" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.calculatorButton}
+            onPress={() => onNavigate?.('nutrition-calculator')}
+          >
+            <MaterialIcons name="calculate" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.settingsButton}
+            onPress={() => setShowSettings(true)}
+          >
+            <MaterialIcons name="settings" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -1127,6 +1135,18 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xl,
     fontFamily: 'Poppins_700Bold',
     color: colors.textPrimary,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  calculatorButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   settingsButton: {
     width: 44,
