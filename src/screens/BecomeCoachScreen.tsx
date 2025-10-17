@@ -363,8 +363,8 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     fontSize: fontSizes.md,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.textLight,
-    fontFamily: 'Quicksand_700Bold',
+    fontFamily: 'Quicksand_600SemiBold',
   },
 });

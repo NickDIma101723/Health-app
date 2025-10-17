@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -147,8 +148,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
 
   const handlePickAvatar = async () => {
     try {
+      console.log('[ProfileScreen] Starting avatar pick...');
       // Request permission
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      console.log('[ProfileScreen] Permission status:', status);
+      
       if (status !== 'granted') {
         Alert.alert('Permission needed', 'Please grant permission to access your photos');
         return;
@@ -162,53 +166,93 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
         quality: 0.8,
       });
       
+      console.log('[ProfileScreen] Image picker result:', JSON.stringify(result, null, 2));
+      
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setUploadingAvatar(true);
         const asset = result.assets[0];
+        console.log('[ProfileScreen] Selected image URI:', asset.uri);
         
-        // Convert image to blob for upload
-        const response = await fetch(asset.uri);
-        const blob = await response.blob();
-        const fileName = `${user?.id}-${Date.now()}.jpg`;
-        
-        // Upload to Supabase storage
-        const { data, error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(fileName, blob, {
-            contentType: 'image/jpeg',
-            upsert: true,
-          });
-        
-        if (uploadError) {
-          Alert.alert('Upload Error', uploadError.message);
-          setUploadingAvatar(false);
-          return;
+        try {
+          // Try uploading the image to Supabase storage first
+          if (user) {
+            console.log('[ProfileScreen] Attempting to upload image to storage...');
+            
+            // Convert URI to blob
+            const response = await fetch(asset.uri);
+            const blob = await response.blob();
+            
+            // Generate a unique filename
+            const fileExt = asset.uri.split('.').pop();
+            const fileName = `${Date.now()}.${fileExt}`;
+            const filePath = `avatars/${user.id}/${fileName}`;
+            
+            console.log('[ProfileScreen] Uploading to storage path:', filePath);
+            
+            // Upload to Supabase Storage
+            const { data, error } = await supabase.storage
+              .from('profile-images')
+              .upload(filePath, blob);
+              
+            if (error) {
+              console.error('[ProfileScreen] Storage upload error:', error);
+              throw new Error('Failed to upload image to storage');
+            }
+            
+            console.log('[ProfileScreen] Upload successful:', data);
+            
+            // Get the public URL
+            const { data: urlData } = supabase.storage
+              .from('profile-images')
+              .getPublicUrl(filePath);
+              
+            if (urlData && urlData.publicUrl) {
+              console.log('[ProfileScreen] Public URL:', urlData.publicUrl);
+              
+              // Update profile with public URL
+              const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ avatar_url: urlData.publicUrl })
+                .eq('user_id', user.id);
+              
+              if (updateError) {
+                console.error('[ProfileScreen] Profile update error:', updateError);
+                throw new Error('Failed to update profile with image URL');
+              }
+              
+              // Update local state with public URL
+              setAvatarUrl(urlData.publicUrl);
+              setProfile(prev => ({ ...prev, avatar_url: urlData.publicUrl }));
+              Alert.alert('Success', 'Profile picture updated!');
+              return;
+            }
+          }
+          
+          // Fallback to using the local URI if the upload fails
+          console.log('[ProfileScreen] Using local URI as fallback');
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ avatar_url: asset.uri })
+            .eq('user_id', user?.id);
+          
+          if (updateError) {
+            throw new Error('Failed to update profile: ' + updateError.message);
+          }
+          
+          // Update local state
+          setAvatarUrl(asset.uri);
+          setProfile(prev => ({ ...prev, avatar_url: asset.uri }));
+          Alert.alert('Success', 'Profile picture updated (local storage)');
+          
+        } catch (uploadError: any) {
+          console.error('[ProfileScreen] Error in avatar upload process:', uploadError);
+          Alert.alert('Upload Error', uploadError.message || 'Failed to process image');
         }
-        
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(fileName);
-        
-        // Update profile with avatar URL
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ avatar_url: urlData.publicUrl })
-          .eq('user_id', user?.id);
-        
-        if (updateError) {
-          Alert.alert('Error', 'Failed to update profile with avatar');
-        } else {
-          setAvatarUrl(urlData.publicUrl);
-          Alert.alert('Success', 'Profile picture updated!');
-          await loadProfile(); // Reload profile to show new avatar
-        }
-        
-        setUploadingAvatar(false);
       }
-    } catch (error) {
-      console.error('Error picking avatar:', error);
-      Alert.alert('Error', 'Failed to pick image');
+    } catch (error: any) {
+      console.error('[ProfileScreen] Error picking avatar:', error);
+      Alert.alert('Error', error.message || 'Failed to pick image');
+    } finally {
       setUploadingAvatar(false);
     }
   };
@@ -643,10 +687,44 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
             disabled={uploadingAvatar}
           >
             {avatarUrl || profile.avatar_url ? (
-              <Image 
-                source={{ uri: avatarUrl || profile.avatar_url || '' }}
-                style={styles.avatarImage}
-              />
+              <>
+                <Image 
+                  source={{ uri: avatarUrl || profile.avatar_url || '' }}
+                  style={styles.avatarImage}
+                  key={avatarUrl || profile.avatar_url}
+                  defaultSource={require('../../assets/default-avatar.png')}
+                  onError={(e) => {
+                    console.error('[ProfileScreen] Error loading avatar image:', e.nativeEvent.error);
+                    // If image fails to load, show fallback
+                    if (avatarUrl === profile.avatar_url) {
+                      // Both are the same and failed, show gradient
+                      setAvatarUrl(null);
+                      setProfile(prev => ({ ...prev, avatar_url: null }));
+                    } else if (avatarUrl) {
+                      // Try fallback to profile.avatar_url
+                      setAvatarUrl(profile.avatar_url || null);
+                    } else {
+                      // Clear failed profile.avatar_url
+                      setProfile(prev => ({ ...prev, avatar_url: null }));
+                    }
+                  }}
+                />
+                {uploadingAvatar && (
+                  <View style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: 'rgba(0,0,0,0.4)',
+                    borderRadius: 50,
+                  }}>
+                    <ActivityIndicator size="large" color={colors.textLight} />
+                  </View>
+                )}
+              </>
             ) : (
               <LinearGradient
                 colors={[colors.primary, colors.primaryLight] as [string, string, ...string[]]}
