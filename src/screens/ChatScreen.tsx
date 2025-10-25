@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -87,6 +88,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) 
   const [loadingClients, setLoadingClients] = useState(false);
   
   const { myCoach, loading: coachLoading, fetchMyCoach } = useCoaches();
+  
+  // Force refresh when navigating to chat
+  useEffect(() => {
+    if (!isCoach && user) {
+      fetchMyCoach(true);
+    }
+  }, [user, isCoach]);
+  
   const chatPartnerId = isCoach ? selectedClient?.user_id : myCoach?.user_id;
   
   const { 
@@ -121,13 +130,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) 
   const typingDots = useRef(new Animated.Value(0)).current;
   const inputRef = useRef<TextInput>(null);
 
-  // Refresh coach assignment when screen loads
-  useEffect(() => {
-    console.log('[ChatScreen] Screen mounted - refreshing coach data');
-    if (!isCoach && user) {
-      fetchMyCoach();
-    }
-  }, []);
+  // NOTE: Coach refresh moved to earlier useEffect with proper dependencies
 
   useEffect(() => {
     const loadClients = async () => {
@@ -266,10 +269,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) 
       typingDots.setValue(0);
     }
   }, [isCoachTyping]);
-
-  useEffect(() => {
-    console.log('[ChatScreen] Loading states - coachLoading:', coachLoading, 'messagesLoading:', messagesLoading, 'myCoach:', myCoach?.id || 'null', 'isCoach:', isCoach, 'selectedClient:', selectedClient?.user_id || 'null');
-  }, [coachLoading, messagesLoading, myCoach, isCoach, selectedClient]);
 
   const sendMessage = async () => {
     const chatPartner = isCoach ? selectedClient : myCoach;
@@ -808,20 +807,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) 
         </View>
       ) : !myCoach ? (
         <View style={styles.noCoachContainer}>
-          <View style={styles.noCoachContent}>
-            <LinearGradient
-              colors={[colors.primaryLight, colors.primaryPale]}
-              style={styles.noCoachIconContainer}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <MaterialIcons name="face" size={64} color={colors.primary} />
-            </LinearGradient>
-            
-            <Text style={styles.noCoachTitle}>No Coach Assigned Yet</Text>
-            <Text style={styles.noCoachDescription}>
-              You'll be assigned a personal health coach soon. They will help guide you on your wellness journey with personalized support and advice.
-            </Text>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+            <View style={styles.noCoachContent}>
+              <LinearGradient
+                colors={[colors.primaryLight, colors.primaryPale]}
+                style={styles.noCoachIconContainer}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <MaterialIcons name="face" size={64} color={colors.primary} />
+              </LinearGradient>
+              
+              <Text style={styles.noCoachTitle}>No Coach Assigned Yet</Text>
+              <Text style={styles.noCoachDescription}>
+                You'll be assigned a personal health coach soon. They will help guide you on your wellness journey with personalized support and advice.
+              </Text>
             
             <View style={styles.noCoachFeatures}>
               <View style={styles.noCoachFeature}>
@@ -852,6 +852,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) 
               </LinearGradient>
             </TouchableOpacity>
           </View>
+          </ScrollView>
           
           <BottomNavigation
             activeTab="chat"
