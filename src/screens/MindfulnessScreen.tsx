@@ -653,55 +653,55 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
               <Text style={styles.sectionSubtitle}>Soothing sounds to calm your mind</Text>
 
               <View style={styles.songsGrid}>
-                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.9}>
+                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.8}>
                   <View style={[styles.songIconContainer, { backgroundColor: `${colors.primary}15` }]}>
-                    <MaterialIcons name="music-note" size={28} color={colors.primary} />
+                    <MaterialIcons name="music-note" size={32} color={colors.primary} />
                   </View>
                   <View style={styles.songInfo}>
                     <Text style={styles.songTitle}>Ocean Waves</Text>
-                    <Text style={styles.songArtist}>Nature Sounds</Text>
+                    <Text style={styles.songArtist}>Nature Sounds · 15 min</Text>
                   </View>
                   <TouchableOpacity style={styles.songPlayIcon}>
-                    <MaterialIcons name="play-circle-filled" size={32} color={colors.primary} />
+                    <MaterialIcons name="play-circle-filled" size={36} color={colors.primary} />
                   </TouchableOpacity>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.9}>
+                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.8}>
                   <View style={[styles.songIconContainer, { backgroundColor: `${colors.secondary}15` }]}>
-                    <MaterialIcons name="music-note" size={28} color={colors.secondary} />
+                    <MaterialIcons name="music-note" size={32} color={colors.secondary} />
                   </View>
                   <View style={styles.songInfo}>
                     <Text style={styles.songTitle}>Forest Rain</Text>
-                    <Text style={styles.songArtist}>Ambient Nature</Text>
+                    <Text style={styles.songArtist}>Ambient Nature · 20 min</Text>
                   </View>
                   <TouchableOpacity style={styles.songPlayIcon}>
-                    <MaterialIcons name="play-circle-filled" size={32} color={colors.secondary} />
+                    <MaterialIcons name="play-circle-filled" size={36} color={colors.secondary} />
                   </TouchableOpacity>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.9}>
+                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.8}>
                   <View style={[styles.songIconContainer, { backgroundColor: `${colors.purple}15` }]}>
-                    <MaterialIcons name="music-note" size={28} color={colors.purple} />
+                    <MaterialIcons name="music-note" size={32} color={colors.purple} />
                   </View>
                   <View style={styles.songInfo}>
                     <Text style={styles.songTitle}>Peaceful Piano</Text>
-                    <Text style={styles.songArtist}>Instrumental Calm</Text>
+                    <Text style={styles.songArtist}>Instrumental Calm · 12 min</Text>
                   </View>
                   <TouchableOpacity style={styles.songPlayIcon}>
-                    <MaterialIcons name="play-circle-filled" size={32} color={colors.purple} />
+                    <MaterialIcons name="play-circle-filled" size={36} color={colors.purple} />
                   </TouchableOpacity>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.9}>
+                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.8}>
                   <View style={[styles.songIconContainer, { backgroundColor: `${colors.accent}15` }]}>
-                    <MaterialIcons name="music-note" size={28} color={colors.accent} />
+                    <MaterialIcons name="music-note" size={32} color={colors.accent} />
                   </View>
                   <View style={styles.songInfo}>
                     <Text style={styles.songTitle}>Tibetan Bowls</Text>
-                    <Text style={styles.songArtist}>Healing Sounds</Text>
+                    <Text style={styles.songArtist}>Healing Sounds · 25 min</Text>
                   </View>
                   <TouchableOpacity style={styles.songPlayIcon}>
-                    <MaterialIcons name="play-circle-filled" size={32} color={colors.accent} />
+                    <MaterialIcons name="play-circle-filled" size={36} color={colors.accent} />
                   </TouchableOpacity>
                 </TouchableOpacity>
               </View>
@@ -1758,35 +1758,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
     borderWidth: 1,
-    borderColor: 'rgba(100, 150, 255, 0.08)',
+    borderColor: 'rgba(100, 150, 255, 0.12)',
+    marginBottom: spacing.md,
   },
   songIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    marginRight: spacing.lg,
   },
   songInfo: {
     flex: 1,
   },
   songTitle: {
-    fontSize: fontSizes.md,
+    fontSize: fontSizes.md + 1,
     fontFamily: 'Poppins_700Bold',
     color: colors.textPrimary,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   songArtist: {
-    fontSize: fontSizes.xs,
+    fontSize: fontSizes.sm,
     fontFamily: 'Quicksand_500Medium',
     color: colors.textSecondary,
+    opacity: 0.8,
   },
   songPlayIcon: {
-    marginLeft: spacing.sm,
+    marginLeft: spacing.md,
   },
 });
 

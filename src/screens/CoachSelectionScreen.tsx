@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
@@ -31,10 +32,21 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
   const [assigning, setAssigning] = useState<string | null>(null);
   const [selectedCoach, setSelectedCoach] = useState<any>(null);
   const [showCoachDetail, setShowCoachDetail] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   // Fetch coaches when screen mounts
   useEffect(() => {
-    console.log('[CoachSelectionScreen] Fetching coaches on mount');
     fetchCoaches();
   }, []);
 
@@ -59,39 +71,54 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
 
   const handleAssignCoach = async (coachId: string, coachName: string) => {
     setShowCoachDetail(false);
-    Alert.alert(
-      'Assign Coach',
-      `Assign ${coachName} as your personal health coach?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: async () => {
-            setAssigning(coachId);
-            try {
-              console.log('[CoachSelection] Assigning coach:', coachId, coachName);
-              const result = await assignCoach(coachId);
-              if (result.error) {
-                console.error('[CoachSelection] Assignment error:', result.error);
-                Alert.alert('Error', result.error);
-              } else {
-                console.log('[CoachSelection] ✅ Coach assigned successfully');
-                // Force refresh of coach data before navigating
-                await fetchCoaches();
-                // Navigate to chat
-                console.log('[CoachSelection] Navigating to chat...');
+    
+    // Show custom confirmation modal
+    setConfirmModal({
+      visible: true,
+      title: 'Assign Coach',
+      message: `Assign ${coachName} as your coach?`,
+      onConfirm: async () => {
+        setConfirmModal({ ...confirmModal, visible: false });
+        setAssigning(coachId);
+        
+        try {
+          const result = await assignCoach(coachId);
+          if (result.error) {
+            setConfirmModal({
+              visible: true,
+              title: 'Error',
+              message: result.error,
+              onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+            });
+          } else {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await fetchCoaches();
+            
+            // Show success modal
+            setConfirmModal({
+              visible: true,
+              title: 'Success!',
+              message: `${coachName} is now your coach!`,
+              onConfirm: () => {
+                setConfirmModal({ ...confirmModal, visible: false });
                 onNavigate?.('chat');
-              }
-            } catch (error) {
-              console.error('[CoachSelection] Exception during assignment:', error);
-              Alert.alert('Error', 'Failed to assign coach');
-            } finally {
-              setAssigning(null);
-            }
-          },
-        },
-      ]
-    );
+              },
+              onCancel: () => setConfirmModal({ ...confirmModal, visible: false }),
+            });
+          }
+        } catch (error) {
+          setConfirmModal({
+            visible: true,
+            title: 'Error',
+            message: 'Failed to assign coach. Please try again.',
+            onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+          });
+        } finally {
+          setAssigning(null);
+        }
+      },
+      onCancel: () => setConfirmModal({ ...confirmModal, visible: false }),
+    });
   };
 
   const getSpecializationIcon = (specialization: string | null) => {
@@ -377,6 +404,48 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
                 </View>
               </>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Custom Confirmation Modal */}
+      <Modal
+        visible={confirmModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (confirmModal.onCancel) {
+            confirmModal.onCancel();
+          } else {
+            setConfirmModal({ ...confirmModal, visible: false });
+          }
+        }}
+      >
+        <View style={styles.confirmModalOverlay}>
+          <View style={styles.confirmModalContent}>
+            <Text style={styles.confirmModalTitle}>{confirmModal.title}</Text>
+            <Text style={styles.confirmModalMessage}>{confirmModal.message}</Text>
+            
+            <View style={styles.confirmModalButtons}>
+              {confirmModal.onCancel && (
+                <TouchableOpacity
+                  style={[styles.confirmModalButton, styles.confirmModalCancelButton]}
+                  onPress={confirmModal.onCancel}
+                >
+                  <Text style={styles.confirmModalCancelText}>
+                    {confirmModal.title === 'Success!' ? 'Stay Here' : 'Cancel'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.confirmModalButton, styles.confirmModalConfirmButton]}
+                onPress={confirmModal.onConfirm}
+              >
+                <Text style={styles.confirmModalConfirmText}>
+                  {confirmModal.title === 'Success!' ? 'Open Chat' : confirmModal.onCancel ? 'Assign' : 'OK'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -719,5 +788,65 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     color: colors.textLight,
     fontFamily: 'Quicksand_600SemiBold',
+  },
+  // Custom confirmation modal styles
+  confirmModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  confirmModalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    width: '100%',
+    maxWidth: 400,
+    ...shadows.lg,
+  },
+  confirmModalTitle: {
+    fontSize: fontSizes.xl,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  confirmModalMessage: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+    marginBottom: spacing.xl,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  confirmModalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  confirmModalButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmModalCancelButton: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  confirmModalConfirmButton: {
+    backgroundColor: colors.primary,
+  },
+  confirmModalCancelText: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: colors.textPrimary,
+  },
+  confirmModalConfirmText: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: colors.textLight,
   },
 });

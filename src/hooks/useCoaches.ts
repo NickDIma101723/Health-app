@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Database } from '../types/database.types';
@@ -11,8 +12,8 @@ interface CoachWithStatus extends Coach {
   assignedAt?: string;
 }
 
-// Global coach assignment storage (in-memory)
-const globalCoachAssignments: { [userId: string]: string } = {};
+// Storage key for coach assignments
+const COACH_ASSIGNMENT_KEY = '@coach_assignments';
 
 // Sample coaches that are always available
 const SAMPLE_COACHES: Coach[] = [
@@ -102,38 +103,40 @@ export const useCoaches = () => {
         .order('full_name', { ascending: true });
 
       if (fetchError || !data || data.length === 0) {
-        console.log('[useCoaches] Using sample coaches');
         setCoaches(SAMPLE_COACHES);
       } else {
-        console.log('[useCoaches] Using database coaches:', data.length);
         setCoaches(data);
       }
     } catch (err) {
-      console.log('[useCoaches] Error, using sample coaches');
       setCoaches(SAMPLE_COACHES);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchMyCoach = async () => {
+  const fetchMyCoach = async (forceRefresh: boolean = false) => {
     if (!user) {
       setLoading(false);
       return;
     }
 
-    console.log('[useCoaches] 🔍 Fetching coach for user:', user.id);
     setLoading(true);
     
     try {
-      // First check global in-memory storage (fastest)
-      const storedCoachId = globalCoachAssignments[user.id];
-      console.log('[useCoaches] Global storage check:', storedCoachId);
+      // First check AsyncStorage (persists across reloads)
+      const storedData = await AsyncStorage.getItem(COACH_ASSIGNMENT_KEY);
+      const storedAssignments = storedData ? JSON.parse(storedData) : {};
+      const storedCoachId = storedAssignments[user.id];
       
       if (storedCoachId) {
-        const coach = SAMPLE_COACHES.find(c => c.id === storedCoachId);
+        // First check in loaded coaches
+        let coach = coaches.find(c => c.id === storedCoachId);
+        // Then check in SAMPLE_COACHES
+        if (!coach) {
+          coach = SAMPLE_COACHES.find(c => c.id === storedCoachId);
+        }
+        
         if (coach) {
-          console.log('[useCoaches] ✅ Found coach in memory:', coach.full_name);
           setMyCoach({
             ...coach,
             isAssigned: true,
@@ -160,7 +163,6 @@ export const useCoaches = () => {
           .maybeSingle();
 
         if (coachData) {
-          console.log('[useCoaches] ✅ Found coach in database:', coachData.full_name);
           setMyCoach({
             ...coachData,
             isAssigned: true,
@@ -172,24 +174,33 @@ export const useCoaches = () => {
       }
 
       // No coach found
-      console.log('[useCoaches] ❌ No coach assigned');
       setMyCoach(null);
     } catch (err) {
       console.error('[useCoaches] Error:', err);
       
-      // Fallback to global storage on error
-      const storedCoachId = globalCoachAssignments[user.id];
-      if (storedCoachId) {
-        const coach = SAMPLE_COACHES.find(c => c.id === storedCoachId);
-        if (coach) {
-          console.log('[useCoaches] Found coach in memory (error fallback):', coach.full_name);
-          setMyCoach({
-            ...coach,
-            isAssigned: true,
-            assignedAt: new Date().toISOString(),
-          });
+      // Fallback to AsyncStorage on error
+      try {
+        const storedData = await AsyncStorage.getItem(COACH_ASSIGNMENT_KEY);
+        const storedAssignments = storedData ? JSON.parse(storedData) : {};
+        const storedCoachId = storedAssignments[user.id];
+        
+        if (storedCoachId) {
+          let coach = coaches.find(c => c.id === storedCoachId);
+          if (!coach) {
+            coach = SAMPLE_COACHES.find(c => c.id === storedCoachId);
+          }
+          if (coach) {
+            setMyCoach({
+              ...coach,
+              isAssigned: true,
+              assignedAt: new Date().toISOString(),
+            });
+          }
+        } else {
+          setMyCoach(null);
         }
-      } else {
+      } catch (storageError) {
+        console.error('[useCoaches] AsyncStorage error:', storageError);
         setMyCoach(null);
       }
     } finally {
@@ -199,20 +210,14 @@ export const useCoaches = () => {
 
   const assignCoach = async (coachId: string) => {
     if (!user) {
-      console.log('[useCoaches] ❌ Cannot assign - no user logged in');
       return { error: 'No user logged in' };
     }
-
-    console.log('[useCoaches] 📝 Starting assignment. User ID:', user.id, 'Coach ID:', coachId);
 
     try {
       const coach = coaches.find(c => c.id === coachId) || SAMPLE_COACHES.find(c => c.id === coachId);
       if (!coach) {
-        console.log('[useCoaches] ❌ Coach not found:', coachId);
         return { error: 'Coach not found' };
       }
-
-      console.log('[useCoaches] ✅ Found coach:', coach.full_name);
 
       // Try database assignment first
       try {
@@ -224,25 +229,26 @@ export const useCoaches = () => {
           .eq('is_active', true);
 
         // Create new assignment
-        const { error: insertError } = await supabase
+        await supabase
           .from('coach_client_assignments')
           .insert({
             client_user_id: user.id,
             coach_id: coachId,
             is_active: true,
           });
-
-        if (!insertError) {
-          console.log('[useCoaches] ✅ Assigned coach in database');
-        }
       } catch (dbError) {
-        console.log('[useCoaches] Database assignment failed, using global storage');
+        console.log('[useCoaches] Database assignment failed, using local storage');
       }
 
-      // Always store in global memory
-      globalCoachAssignments[user.id] = coachId;
-      console.log('[useCoaches] 💾 Saved to global storage. User:', user.id, 'Coach:', coachId);
-      console.log('[useCoaches] 💾 Full global storage:', JSON.stringify(globalCoachAssignments));
+      // Always store in AsyncStorage (persists across reloads)
+      try {
+        const storedData = await AsyncStorage.getItem(COACH_ASSIGNMENT_KEY);
+        const storedAssignments = storedData ? JSON.parse(storedData) : {};
+        storedAssignments[user.id] = coachId;
+        await AsyncStorage.setItem(COACH_ASSIGNMENT_KEY, JSON.stringify(storedAssignments));
+      } catch (storageError) {
+        console.error('[useCoaches] AsyncStorage save failed:', storageError);
+      }
 
       // Set immediately
       setMyCoach({
@@ -250,8 +256,6 @@ export const useCoaches = () => {
         isAssigned: true,
         assignedAt: new Date().toISOString(),
       });
-
-      console.log('[useCoaches] ✅ Coach assigned:', coach.full_name, 'for user:', user.id);
 
       return { data: { coach_id: coachId }, error: null };
     } catch (err: any) {
@@ -261,7 +265,7 @@ export const useCoaches = () => {
   };
 
   useEffect(() => {
-    if (user) {
+    if (user && !myCoach) {
       fetchMyCoach();
     }
   }, [user]);

@@ -78,11 +78,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
       let errorMessage = 'An unexpected error occurred';
       
       if (error.message.includes('Invalid login credentials')) {
-        errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+        errorMessage = 'Wrong password or email. Please try again.';
       } else if (error.message.includes('Email not confirmed')) {
         errorMessage = 'Please verify your email address before signing in.';
       } else if (error.message.includes('User not found')) {
-        errorMessage = 'No account found with this email address.';
+        errorMessage = 'No account found with this email.';
       } else if (error.message) {
         errorMessage = error.message;
       }

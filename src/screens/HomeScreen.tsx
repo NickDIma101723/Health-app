@@ -22,7 +22,6 @@ import {
   HeartRateMonitor,
   SleepTracker,
   StepTracker,
-  TestImage,
 } from '../components';
 import { colors, spacing, fontSizes, borderRadius, shadows, gradients } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
@@ -763,12 +762,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         </Animated.View>
 
         <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Image Test</Text>
-          </View>
-          
-          <TestImage />
-          
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recommendations</Text>
           </View>

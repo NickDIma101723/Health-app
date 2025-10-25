@@ -286,21 +286,14 @@ export const RecipeBrowser: React.FC<RecipeBrowserProps> = ({
                           {recipe.description}
                         </Text>
                       </View>
-                      <View
+                      <Text
                         style={[
-                          styles.difficultyBadge,
-                          { backgroundColor: getDifficultyColor(recipe.difficulty) + '20' },
+                          styles.difficultyText,
+                          { color: getDifficultyColor(recipe.difficulty) },
                         ]}
                       >
-                        <Text
-                          style={[
-                            styles.difficultyText,
-                            { color: getDifficultyColor(recipe.difficulty) },
-                          ]}
-                        >
-                          {recipe.difficulty}
-                        </Text>
-                      </View>
+                        {recipe.difficulty}
+                      </Text>
                     </View>
 
                     <View style={styles.recipeCardStats}>
@@ -475,17 +468,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Quicksand_500Medium',
   },
   difficultyBadge: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
   difficultyText: {
-    fontSize: fontSizes.xs,
-    fontWeight: '700',
-    fontFamily: 'Poppins_700Bold',
-    textTransform: 'capitalize',
+    fontSize: 10,
+    fontWeight: '600',
+    fontFamily: 'Quicksand_600SemiBold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   recipeCardStats: {
     flexDirection: 'row',
