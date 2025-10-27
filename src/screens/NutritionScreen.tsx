@@ -1845,7 +1845,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   suggestedCard: {
-    width: width * 0.85,
+    width: width * 0.75,
     marginRight: spacing.md,
     borderRadius: borderRadius.xl,
     backgroundColor: colors.surface,
