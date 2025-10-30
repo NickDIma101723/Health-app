@@ -254,7 +254,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
       color: colors.accent,
       icon: 'restaurant',
       status: 'incomplete',
-      date: '2025-10-10',
+      date: new Date().toISOString().split('T')[0],
     });
     onNavigate?.('schedule');
   };
@@ -269,7 +269,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
       color: colors.primary,
       icon: 'spa',
       status: 'incomplete',
-      date: '2025-10-10',
+      date: new Date().toISOString().split('T')[0],
       tags: ['Wellness', 'Morning'],
     });
     onNavigate?.('schedule');

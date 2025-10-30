@@ -70,7 +70,7 @@ const defaultGoals: NutritionGoals = {
 };
 
 const getInitialMeals = (): Meal[] => {
-  const today = '2025-10-10';
+  const today = new Date().toISOString().split('T')[0];
   const now = new Date().toISOString();
 
   return [
@@ -134,7 +134,7 @@ const getInitialMeals = (): Meal[] => {
 };
 
 const getInitialWaterIntakes = (): WaterIntake[] => {
-  const today = '2025-10-10';
+  const today = new Date().toISOString().split('T')[0];
   const now = new Date().toISOString();
 
   return [
@@ -206,7 +206,7 @@ export const NutritionProvider: React.FC<{ children: ReactNode }> = ({ children 
     const newIntake: WaterIntake = {
       id: `water-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       amount,
-      date: '2025-10-10',
+      date: now.toISOString().split('T')[0],
       time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
       createdAt: now.toISOString(),
     };
