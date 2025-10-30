@@ -70,6 +70,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
   const slideAnim = useRef(new Animated.Value(30)).current;
   const scrollViewRef = useRef<ScrollView>(null);
 
+  const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
+
   useEffect(() => {
     const generateWeekDays = () => {
       const days: DayData[] = [];
@@ -77,6 +79,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
       const todayStr = today.toISOString().split('T')[0];
       
       const current = new Date(today);
+      current.setDate(current.getDate() + (currentWeekOffset * 7)); // Add offset for different weeks
       const dayOfWeek = current.getDay();
       const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
       current.setDate(current.getDate() + diff);
@@ -86,8 +89,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
         const isToday = dateStr === todayStr;
         
         days.push({
-          date: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i],
-          dayName: current.toLocaleDateString('en-US', { weekday: 'long' }),
+          date: dateStr,
+          dayName: current.toLocaleDateString('en-US', { weekday: 'short' }),
           dayNum: current.getDate(),
           month: current.getMonth(),
           year: current.getFullYear(),
@@ -101,7 +104,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
     };
 
     generateWeekDays();
-  }, []);
+  }, [currentWeekOffset]);
 
   useEffect(() => {
     Animated.parallel([
@@ -628,6 +631,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  weekNavButton: {
+    padding: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+  },
+  monthYearText: {
+    fontSize: fontSizes.lg,
+    fontFamily: 'Poppins_600SemiBold',
+    color: colors.textPrimary,
   },
   header: {
     flexDirection: 'row',
