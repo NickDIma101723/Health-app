@@ -56,7 +56,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
     getActivitiesForDate,
   } = useScheduleAdapter();
 
-  const [selectedDate, setSelectedDate] = useState('2025-10-10');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [weekDays, setWeekDays] = useState<DayData[]>([]);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showActivityDetail, setShowActivityDetail] = useState(false);
@@ -73,7 +73,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
   useEffect(() => {
     const generateWeekDays = () => {
       const days: DayData[] = [];
-      const today = new Date(2025, 9, 10);
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
       
       const current = new Date(today);
       const dayOfWeek = current.getDay();
@@ -82,7 +83,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
 
       for (let i = 0; i < 7; i++) {
         const dateStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
-        const isToday = dateStr === '2025-10-10';
+        const isToday = dateStr === todayStr;
         
         days.push({
           date: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i],

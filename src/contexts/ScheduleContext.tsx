@@ -168,7 +168,7 @@ const formatDate = (date: Date): string => {
 };
 
 const getInitialActivities = (): Activity[] => {
-  const today = '2025-10-10';
+  const today = formatDate(new Date());
   const now = new Date().toISOString();
 
   return [

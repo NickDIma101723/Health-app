@@ -552,7 +552,7 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
       <View style={styles.header}>
         <View>
           <Text style={styles.headerSubtitle}>Nutrition</Text>
-          <Text style={styles.headerTitle}>October 10, 2025</Text>
+          <Text style={styles.headerTitle}>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
         </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity 
