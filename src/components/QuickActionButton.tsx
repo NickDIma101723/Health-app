@@ -22,7 +22,7 @@ export const QuickActionButton: React.FC<QuickActionButtonProps> = ({
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.95,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -31,7 +31,7 @@ export const QuickActionButton: React.FC<QuickActionButtonProps> = ({
       toValue: 1,
       friction: 3,
       tension: 40,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 

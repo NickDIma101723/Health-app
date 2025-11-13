@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -23,6 +24,7 @@ interface CoachClientDetailScreenProps {
   clientId: string;
   onBack?: () => void;
   onNavigateToNotes?: (clientId: string) => void;
+  onNavigate?: (screen: string, params?: any) => void;
 }
 
 interface ClientProfile {
@@ -93,6 +95,7 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
   clientId: propClientId,
   onBack,
   onNavigateToNotes,
+  onNavigate,
 }) => {
   const { coachData } = useAuth();
   const clientId = propClientId || route?.params?.clientId;
@@ -136,6 +139,8 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
       if (goalsError && goalsError.code !== 'PGRST116') throw goalsError;
       setWeeklyGoal(goalsData);
 
+      console.log('Loading assignment for:', { coachId: coachData.id, clientId });
+      
       const { data: assignmentData, error: assignmentError } = await supabase
         .from('coach_client_assignments')
         .select('assigned_at, notes')
@@ -143,6 +148,8 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
         .eq('client_user_id', clientId)
         .eq('is_active', true)
         .single();
+
+      console.log('Assignment query result:', { assignmentData, assignmentError });
 
       if (assignmentError && assignmentError.code !== 'PGRST116') throw assignmentError;
       setAssignment(assignmentData);
@@ -222,37 +229,96 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
   };
 
   const handleReassignClient = async () => {
-    Alert.alert(
-      'Reassign Client',
-      'This will unassign the client from their current coach and make them available for reassignment. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reassign',
-          style: 'destructive',
-          onPress: async () => {
+    console.log('🔄 Unassign Client button pressed!');
+    console.log('Current data:', { clientId, coachData: coachData?.id, profile: profile?.full_name });
+    
+    // Use platform-specific confirmation
+    const confirmed = Platform.OS === 'web' 
+      ? window.confirm('This will unassign the client from their current coach and make them available for reassignment. Continue?')
+      : await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'Reassign Client',
+            'This will unassign the client from their current coach and make them available for reassignment. Continue?',
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Reassign', style: 'destructive', onPress: () => resolve(true) }
+            ]
+          );
+        });
+
+    if (confirmed) {
+      console.log('✅ User confirmed unassignment');
             try {
-              const { error } = await supabase
+              if (!coachData) {
+                Alert.alert('Error', 'Coach data not found');
+                return;
+              }
+
+              console.log('Unassigning client:', { clientId, coachId: coachData.id });
+              
+              // First check if assignment exists
+              const { data: existing, error: checkError } = await supabase
+                .from('coach_client_assignments')
+                .select('*')
+                .eq('client_user_id', clientId)
+                .eq('coach_id', coachData.id)
+                .eq('is_active', true);
+
+              console.log('Existing assignments:', { existing, checkError });
+
+              if (checkError) {
+                console.error('Error checking assignment:', checkError);
+                throw new Error(`Failed to check assignment: ${checkError.message}`);
+              }
+
+              if (!existing || existing.length === 0) {
+                Alert.alert('Error', 'No active assignment found for this client');
+                return;
+              }
+              
+              const { data, error } = await supabase
                 .from('coach_client_assignments')
                 .update({ is_active: false })
                 .eq('client_user_id', clientId)
-                .eq('is_active', true);
+                .eq('coach_id', coachData.id)
+                .eq('is_active', true)
+                .select();
 
-              if (error) throw error;
+              console.log('Unassign result:', { data, error });
 
-              Alert.alert('Success', 'Client has been unassigned and is now available for reassignment.');
+              if (error) {
+                console.error('Update error:', error);
+                throw new Error(`Failed to unassign client: ${error.message}`);
+              }
+              
+              if (!data || data.length === 0) {
+                Alert.alert('Error', 'No assignment was updated. The client may already be unassigned.');
+                return;
+              }
+
+              console.log('Successfully unassigned client:', data);
+              
+              // Platform-specific success message
+              if (Platform.OS === 'web') {
+                alert('Client has been unassigned and is now available for reassignment.');
+              } else {
+                Alert.alert('Success', 'Client has been unassigned and is now available for reassignment.');
+              }
               
               if (onBack) {
                 onBack();
               }
-            } catch (error) {
+            } catch (error: any) {
               console.error('Error reassigning client:', error);
-              Alert.alert('Error', 'Failed to reassign client');
+              const errorMessage = error.message || 'Failed to reassign client. Please check the console for details.';
+              
+              if (Platform.OS === 'web') {
+                alert(`Error: ${errorMessage}`);
+              } else {
+                Alert.alert('Error', errorMessage);
+              }
             }
-          }
-        },
-      ]
-    );
+    }
   };
 
   const calculateBMI = (): string | null => {
@@ -313,10 +379,57 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
           <MaterialIcons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Client Details</Text>
-        <TouchableOpacity style={styles.headerNotesButton} onPress={handleViewNotes}>
-          <MaterialIcons name="note-add" size={24} color={colors.primary} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.headerActionButton} onPress={() => {
+            if (onNavigate) {
+              onNavigate('client-progress-analytics', { clientId });
+            } else {
+              Alert.alert('Feature Coming Soon', 'Analytics will be available soon!');
+            }
+          }}>
+            <MaterialIcons name="analytics" size={20} color={colors.info} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerActionButton} onPress={() => {
+            if (onNavigate) {
+              onNavigate('client-workout-plans', { clientId });
+            } else {
+              Alert.alert('Feature Coming Soon', 'Workout plans will be available soon!');
+            }
+          }}>
+            <MaterialIcons name="fitness-center" size={20} color={colors.success} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerActionButton} onPress={() => {
+            if (onNavigate) {
+              onNavigate('create-nutrition-plan', { clientId });
+            } else {
+              Alert.alert('Feature Coming Soon', 'Nutrition plans will be available soon!');
+            }
+          }}>
+            <MaterialIcons name="restaurant" size={20} color={colors.warning} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerNotesButton} onPress={handleViewNotes}>
+            <MaterialIcons name="note-add" size={24} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Debug buttons - remove these later */}
+      <TouchableOpacity 
+        style={{backgroundColor: 'red', padding: 10, margin: 10}}
+        onPress={() => {
+          console.log('DEBUG: Test button pressed!');
+          Alert.alert('Debug', 'Test button works!');
+        }}
+      >
+        <Text style={{color: 'white', textAlign: 'center'}}>DEBUG: Test Button</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={{backgroundColor: 'orange', padding: 10, margin: 10}}
+        onPress={handleReassignClient}
+      >
+        <Text style={{color: 'white', textAlign: 'center'}}>DEBUG: Direct Unassign</Text>
+      </TouchableOpacity>
 
       <ScrollView
         style={styles.scrollView}
@@ -470,25 +583,40 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
           </View>
         )}
 
-        {assignment && (
+        {coachData && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Assignment Info</Text>
             <View style={styles.card}>
-              <View style={styles.assignmentRow}>
-                <MaterialIcons name="event" size={18} color={colors.textSecondary} />
-                <Text style={styles.assignmentText}>
-                  Assigned on {new Date(assignment.assigned_at).toLocaleDateString()}
-                </Text>
-              </View>
-              {assignment.notes && (
-                <Text style={[styles.cardText, { marginTop: spacing.sm }]}>
-                  {assignment.notes}
-                </Text>
+              {assignment ? (
+                <>
+                  <View style={styles.assignmentRow}>
+                    <MaterialIcons name="event" size={18} color={colors.textSecondary} />
+                    <Text style={styles.assignmentText}>
+                      Assigned on {new Date(assignment.assigned_at).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  {assignment.notes && (
+                    <Text style={[styles.cardText, { marginTop: spacing.sm }]}>
+                      {assignment.notes}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <View style={styles.assignmentRow}>
+                  <MaterialIcons name="info" size={18} color={colors.textSecondary} />
+                  <Text style={styles.assignmentText}>
+                    Assignment details not available
+                  </Text>
+                </View>
               )}
               
               <TouchableOpacity 
                 style={styles.reassignButton}
-                onPress={handleReassignClient}
+                onPress={() => {
+                  console.log('🚨 UNASSIGN BUTTON PRESSED!');
+                  Alert.alert('DEBUG', 'Unassign button was pressed!');
+                  handleReassignClient();
+                }}
               >
                 <MaterialIcons name="swap-horiz" size={20} color={colors.warning} />
                 <Text style={styles.reassignButtonText}>Unassign Client</Text>
@@ -721,6 +849,19 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     flex: 1,
     textAlign: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  headerActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.sm,
   },
   headerNotesButton: {
     width: 44,

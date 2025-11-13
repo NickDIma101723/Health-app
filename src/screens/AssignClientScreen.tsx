@@ -8,11 +8,14 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
+  SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { colors } from '../constants/theme';
+import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
+import { BackgroundDecorations } from '../components';
 
 interface ClientUser {
   user_id: string;
@@ -24,152 +27,121 @@ interface ClientUser {
   isAssigned?: boolean;
 }
 
-interface AssignClientScreenProps {
-  onNavigate?: (screen: string) => void;
+interface ManageClientsScreenProps {
+  onNavigate?: (screen: string, params?: any) => void;
 }
 
-export const AssignClientScreen: React.FC<AssignClientScreenProps> = ({ onNavigate }) => {
+export const AssignClientScreen: React.FC<ManageClientsScreenProps> = ({ onNavigate }) => {
   const { coachData } = useAuth();
   const [clients, setClients] = useState<ClientUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [assigning, setAssigning] = useState<string | null>(null);
 
   useEffect(() => {
-    loadAvailableClients();
+    loadAcceptedClients();
   }, []);
 
-  const loadAvailableClients = async () => {
+  const loadAcceptedClients = async () => {
     try {
       setLoading(true);
-      console.log('[AssignClient] Loading available clients...');
+      console.log('[ManageClients] 🔍 Loading accepted clients...');
 
-      const { data: coaches, error: coachesError } = await supabase
-        .from('coaches')
-        .select('user_id')
-        .eq('is_active', true);
-
-      if (coachesError) {
-        console.error('[AssignClient] Error loading coaches:', coachesError);
-      }
-
-      const coachUserIds = new Set(coaches?.map(c => c.user_id) || []);
-      console.log('[AssignClient] Found', coachUserIds.size, 'coach user IDs to exclude:', Array.from(coachUserIds));
-
-      const { data: allProfiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, bio, fitness_level, goals, created_at')
-        .order('created_at', { ascending: false });
-
-      if (profilesError) throw profilesError;
-
-      if (!allProfiles) {
+      if (!coachData?.id) {
+        console.log('[ManageClients] ⚠️ No coach data available');
         setClients([]);
         return;
       }
 
-      console.log('[AssignClient] Found', allProfiles.length, 'total profiles:', allProfiles.map(p => ({ id: p.user_id, name: p.full_name })));
-
-      const nonCoachProfiles = allProfiles.filter(profile => !coachUserIds.has(profile.user_id));
-      console.log('[AssignClient] Filtered to', nonCoachProfiles.length, 'non-coach profiles:', nonCoachProfiles.map(p => ({ id: p.user_id, name: p.full_name })));
-
+      // Get only clients that are actively assigned to this coach
+      console.log('[ManageClients] � Fetching assigned clients for coach:', coachData.id);
       const { data: assignments, error: assignmentsError } = await supabase
         .from('coach_client_assignments')
-        .select('client_user_id')
-        .eq('coach_id', coachData?.id)
-        .eq('is_active', true);
+        .select('client_user_id, assigned_at')
+        .eq('coach_id', coachData.id)
+        .eq('is_active', true)
+        .order('assigned_at', { ascending: false });
 
       if (assignmentsError) {
-        console.error('[AssignClient] Error loading assignments:', assignmentsError);
+        console.error('[ManageClients] ❌ Error loading assignments:', assignmentsError);
+        throw assignmentsError;
       }
 
-      const assignedUserIds = new Set(assignments?.map(a => a.client_user_id) || []);
+      console.log('[ManageClients] ✅ Found', assignments?.length || 0, 'assigned clients');
+      
+      if (!assignments || assignments.length === 0) {
+        console.log('[ManageClients] ℹ️ No clients assigned to this coach');
+        setClients([]);
+        return;
+      }
 
-      const clientsWithStatus = nonCoachProfiles.map(profile => ({
-        ...profile,
-        isAssigned: assignedUserIds.has(profile.user_id),
-      }));
+      // Now get the profiles for these clients
+      const clientIds = assignments.map(a => a.client_user_id);
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, bio, fitness_level, goals, age, height, weight, phone, created_at')
+        .in('user_id', clientIds);
 
-      console.log('[AssignClient] Loaded', clientsWithStatus.length, 'clients:', clientsWithStatus.map(c => ({ id: c.user_id, name: c.full_name, isAssigned: c.isAssigned })));
-      setClients(clientsWithStatus);
+      if (profileError) {
+        console.error('[ManageClients] ❌ Error loading profiles:', profileError);
+        throw profileError;
+      }
+
+      // Transform the data to match our interface  
+      const clientsData = (assignments || [])
+        .map(assignment => {
+          const profile = profiles?.find(p => p.user_id === assignment.client_user_id);
+          
+          return {
+            user_id: assignment.client_user_id,
+            full_name: profile?.full_name || 'Unknown Client',
+            bio: profile?.bio || null,
+            fitness_level: profile?.fitness_level || null,
+            goals: profile?.goals || null,
+            created_at: profile?.created_at || assignment.assigned_at,
+            isAssigned: true, // All clients here are assigned
+          };
+        })
+        .filter(client => client !== null) as ClientUser[];
+
+      console.log('[ManageClients] ✅ Processed client data:', clientsData.length, 'clients');
+      clientsData.forEach((client, index) => {
+        console.log(`[ManageClients] Client ${index + 1}: ${client.full_name || 'No Name'} (Level: ${client.fitness_level || 'Not set'})`);
+      });
+      
+      setClients(clientsData);
     } catch (error) {
-      console.error('[AssignClient] Error loading clients:', error);
-      Alert.alert('Error', 'Failed to load clients');
+      console.error('[ManageClients] ❌ Error loading clients:', error);
+      Alert.alert(
+        'Error Loading Clients', 
+        `Failed to load your clients: ${(error as any)?.message || 'Unknown error'}\n\nPlease check the console for details.`
+      );
+      setClients([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAssignClient = async (client: ClientUser) => {
-    if (!coachData) {
-      Alert.alert('Error', 'Coach data not available');
-      return;
-    }
-
-    if (client.isAssigned) {
-      Alert.alert(
-        'Already Assigned',
-        'This client is already assigned to you. Go to your dashboard to view them.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
-    Alert.alert(
-      'Assign Client',
-      `Assign ${client.full_name || 'this user'} to your client list?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Assign',
-          onPress: async () => {
-            try {
-              setAssigning(client.user_id);
-              console.log('[AssignClient] Assigning client:', client.user_id);
-
-              const { error } = await supabase
-                .from('coach_client_assignments')
-                .insert({
-                  coach_id: coachData.id,
-                  client_user_id: client.user_id,
-                  is_active: true,
-                  assigned_at: new Date().toISOString(),
-                  notes: 'Assigned from coach dashboard',
-                });
-
-              if (error) throw error;
-
-              console.log('[AssignClient] ✅ Client assigned successfully');
-              Alert.alert('Success', `${client.full_name || 'Client'} has been added to your client list!`);
-
-              loadAvailableClients();
-            } catch (error) {
-              console.error('[AssignClient] Error assigning client:', error);
-              Alert.alert('Error', 'Failed to assign client');
-            } finally {
-              setAssigning(null);
-            }
-          },
-        },
-      ]
-    );
+  const handleViewClientProfile = (client: ClientUser) => {
+    onNavigate?.('coach-client-detail', { clientId: client.user_id });
   };
 
-  const handleUnassignClient = async (client: ClientUser) => {
+  const handleMessageClient = (client: ClientUser) => {
+    onNavigate?.('chat', { clientId: client.user_id });
+  };
+
+  const handleRemoveClient = async (client: ClientUser) => {
     if (!coachData) return;
 
     Alert.alert(
-      'Unassign Client',
-      `Remove ${client.full_name || 'this user'} from your client list?`,
+      'Remove Client',
+      `Remove ${client.full_name || 'this user'} from your client list? This will end your coaching relationship.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Unassign',
+          text: 'Remove',
           style: 'destructive',
           onPress: async () => {
             try {
-              setAssigning(client.user_id);
-
               const { error } = await supabase
                 .from('coach_client_assignments')
                 .update({ is_active: false })
@@ -180,12 +152,10 @@ export const AssignClientScreen: React.FC<AssignClientScreenProps> = ({ onNaviga
               if (error) throw error;
 
               Alert.alert('Success', `${client.full_name || 'Client'} has been removed from your list`);
-              loadAvailableClients();
+              loadAcceptedClients();
             } catch (error) {
-              console.error('[AssignClient] Error unassigning client:', error);
-              Alert.alert('Error', 'Failed to unassign client');
-            } finally {
-              setAssigning(null);
+              console.error('[ManageClients] Error removing client:', error);
+              Alert.alert('Error', 'Failed to remove client');
             }
           },
         },
@@ -203,67 +173,87 @@ export const AssignClientScreen: React.FC<AssignClientScreenProps> = ({ onNaviga
     );
   });
 
-  const renderClientItem = ({ item }: { item: ClientUser }) => (
+    const renderClientItem = ({ item }: { item: ClientUser }) => (
     <TouchableOpacity
-      style={[styles.clientCard, item.isAssigned && styles.assignedCard]}
-      onPress={() => item.isAssigned ? handleUnassignClient(item) : handleAssignClient(item)}
-      disabled={assigning === item.user_id}
+      key={item.user_id}
+      style={[styles.clientCard]}
+      onPress={() => handleViewClientProfile(item)}
     >
       <View style={styles.clientInfo}>
         <View style={styles.clientHeader}>
           <Text style={styles.clientName}>{item.full_name || 'No Name'}</Text>
-          {item.isAssigned && (
-            <View style={styles.assignedBadge}>
-              <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-              <Text style={styles.assignedText}>Assigned</Text>
-            </View>
-          )}
+          <View style={styles.clientBadge}>
+            <Ionicons name="person" size={14} color={colors.primary} />
+            <Text style={styles.clientBadgeText}>Your Client</Text>
+          </View>
         </View>
         
         {item.fitness_level && (
-          <View style={styles.levelBadge}>
-            <Text style={styles.levelText}>{item.fitness_level}</Text>
+          <View style={styles.clientMetrics}>
+            <View style={styles.metricBadge}>
+              <Text style={styles.metricText}>{item.fitness_level} level</Text>
+            </View>
           </View>
         )}
         
         {item.goals && (
           <Text style={styles.goals} numberOfLines={2}>
-            Goals: {item.goals}
+            <Text style={styles.goalsLabel}>Goals: </Text>
+            {item.goals}
           </Text>
         )}
         
         {item.bio && (
-          <Text style={styles.bio} numberOfLines={2}>
+          <Text style={styles.bio} numberOfLines={1}>
             {item.bio}
           </Text>
         )}
+
+        <View style={styles.clientActions}>
+          <TouchableOpacity 
+            style={styles.actionButtonSmall}
+            onPress={() => handleMessageClient(item)}
+          >
+            <Ionicons name="chatbubble-outline" size={18} color={colors.primary} />
+            <Text style={styles.actionButtonText}>Message</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.actionButtonSmall, styles.actionButtonSecondary]}
+            onPress={() => handleRemoveClient(item)}
+          >
+            <Ionicons name="remove-circle-outline" size={18} color={colors.error} />
+            <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>Remove</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <View style={styles.actionButton}>
-        {assigning === item.user_id ? (
-          <ActivityIndicator size="small" color={colors.primary} />
-        ) : (
-          <Ionicons
-            name={item.isAssigned ? 'remove-circle-outline' : 'add-circle-outline'}
-            size={32}
-            color={item.isAssigned ? colors.error : colors.primary}
-          />
-        )}
+      <View style={styles.arrowContainer}>
+        <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <BackgroundDecorations />
+      
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => onNavigate?.('coach-dashboard')}
         >
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Manage Clients</Text>
-        <View style={styles.placeholder} />
+        <View>
+          <Text style={styles.headerSubtitle}>Coach Portal</Text>
+          <Text style={styles.headerTitle}>Manage Clients</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.headerRefreshButton}
+          onPress={loadAcceptedClients}
+        >
+          <Ionicons name="refresh" size={24} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.searchContainer}>
@@ -289,87 +279,192 @@ export const AssignClientScreen: React.FC<AssignClientScreenProps> = ({ onNaviga
         </View>
       ) : (
         <FlatList
-          data={filteredClients}
-          renderItem={renderClientItem}
-          keyExtractor={item => item.user_id}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="people-outline" size={64} color="#ccc" />
-              <Text style={styles.emptyText}>No clients found</Text>
-              {searchQuery && (
-                <Text style={styles.emptySubtext}>Try adjusting your search</Text>
-              )}
-            </View>
-          }
-        />
+            data={filteredClients}
+            renderItem={renderClientItem}
+            keyExtractor={item => item.user_id}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons name="people-outline" size={64} color="#ccc" />
+                <Text style={styles.emptyText}>
+                  {searchQuery ? 'No clients match your search' : 'No users found'}
+                </Text>
+                {!searchQuery && (
+                  <View style={styles.emptyHelpContainer}>
+                    <Text style={styles.emptySubtext}>To see clients here:</Text>
+                    <Text style={styles.emptyHelpText}>1. Users need to register accounts</Text>
+                    <Text style={styles.emptyHelpText}>2. They must complete profile setup</Text>
+                    <Text style={styles.emptyHelpText}>3. Email verification may be required</Text>
+                    <TouchableOpacity 
+                      style={styles.refreshButton}
+                      onPress={loadAcceptedClients}
+                    >
+                      <Ionicons name="refresh" size={20} color={colors.primary} />
+                      <Text style={styles.refreshText}>Refresh List</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {searchQuery && (
+                  <Text style={styles.emptySubtext}>Try adjusting your search</Text>
+                )}
+              </View>
+            }
+          />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
-    backgroundColor: '#fff',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e1e8ed',
+    borderBottomColor: colors.border,
   },
   backButton: {
-    padding: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerSubtitle: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+    marginBottom: 4,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#333',
+    fontSize: fontSizes.xl,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.textPrimary,
   },
-  placeholder: {
-    width: 40,
+  headerRefreshButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    margin: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderColor: '#e1e8ed',
+    borderColor: colors.border,
+    gap: spacing.sm,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    color: '#333',
+    fontSize: fontSizes.md,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textPrimary,
   },
   listContent: {
-    padding: 16,
-    paddingTop: 0,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
   },
   clientCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: '#e1e8ed',
+    borderColor: colors.border,
+    ...shadows.sm,
   },
   assignedCard: {
     borderColor: colors.success,
     backgroundColor: '#f0fdf4',
+  },
+  clientBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  clientBadgeText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  clientMetrics: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  metricBadge: {
+    backgroundColor: colors.secondary + '20',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  metricText: {
+    color: colors.secondary,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  goalsLabel: {
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  clientActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 12,
+  },
+  actionButtonSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  actionButtonSecondary: {
+    backgroundColor: colors.error + '15',
+  },
+  actionButtonText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  actionButtonTextSecondary: {
+    color: colors.error,
+  },
+  arrowContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingLeft: 8,
   },
   clientInfo: {
     flex: 1,
@@ -381,9 +476,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   clientName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: fontSizes.lg,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: colors.textPrimary,
     flex: 1,
   },
   assignedBadge: {
@@ -415,14 +510,18 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   goals: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+    marginTop: spacing.xs,
   },
   bio: {
-    fontSize: 13,
-    color: '#999',
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
     fontStyle: 'italic',
+    marginTop: spacing.xs,
   },
   actionButton: {
     justifyContent: 'center',
@@ -433,26 +532,58 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: spacing.lg,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
+    marginTop: spacing.md,
+    fontSize: fontSizes.md,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingVertical: spacing.xxxl,
+    paddingHorizontal: spacing.lg,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#999',
-    marginTop: 16,
+    fontSize: fontSizes.lg,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.textPrimary,
+    marginTop: spacing.lg,
+    textAlign: 'center',
   },
   emptySubtext: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
+  emptyHelpContainer: {
+    marginTop: spacing.lg,
+    alignItems: 'center',
+  },
+  emptyHelpText: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '20',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 12,
+    gap: 8,
+  },
+  refreshText: {
     fontSize: 14,
-    color: '#ccc',
-    marginTop: 8,
+    fontWeight: '600',
+    color: colors.primary,
   },
 });

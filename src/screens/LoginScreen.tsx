@@ -36,14 +36,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
+        duration: 600,
+        useNativeDriver: false,
       }),
-      Animated.spring(slideAnim, {
+      Animated.timing(slideAnim, {
         toValue: 0,
-        tension: 50,
-        friction: 8,
-        useNativeDriver: true,
+        duration: 300,
+        useNativeDriver: false,
       }),
     ]).start();
   }, []);

@@ -25,7 +25,6 @@ import {
 } from '../components';
 import { colors, spacing, fontSizes, borderRadius, shadows, gradients } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
-import { useSchedule } from '../contexts/ScheduleContext';
 import { useHealthMetrics, useUserGoals, useNotifications, useNutritionAdapter, useScheduleAdapter } from '../hooks';
 import { supabase } from '../lib/supabase';
 
@@ -37,12 +36,11 @@ interface HomeScreenProps {
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const { user, signOut } = useAuth();
-  const { addActivity } = useSchedule();
   const { metrics, loading: metricsLoading, incrementWater, updateMetrics, updateHeartRate, updateSleep } = useHealthMetrics();
   const { goals, loading: goalsLoading } = useUserGoals();
   const { notifications: dbNotifications, unreadCount, markAsRead, markAllAsRead, loading: notificationsLoading } = useNotifications();
   const { getDailyNutrition, goals: nutritionGoals, addWaterIntake } = useNutritionAdapter();
-  const { activities, weeklyGoals: scheduleGoals, getActivitiesForDate } = useScheduleAdapter();
+  const { activities, weeklyGoals: scheduleGoals, getActivitiesForDate, addActivity } = useScheduleAdapter();
   
   const today = new Date().toISOString().split('T')[0];
   const todayNutrition = getDailyNutrition(today);
@@ -161,13 +159,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 800,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.spring(slideAnim, {
         toValue: 0,
         tension: 50,
         friction: 7,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, []);

@@ -43,7 +43,7 @@ interface UserProfile {
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
-  const { user, signOut, isCoach, coachData, checkIsCoach } = useAuth();
+    const { user, signOut, isCoach, coachData, checkIsCoach, refreshCoachStatus, switchToCoachMode, switchToClientMode, canBeCoach, currentMode } = useAuth();
   const { isOnline, isInternetReachable } = useNetworkStatus();
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -61,7 +61,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
 
   const [editedProfile, setEditedProfile] = useState<UserProfile>(profile);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [adminPassword, setAdminPassword] = useState('');
+
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -194,12 +194,31 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
             throw new Error('User not authenticated');
           }
 
-          // For now, just use local storage until Supabase buckets are configured
-          console.log('[ProfileScreen] Storing avatar locally (Supabase storage not configured)');
+          // Upload image to Supabase storage
+          console.log('[ProfileScreen] Uploading image to Supabase storage...');
           
+          const uploadResult = await uploadMediaToStorage(
+            {
+              uri: asset.uri,
+              type: 'image',
+              filename: asset.fileName || `avatar_${Date.now()}.jpg`,
+              size: asset.fileSize || 0,
+              mimeType: asset.mimeType || 'image/jpeg'
+            },
+            user.id,
+            (progress) => {
+              console.log(`[ProfileScreen] Upload progress: ${progress.percentage}%`);
+            }
+          );
+
+          if (uploadResult.error) {
+            throw new Error(`Failed to upload image: ${uploadResult.error}`);
+          }
+
+          // Update profile with the permanent storage URL
           const { error: updateError } = await supabase
             .from('profiles')
-            .update({ avatar_url: asset.uri })
+            .update({ avatar_url: uploadResult.url })
             .eq('user_id', user.id);
           
           if (updateError) {
@@ -219,10 +238,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
             throw new Error('Failed to update profile: ' + updateError.message);
           }
           
-          // Update local state
-          setAvatarUrl(asset.uri);
-          setProfile(prev => ({ ...prev, avatar_url: asset.uri }));
-          Alert.alert('Success', 'Profile picture updated!\n\nNote: Image is stored locally. For cloud storage, please configure Supabase storage buckets (see SUPABASE_STORAGE_SETUP.md)');
+          // Update local state with permanent URL
+          setAvatarUrl(uploadResult.url);
+          setProfile(prev => ({ ...prev, avatar_url: uploadResult.url }));
+          Alert.alert('Success', 'Profile picture updated and saved to cloud storage!');
           
           /* Cloud storage upload (uncomment when buckets are configured)
           console.log('[ProfileScreen] Attempting to upload image to storage...');
@@ -470,137 +489,166 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
   const handleDeleteAccount = async () => {
     Alert.alert(
       'Delete Account',
-      'This will permanently delete your account and all associated data. This action cannot be undone. Are you sure?',
+      'This will permanently delete your account and ALL of your data including:\n\n• Profile information\n• Activity history\n• Health metrics\n• Messages\n• Goals and progress\n\nThis action CANNOT be undone. Are you absolutely sure?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Delete Forever',
           style: 'destructive',
           onPress: async () => {
             try {
               if (!user) return;
 
+              console.log('Starting account deletion for user:', user.id);
+
+              // Step 1: Handle coach-related data if user is a coach
               if (isCoach && coachData) {
+                console.log('Deleting coach-related data...');
+                
+                // Deactivate all client assignments
                 await supabase
                   .from('coach_client_assignments')
                   .update({ is_active: false })
                   .eq('coach_id', coachData.id);
 
+                // Delete coach notes
                 await supabase
                   .from('coach_notes')
                   .delete()
                   .eq('coach_id', coachData.id);
 
+                // Delete coach record
                 await supabase
                   .from('coaches')
                   .delete()
                   .eq('user_id', user.id);
               }
 
+              // Step 2: Delete data that references other tables first (foreign key dependencies)
+              console.log('Deleting dependent data...');
+              
+              // Delete client assignments (user as client)
               await supabase
                 .from('coach_client_assignments')
                 .delete()
                 .eq('client_user_id', user.id);
 
+              // Delete coach notes where user is the client
               await supabase
                 .from('coach_notes')
                 .delete()
                 .eq('client_user_id', user.id);
 
-              await supabase
-                .from('activities')
-                .delete()
-                .eq('user_id', user.id);
-
+              // Delete activity logs (depends on activities)
               await supabase
                 .from('activity_logs')
                 .delete()
                 .eq('user_id', user.id);
 
-              await supabase
-                .from('activity_templates')
-                .delete()
-                .eq('user_id', user.id);
-
-              await supabase
-                .from('health_metrics')
-                .delete()
-                .eq('user_id', user.id);
-
-              await supabase
+              // Delete meal ingredients (depends on meals) - do this in two steps
+              const { data: userMeals } = await supabase
                 .from('meals')
-                .delete()
+                .select('id')
                 .eq('user_id', user.id);
+              
+              if (userMeals && userMeals.length > 0) {
+                const mealIds = userMeals.map(meal => meal.id);
+                await supabase
+                  .from('meal_ingredients')
+                  .delete()
+                  .in('meal_id', mealIds);
+              }
 
+              // Step 3: Delete main user data tables
+              console.log('Deleting main user data...');
+              
+              const tablesToDelete = [
+                'activities',
+                'activity_templates', 
+                'health_metrics',
+                'meals',
+                'messages',
+                'mindfulness_sessions',
+                'mood_logs',
+                'notifications',
+                'nutrition_goals',
+                'user_achievements',
+                'user_coaches',
+                'user_goals',
+                'water_intake',
+                'water_logs',
+                'weekly_goals'
+              ];
+
+              // Delete from each table
+              for (const table of tablesToDelete) {
+                try {
+                  const { error } = await supabase
+                    .from(table)
+                    .delete()
+                    .eq('user_id', user.id);
+                  
+                  if (error && error.code !== 'PGRST116') { // Ignore "no rows deleted" error
+                    console.warn(`Error deleting from ${table}:`, error);
+                  }
+                } catch (err) {
+                  console.warn(`Failed to delete from ${table}:`, err);
+                }
+              }
+
+              // Handle messages table separately (has sender_id/receiver_id instead of user_id)
               await supabase
                 .from('messages')
                 .delete()
                 .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
 
-              await supabase
-                .from('mindfulness_sessions')
-                .delete()
-                .eq('user_id', user.id);
-
-              await supabase
-                .from('mood_logs')
-                .delete()
-                .eq('user_id', user.id);
-
-              await supabase
-                .from('notifications')
-                .delete()
-                .eq('user_id', user.id);
-
-              await supabase
-                .from('nutrition_goals')
-                .delete()
-                .eq('user_id', user.id);
-
-              await supabase
-                .from('user_achievements')
-                .delete()
-                .eq('user_id', user.id);
-
-              await supabase
-                .from('user_coaches')
-                .delete()
-                .eq('user_id', user.id);
-
-              await supabase
-                .from('user_goals')
-                .delete()
-                .eq('user_id', user.id);
-
-              await supabase
-                .from('water_intake')
-                .delete()
-                .eq('user_id', user.id);
-
-              await supabase
-                .from('water_logs')
-                .delete()
-                .eq('user_id', user.id);
-
-              await supabase
-                .from('weekly_goals')
-                .delete()
-                .eq('user_id', user.id);
-
-              await supabase
+              // Delete profile (should be last since it contains user data)
+              const { error: profileDeleteError } = await supabase
                 .from('profiles')
                 .delete()
                 .eq('user_id', user.id);
 
-              const { error: deleteError } = await supabase.rpc('delete_user');
-              
-              if (deleteError) {
-                console.error('RPC delete_user error:', deleteError);
-                throw deleteError;
+              if (profileDeleteError) {
+                console.error('Error deleting profile:', profileDeleteError);
+                throw profileDeleteError;
               }
 
-              await signOut();
-              Alert.alert('Success', 'Your account has been deleted');
+              // Call the RPC function to delete the user from auth.users table
+              const { error: deleteUserError } = await supabase.rpc('delete_user_account');
+              
+              if (deleteUserError) {
+                console.error('Error deleting user account:', deleteUserError);
+                // Even if the RPC fails, we've deleted all the app data
+                // So just sign out and notify the user
+                await signOut();
+                Alert.alert(
+                  'Partial Deletion',
+                  'Your app data has been deleted, but there was an issue removing your login credentials. Please contact support if needed.'
+                );
+                return;
+              }
+
+              // Clear any local storage
+              try {
+                await AsyncStorage.clear();
+              } catch (storageError) {
+                console.error('Error clearing storage:', storageError);
+              }
+
+              // The user is automatically signed out when their account is deleted
+              // So we don't need to call signOut() here
+
+              Alert.alert(
+                'Account Deleted', 
+                'Your account and all associated data have been permanently deleted.',
+                [{ 
+                  text: 'OK', 
+                  onPress: () => {
+                    // Navigate to auth screen
+                    onNavigate?.('auth');
+                  }
+                }]
+              );
             } catch (error) {
               console.error('Error deleting account:', error);
               Alert.alert('Error', 'Failed to delete account. Please contact support.');
@@ -612,110 +660,374 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
   };
 
   const handleConvertToCoach = () => {
-    setShowPasswordModal(true);
+    console.log('[ProfileScreen] handleConvertToCoach called - canBeCoach:', canBeCoach, 'isCoach:', isCoach);
+    // Use browser alert for web testing
+    if (typeof window !== 'undefined' && window.alert) {
+      const confirmed = window.confirm("Are you sure you want to become a health coach? This will unlock coach features while keeping your client access.");
+      if (confirmed) {
+        console.log('[ProfileScreen] User confirmed becoming coach, showing qualification modal');
+        setShowPasswordModal(true);
+      }
+    } else {
+      // Enhanced confirmation dialog with detailed information
+      Alert.alert(
+        "Become a Health Coach",
+        "Are you sure you want to become a health coach? This will unlock coach features while keeping your client access.",
+        [
+          { text: 'No', style: 'cancel' },
+          { 
+            text: 'Yes', 
+            style: 'default',
+            onPress: () => {
+              console.log('[ProfileScreen] User confirmed becoming coach, showing qualification modal');
+              setShowPasswordModal(true);
+            }
+          }
+        ],
+        { cancelable: true }
+      );
+    }
   };
 
-  const handlePasswordSubmit = async () => {
-    if (!adminPassword || adminPassword !== 'BingBong') {
-      Alert.alert('Error', 'Incorrect admin password');
-      setAdminPassword('');
+  const handleCoachQualificationSubmit = async () => {
+    // Check if user has completed their profile enough to be a coach
+    if (!profile.full_name || !profile.bio || !profile.fitness_level) {
+      Alert.alert(
+        'Complete Your Profile First',
+        'To become a coach, please complete your profile with:\n• Full name\n• Bio/About section\n• Fitness level\n\nThis helps clients understand your expertise.',
+        [{ text: 'OK', onPress: () => setShowPasswordModal(false) }]
+      );
       return;
     }
 
-    setShowPasswordModal(false);
-    setAdminPassword('');
+    // Add confirmation before proceeding
+    if (typeof window !== 'undefined' && window.confirm) {
+      const confirmed = window.confirm('Are you sure you want to become a health coach? This action cannot be undone easily.');
+      if (confirmed) {
+        // Proceed with coach creation
+        setShowPasswordModal(false);
+        // ... rest of the function
+        try {
+          if (!user) {
+            if (typeof window !== 'undefined' && window.alert) {
+              window.alert('No user found. Please log in again.');
+            } else {
+              Alert.alert('Error', 'No user found. Please log in again.');
+            }
+            return;
+          }
 
-    try {
-      if (!user) {
-        Alert.alert('Error', 'No user found. Please log in again.');
-        return;
-      }
+          const { data: existingCoach, error: checkError } = await supabase
+            .from('coaches')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
 
-      const { data: existingCoach, error: checkError } = await supabase
-        .from('coaches')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+          if (checkError && checkError.code !== 'PGRST116') {
+            throw checkError;
+          }
 
-      if (checkError && checkError.code !== 'PGRST116') {
-        throw checkError;
-      }
+          if (existingCoach) {
+            if (existingCoach.is_active) {
+              if (typeof window !== 'undefined' && window.alert) {
+                window.alert('You are already a coach.');
+              } else {
+                Alert.alert('Info', 'You are already a coach.');
+              }
+              return;
+            }
 
-      if (existingCoach) {
-        if (existingCoach.is_active) {
-          Alert.alert('Info', 'You are already a coach.');
-          return;
+            const { error: updateError } = await supabase
+              .from('coaches')
+              .update({ is_active: true })
+              .eq('user_id', user.id);
+
+            if (updateError) throw updateError;
+          } else {
+            const { error: insertError } = await supabase
+              .from('coaches')
+              .insert({
+                user_id: user.id,
+                full_name: profile.full_name,
+                email: user.email || '',
+                specialization: profile.fitness_level,
+                bio: profile.bio,
+                is_active: true,
+              });
+
+            if (insertError) throw insertError;
+          }
+
+          // Enhanced success experience with creative mode switching
+          if (typeof window !== 'undefined' && window.alert) {
+            window.alert('🎉 Welcome, Coach! Congratulations! You\'re now a certified health coach. Your coach dashboard is ready.');
+            // Refresh the coach status first
+            if (refreshCoachStatus) {
+              await refreshCoachStatus();
+            }
+            
+            // Add a small delay for the status to update
+            setTimeout(() => {
+              // Creative coach mode activation
+              if (switchToCoachMode) {
+                switchToCoachMode();
+                
+                // Show celebration and navigation
+                setTimeout(() => {
+                  if (typeof window !== 'undefined' && window.alert) {
+                    window.alert('🌟 Coach Mode Activated! You\'re now in Coach Mode! Navigate to your Coach Dashboard to start managing clients.');
+                  } else {
+                    Alert.alert(
+                      '🌟 Coach Mode Activated!',
+                      'You\'re now in Coach Mode! Navigate to your Coach Dashboard to start managing clients.',
+                      [
+                        {
+                          text: 'Go to Coach Dashboard',
+                          onPress: () => {
+                            console.log('Navigate to coach dashboard');
+                          }
+                        }
+                      ]
+                    );
+                  }
+                }, 1000);
+              }
+            }, 1000);
+          } else {
+            Alert.alert(
+              '🎉 Welcome, Coach!', 
+              'Congratulations! You\'re now a certified health coach.\n\nYour coach dashboard is ready. Let\'s switch to coach mode and start helping others!',
+              [
+                {
+                  text: '🚀 Enter Coach Mode',
+                  onPress: async () => {
+                    // Refresh the coach status first
+                    if (refreshCoachStatus) {
+                      await refreshCoachStatus();
+                    }
+                    
+                    // Add a small delay for the status to update
+                    setTimeout(() => {
+                      // Creative coach mode activation
+                      if (switchToCoachMode) {
+                        switchToCoachMode();
+                                
+                        // Show celebration and navigation
+                        Alert.alert(
+                          '🌟 Coach Mode Activated!',
+                          'You\'re now in Coach Mode! Navigate to your Coach Dashboard to start managing clients.',
+                          [
+                            {
+                              text: 'Go to Coach Dashboard',
+                              onPress: () => {
+                                // You can add navigation here if you have it
+                                console.log('Navigate to coach dashboard');
+                              }
+                            }
+                          ]
+                        );
+                      }
+                    }, 1000);
+                  }
+                }
+              ],
+              { cancelable: false }
+            );
+          }
+        } catch (error) {
+          console.error('Error converting to coach:', error);
+          if (typeof window !== 'undefined' && window.alert) {
+            window.alert('Failed to convert to coach. Please try again.');
+          } else {
+            Alert.alert('Error', 'Failed to convert to coach. Please try again.');
+          }
         }
-
-        const { error: updateError } = await supabase
-          .from('coaches')
-          .update({ is_active: true })
-          .eq('user_id', user.id);
-
-        if (updateError) throw updateError;
-      } else {
-        const { error: insertError } = await supabase
-          .from('coaches')
-          .insert({
-            user_id: user.id,
-            full_name: profile.full_name,
-            email: user.email || '',
-            specialization: profile.fitness_level,
-            bio: profile.bio,
-            is_active: true,
-          });
-
-        if (insertError) throw insertError;
       }
+    } else {
+      Alert.alert(
+        'Confirm Becoming a Coach',
+        'Are you sure you want to become a health coach? This action cannot be undone easily.',
+        [
+          { text: 'No', style: 'cancel' },
+          { 
+            text: 'Yes, Become Coach', 
+            style: 'default',
+            onPress: async () => {
+              setShowPasswordModal(false);
 
-      Alert.alert('Success', 'Your account has been converted to a coach account. Please re-login.');
-      await signOut();
+              try {
+                if (!user) {
+                  Alert.alert('Error', 'No user found. Please log in again.');
+                  return;
+                }
+
+                const { data: existingCoach, error: checkError } = await supabase
+                  .from('coaches')
+                  .select('*')
+                  .eq('user_id', user.id)
+                  .maybeSingle();
+
+                if (checkError && checkError.code !== 'PGRST116') {
+                  throw checkError;
+                }
+
+                if (existingCoach) {
+                  if (existingCoach.is_active) {
+                    Alert.alert('Info', 'You are already a coach.');
+                    return;
+                  }
+
+                  const { error: updateError } = await supabase
+                    .from('coaches')
+                    .update({ is_active: true })
+                    .eq('user_id', user.id);
+
+                  if (updateError) throw updateError;
+                } else {
+                  const { error: insertError } = await supabase
+                    .from('coaches')
+                    .insert({
+                      user_id: user.id,
+                      full_name: profile.full_name,
+                      email: user.email || '',
+                      specialization: profile.fitness_level,
+                      bio: profile.bio,
+                      is_active: true,
+                    });
+
+                  if (insertError) throw insertError;
+                }
+
+                // Enhanced success experience with creative mode switching
+                Alert.alert(
+                  '🎉 Welcome, Coach!', 
+                  'Congratulations! You\'re now a certified health coach.\n\nYour coach dashboard is ready. Let\'s switch to coach mode and start helping others!',
+                  [
+                    {
+                      text: '🚀 Enter Coach Mode',
+                      onPress: async () => {
+                        // Refresh the coach status first
+                        if (refreshCoachStatus) {
+                          await refreshCoachStatus();
+                        }
+                        
+                        // Add a small delay for the status to update
+                        setTimeout(() => {
+                          // Creative coach mode activation
+                          if (switchToCoachMode) {
+                            switchToCoachMode();
+                                    
+                            // Show celebration and navigation
+                            Alert.alert(
+                              '🌟 Coach Mode Activated!',
+                              'You\'re now in Coach Mode! Navigate to your Coach Dashboard to start managing clients.',
+                              [
+                                {
+                                  text: 'Go to Coach Dashboard',
+                                  onPress: () => {
+                                    // You can add navigation here if you have it
+                                    console.log('Navigate to coach dashboard');
+                                  }
+                                }
+                              ]
+                            );
+                          }
+                        }, 1000);
+                      }
+                    }
+                  ],
+                  { cancelable: false }
+                );
+              } catch (error) {
+                console.error('Error converting to coach:', error);
+                Alert.alert('Error', 'Failed to convert to coach. Please try again.');
+              }
+            }
+          }
+        ],
+        { cancelable: true }
+      );
+    }
+  };  const handleClearInvalidAvatar = async () => {
+    if (!user) return;
+    
+    try {
+      console.log('[ProfileScreen] Clearing invalid avatar URL...');
+      await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('user_id', user.id);
+      
+      // Update local state
+      setAvatarUrl(null);
+      setProfile(prev => ({ ...prev, avatar_url: null }));
     } catch (error) {
-      console.error('Error converting to coach:', error);
-      Alert.alert('Error', 'Failed to convert to coach. Please try again.');
+      console.error('[ProfileScreen] Error clearing invalid avatar:', error);
     }
   };
 
   const handleConvertToClient = async () => {
-    Alert.alert(
-      'Convert to Client',
-      'This will remove your coach privileges and unassign all your clients. Are you sure?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Convert',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (!user || !coachData) return;
+    // Platform-aware confirmation: window.confirm on web, Alert on native
+    const prompt = 'This will remove your coach privileges and unassign all your clients. Are you sure?';
 
-              const { error: unassignError } = await supabase
-                .from('coach_client_assignments')
-                .update({ is_active: false })
-                .eq('coach_id', coachData.id)
-                .eq('is_active', true);
+    const runConversion = async () => {
+      try {
+        if (!user || !coachData) return;
 
-              if (unassignError) {
-                console.error('Error unassigning clients:', unassignError);
-              }
+        console.log('[ProfileScreen] Converting to client - unassigning clients for coach:', coachData.id);
 
-              const { error: deactivateError } = await supabase
-                .from('coaches')
-                .update({ is_active: false })
-                .eq('user_id', user.id);
+        const { error: unassignError } = await supabase
+          .from('coach_client_assignments')
+          .update({ is_active: false })
+          .eq('coach_id', coachData.id)
+          .eq('is_active', true);
 
-              if (deactivateError) throw deactivateError;
+        if (unassignError) {
+          console.error('[ProfileScreen] Error unassigning clients:', unassignError);
+          // continue even if unassign fails for some rows
+        }
 
-              Alert.alert('Success', 'Your account has been converted to a client account. All clients have been unassigned. Please re-login.');
-              await signOut();
-            } catch (error) {
-              console.error('Error converting to client:', error);
-              Alert.alert('Error', 'Failed to convert to client. Please try again.');
-            }
-          }
-        },
-      ]
-    );
+        const { error: deactivateError } = await supabase
+          .from('coaches')
+          .update({ is_active: false })
+          .eq('user_id', user.id);
+
+        if (deactivateError) throw deactivateError;
+
+        // Switch to client mode in AuthContext
+        await switchToClientMode();
+
+        // Navigate to home screen as client
+        Alert.alert(
+          '✅ Switched to Client Focus',
+          "You've deactivated coach mode and all clients have been unassigned.\n\nYou can reactivate coach mode anytime from your profile.",
+          [
+            {
+              text: 'Continue as Client',
+              onPress: () => onNavigate?.('home'),
+            },
+          ]
+        );
+      } catch (error: any) {
+        console.error('[ProfileScreen] Error converting to client:', error);
+        Alert.alert('Error', error?.message || 'Failed to convert to client. Please try again.');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const ok = window.confirm(prompt);
+      if (ok) await runConversion();
+    } else {
+      Alert.alert(
+        'Convert to Client',
+        prompt,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Convert', style: 'destructive', onPress: () => runConversion() },
+        ],
+        { cancelable: true }
+      );
+    }
   };
 
   const calculateBMI = () => {
@@ -787,44 +1099,46 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
             disabled={uploadingAvatar}
           >
             {avatarUrl || profile.avatar_url ? (
-              <>
-                <Image 
-                  source={{ uri: avatarUrl || profile.avatar_url || '' }}
-                  style={styles.avatarImage}
-                  key={avatarUrl || profile.avatar_url}
-                  defaultSource={require('../../assets/default-avatar.png')}
-                  onError={(e) => {
-                    console.error('[ProfileScreen] Error loading avatar image:', e.nativeEvent.error);
-                    // If image fails to load, show fallback
-                    if (avatarUrl === profile.avatar_url) {
-                      // Both are the same and failed, show gradient
-                      setAvatarUrl(null);
-                      setProfile(prev => ({ ...prev, avatar_url: null }));
-                    } else if (avatarUrl) {
-                      // Try fallback to profile.avatar_url
-                      setAvatarUrl(profile.avatar_url || null);
-                    } else {
-                      // Clear failed profile.avatar_url
-                      setProfile(prev => ({ ...prev, avatar_url: null }));
-                    }
-                  }}
-                />
-                {uploadingAvatar && (
-                  <View style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    backgroundColor: 'rgba(0,0,0,0.4)',
-                    borderRadius: 50,
-                  }}>
-                    <ActivityIndicator size="large" color={colors.textLight} />
-                  </View>
-                )}
-              </>
+              // Check if the URL is a blob URL (invalid after restart)
+              (avatarUrl || profile.avatar_url)?.startsWith('blob:') ? (
+                <LinearGradient
+                  colors={[colors.primary, colors.primaryDark]}
+                  style={styles.avatar}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <MaterialIcons name="person" size={32} color={colors.surface} />
+                </LinearGradient>
+              ) : (
+                <>
+                  <Image 
+                    source={{ uri: avatarUrl || profile.avatar_url || '' }}
+                    style={styles.avatarImage}
+                    key={avatarUrl || profile.avatar_url}
+                    defaultSource={require('../../assets/default-avatar.png')}
+                    onError={(e) => {
+                      console.error('[ProfileScreen] Error loading avatar image:', e.nativeEvent.error);
+                      // Clear the invalid URL from database
+                      handleClearInvalidAvatar();
+                    }}
+                  />
+                  {uploadingAvatar && (
+                    <View style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      backgroundColor: 'rgba(0,0,0,0.4)',
+                      borderRadius: 50,
+                    }}>
+                      <ActivityIndicator size="large" color={colors.textLight} />
+                    </View>
+                  )}
+                </>
+              )
             ) : (
               <LinearGradient
                 colors={[colors.primary, colors.primaryLight] as [string, string, ...string[]]}
@@ -879,6 +1193,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 value={editedProfile.full_name}
                 onChangeText={(text) => setEditedProfile({ ...editedProfile, full_name: text })}
                 placeholder="Enter your name"
+                selectionColor={colors.primary}
+                underlineColorAndroid="transparent"
               />
             ) : (
               <Text style={styles.formValue}>{profile.full_name || 'Not set'}</Text>
@@ -895,6 +1211,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                   onChangeText={(text) => setEditedProfile({ ...editedProfile, age: parseInt(text) || null })}
                   placeholder="Age"
                   keyboardType="numeric"
+                  selectionColor={colors.primary}
+                  underlineColorAndroid="transparent"
                 />
               ) : (
                 <Text style={styles.formValue}>{profile.age || 'Not set'}</Text>
@@ -941,6 +1259,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                   onChangeText={(text) => setEditedProfile({ ...editedProfile, height: parseInt(text) || null })}
                   placeholder="Height"
                   keyboardType="numeric"
+                  selectionColor={colors.primary}
+                  underlineColorAndroid="transparent"
                 />
               ) : (
                 <Text style={styles.formValue}>{profile.height || 'Not set'}</Text>
@@ -956,6 +1276,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                   onChangeText={(text) => setEditedProfile({ ...editedProfile, weight: parseInt(text) || null })}
                   placeholder="Weight"
                   keyboardType="numeric"
+                  selectionColor={colors.primary}
+                  underlineColorAndroid="transparent"
                 />
               ) : (
                 <Text style={styles.formValue}>{profile.weight || 'Not set'}</Text>
@@ -972,6 +1294,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 onChangeText={(text) => setEditedProfile({ ...editedProfile, phone: text })}
                 placeholder="Phone number"
                 keyboardType="phone-pad"
+                selectionColor={colors.primary}
+                underlineColorAndroid="transparent"
               />
             ) : (
               <Text style={styles.formValue}>{profile.phone || 'Not set'}</Text>
@@ -1017,6 +1341,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 placeholder="Tell us about yourself"
                 multiline
                 numberOfLines={3}
+                selectionColor={colors.primary}
+                underlineColorAndroid="transparent"
               />
             ) : (
               <Text style={styles.formValue}>{profile.bio || 'Not set'}</Text>
@@ -1033,6 +1359,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 placeholder="What are your fitness goals?"
                 multiline
                 numberOfLines={3}
+                selectionColor={colors.primary}
+                underlineColorAndroid="transparent"
               />
             ) : (
               <Text style={styles.formValue}>{profile.goals || 'Not set'}</Text>
@@ -1044,13 +1372,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
           <View style={styles.dangerZone}>
             <Text style={styles.dangerZoneTitle}>Account Management</Text>
             
-            {!isCoach && (
-              <TouchableOpacity style={styles.convertButton} onPress={handleConvertToCoach}>
-                <MaterialIcons name="upgrade" size={20} color={colors.primary} />
-                <Text style={styles.convertButtonText}>Become a Coach</Text>
-              </TouchableOpacity>
-            )}
-
             {isCoach && (
               <TouchableOpacity style={styles.convertButton} onPress={handleConvertToClient}>
                 <MaterialIcons name="person" size={20} color={colors.warning} />
@@ -1081,45 +1402,92 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
       <Modal
         visible={showPasswordModal}
         transparent={true}
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => {
           setShowPasswordModal(false);
-          setAdminPassword('');
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Become a Coach</Text>
-            <Text style={styles.modalDescription}>
-              Enter admin password to convert your account:
-            </Text>
+          <View style={[styles.modalContent, styles.coachQualificationModal]}>
+            <View style={styles.modalHeader}>
+              <MaterialIcons name="school" size={32} color={colors.primary} />
+              <Text style={styles.modalTitle}>Coach Qualification</Text>
+            </View>
             
-            <TextInput
-              style={styles.modalInput}
-              value={adminPassword}
-              onChangeText={setAdminPassword}
-              placeholder="Admin Password"
-              secureTextEntry
-              autoFocus
-              onSubmitEditing={handlePasswordSubmit}
-            />
+            <ScrollView style={styles.qualificationContent} showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalDescription}>
+                Ready to inspire others? Let's make sure you're set up for success as a health coach.
+              </Text>
+
+              <View style={styles.requirementsList}>
+                <View style={styles.requirementItem}>
+                  <MaterialIcons 
+                    name={profile.full_name ? "check-circle" : "radio-button-unchecked"} 
+                    size={20} 
+                    color={profile.full_name ? colors.success : colors.textSecondary} 
+                  />
+                  <Text style={[styles.requirementText, profile.full_name && styles.requirementCompleted]}>
+                    Complete your full name
+                  </Text>
+                </View>
+                
+                <View style={styles.requirementItem}>
+                  <MaterialIcons 
+                    name={profile.bio ? "check-circle" : "radio-button-unchecked"} 
+                    size={20} 
+                    color={profile.bio ? colors.success : colors.textSecondary} 
+                  />
+                  <Text style={[styles.requirementText, profile.bio && styles.requirementCompleted]}>
+                    Write your bio/about section
+                  </Text>
+                </View>
+                
+                <View style={styles.requirementItem}>
+                  <MaterialIcons 
+                    name={profile.fitness_level ? "check-circle" : "radio-button-unchecked"} 
+                    size={20} 
+                    color={profile.fitness_level ? colors.success : colors.textSecondary} 
+                  />
+                  <Text style={[styles.requirementText, profile.fitness_level && styles.requirementCompleted]}>
+                    Set your fitness level
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.coachAgreement}>
+                <Text style={styles.agreementTitle}>Coach Responsibilities:</Text>
+                <Text style={styles.agreementText}>
+                  • Provide supportive and professional guidance{'\n'}
+                  • Respect client privacy and boundaries{'\n'}
+                  • Maintain regular communication with clients{'\n'}
+                  • Stay updated with health and fitness best practices
+                </Text>
+              </View>
+            </ScrollView>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalCancelButton]}
-                onPress={() => {
-                  setShowPasswordModal(false);
-                  setAdminPassword('');
-                }}
+                onPress={() => setShowPasswordModal(false)}
               >
-                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                <Text style={styles.modalCancelButtonText}>Not Ready</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalConfirmButton]}
-                onPress={handlePasswordSubmit}
+                style={[
+                  styles.modalButton, 
+                  styles.modalConfirmButton,
+                  (!profile.full_name || !profile.bio || !profile.fitness_level) && styles.modalButtonDisabled
+                ]}
+                onPress={handleCoachQualificationSubmit}
+                disabled={!profile.full_name || !profile.bio || !profile.fitness_level}
               >
-                <Text style={styles.modalConfirmButtonText}>Convert</Text>
+                <Text style={[
+                  styles.modalConfirmButtonText,
+                  (!profile.full_name || !profile.bio || !profile.fitness_level) && styles.modalButtonTextDisabled
+                ]}>
+                  I'm Qualified! 🚀
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1502,5 +1870,78 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     fontFamily: 'Quicksand_600SemiBold',
     color: colors.textLight,
+  },
+  coachSignupButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    overflow: 'hidden',
+    marginBottom: spacing.sm,
+  },
+  coachButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: borderRadius.md,
+  },
+  coachSignupButtonText: {
+    color: colors.textLight,
+    fontSize: fontSizes.md,
+    fontWeight: '700',
+    marginLeft: spacing.sm,
+    flex: 1,
+  },
+  coachQualificationModal: {
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  qualificationContent: {
+    maxHeight: 300,
+  },
+  requirementsList: {
+    marginVertical: spacing.lg,
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  requirementText: {
+    fontSize: fontSizes.md,
+    color: colors.textSecondary,
+    marginLeft: spacing.sm,
+    flex: 1,
+  },
+  requirementCompleted: {
+    color: colors.success,
+    fontWeight: '600',
+  },
+  coachAgreement: {
+    backgroundColor: colors.background,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.lg,
+  },
+  agreementTitle: {
+    fontSize: fontSizes.md,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  agreementText: {
+    fontSize: fontSizes.sm,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  modalButtonDisabled: {
+    backgroundColor: colors.textSecondary,
+    opacity: 0.5,
+  },
+  modalButtonTextDisabled: {
+    color: colors.textLight,
+    opacity: 0.7,
   },
 });

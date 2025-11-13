@@ -49,12 +49,12 @@ export const HeartRateMonitor: React.FC<HeartRateMonitorProps> = ({
           Animated.timing(pulseAnim, {
             toValue: 1.2,
             duration: 500,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
             duration: 500,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
         ])
       ).start();

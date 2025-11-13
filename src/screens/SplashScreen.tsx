@@ -21,13 +21,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 800,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.spring(scaleAnim, {
           toValue: 1,
           tension: 40,
           friction: 7,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]),
       Animated.parallel([
@@ -35,20 +35,20 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
           toValue: 0,
           tension: 50,
           friction: 8,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(buttonFadeAnim, {
           toValue: 1,
           duration: 600,
           delay: 200,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.spring(buttonScaleAnim, {
           toValue: 1,
           tension: 50,
           friction: 7,
           delay: 200,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]),
     ]).start();
@@ -59,12 +59,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
       Animated.timing(fadeAnim, {
         toValue: 0,
         duration: 300,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.timing(scaleAnim, {
         toValue: 0.9,
         duration: 300,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start(() => onFinish());
   };
