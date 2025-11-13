@@ -7,7 +7,7 @@ const { width, height } = Dimensions.get('window');
 
 export const BackgroundDecorations: React.FC = () => {
   return (
-    <View style={styles.container} pointerEvents="none">
+    <View style={[styles.container, { pointerEvents: 'none' }]}>
       <Svg style={styles.topRight} width={200} height={200}>
         <Circle cx="150" cy="50" r="60" fill={colors.primaryPale} opacity={0.6} />
         <Circle cx="180" cy="80" r="30" fill={colors.primaryLight} opacity={0.5} />

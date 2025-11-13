@@ -15,6 +15,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
 import { useCoaches } from '../hooks';
+import { useCoachRequests } from '../hooks/useCoachRequests';
 import { BackgroundDecorations } from '../components';
 
 interface CoachSelectionScreenProps {
@@ -26,10 +27,11 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
   onNavigate, 
   onSelectCoach 
 }) => {
-  const { coaches, loading, assignCoach, fetchCoaches } = useCoaches();
+  const { coaches, loading, fetchCoaches } = useCoaches();
+  const { sendCoachRequest, hasPendingRequestWith, loadUserRequests } = useCoachRequests();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialization, setSelectedSpecialization] = useState<string | null>(null);
-  const [assigning, setAssigning] = useState<string | null>(null);
+  const [requesting, setRequesting] = useState<string | null>(null);
   const [selectedCoach, setSelectedCoach] = useState<any>(null);
   const [showCoachDetail, setShowCoachDetail] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{
@@ -48,6 +50,7 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
   // Fetch coaches when screen mounts
   useEffect(() => {
     fetchCoaches();
+    loadUserRequests(); // Load existing requests to check status
   }, []);
 
   const specializations = ['Nutrition', 'Fitness', 'Mental Health', 'Weight Loss', 'Sports', 'General'];
@@ -69,20 +72,31 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
     setShowCoachDetail(true);
   };
 
-  const handleAssignCoach = async (coachId: string, coachName: string) => {
+  const handleRequestCoach = async (coachId: string, coachName: string) => {
     setShowCoachDetail(false);
+    
+    // Check if already has pending request
+    if (hasPendingRequestWith(coachId)) {
+      setConfirmModal({
+        visible: true,
+        title: 'Request Pending',
+        message: `You already have a pending request with ${coachName}. Please wait for their response.`,
+        onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+      });
+      return;
+    }
     
     // Show custom confirmation modal
     setConfirmModal({
       visible: true,
-      title: 'Assign Coach',
-      message: `Assign ${coachName} as your coach?`,
+      title: 'Request Coach',
+      message: `Send a coaching request to ${coachName}? They will need to accept your request before you can start working together.`,
       onConfirm: async () => {
         setConfirmModal({ ...confirmModal, visible: false });
-        setAssigning(coachId);
+        setRequesting(coachId);
         
         try {
-          const result = await assignCoach(coachId);
+          const result = await sendCoachRequest(coachId, `Hi ${coachName}! I'd love to work with you as my health coach. Looking forward to your guidance!`);
           if (result.error) {
             setConfirmModal({
               visible: true,
@@ -91,30 +105,28 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
               onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
             });
           } else {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            await fetchCoaches();
+            await loadUserRequests(); // Refresh requests
             
             // Show success modal
             setConfirmModal({
               visible: true,
-              title: 'Success!',
-              message: `${coachName} is now your coach!`,
+              title: 'Request Sent!',
+              message: `Your coaching request has been sent to ${coachName}. You'll be notified when they respond.`,
               onConfirm: () => {
                 setConfirmModal({ ...confirmModal, visible: false });
-                onNavigate?.('chat');
+                onNavigate?.('home');
               },
-              onCancel: () => setConfirmModal({ ...confirmModal, visible: false }),
             });
           }
         } catch (error) {
           setConfirmModal({
             visible: true,
             title: 'Error',
-            message: 'Failed to assign coach. Please try again.',
+            message: 'Failed to send request. Please try again.',
             onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
           });
         } finally {
-          setAssigning(null);
+          setRequesting(null);
         }
       },
       onCancel: () => setConfirmModal({ ...confirmModal, visible: false }),
@@ -246,7 +258,7 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
                 key={coach.id}
                 style={[styles.coachCard, shadows.md]}
                 onPress={() => handleSelectCoach(coach)}
-                disabled={assigning === coach.id}
+                disabled={requesting === coach.id}
                 activeOpacity={0.7}
               >
                 <View
@@ -286,7 +298,6 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
                       {coach.bio}
                     </Text>
                   )}
-                  
                   <View style={styles.coachFooter}>
                     <View style={styles.ratingContainer}>
                       <MaterialIcons name="star" size={14} color={colors.accent} />
@@ -300,17 +311,23 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
                 </View>
 
                 <View style={styles.arrowContainer}>
-                  {assigning === coach.id ? (
+                  {requesting === coach.id ? (
                     <ActivityIndicator size="small" color={colors.primary} />
+                  ) : hasPendingRequestWith(coach.id) ? (
+                    // Show pending status
+                    <View style={styles.pendingContainer}>
+                      <MaterialIcons name="schedule" size={16} color={colors.warning} />
+                      <Text style={styles.pendingText}>Pending</Text>
+                    </View>
                   ) : (
-                    // Quick assign & chat button
+                    // Request coach button
                     <TouchableOpacity
                       style={styles.arrowButton}
-                      onPress={() => handleAssignCoach(coach.id, coach.full_name)}
+                      onPress={() => handleRequestCoach(coach.id, coach.full_name)}
                       activeOpacity={0.7}
-                      disabled={assigning === coach.id}
+                      disabled={requesting === coach.id}
                     >
-                      <MaterialIcons name="chat" size={20} color={colors.primary} />
+                      <MaterialIcons name="person-add" size={20} color={colors.primary} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -396,10 +413,12 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
                 <View style={styles.modalActions}>
                   <TouchableOpacity
                     style={[styles.modalButton, styles.assignButton]}
-                    onPress={() => handleAssignCoach(selectedCoach.id, selectedCoach.full_name)}
+                    onPress={() => handleRequestCoach(selectedCoach.id, selectedCoach.full_name)}
                   >
-                    <MaterialIcons name="how-to-reg" size={20} color={colors.textLight} />
-                    <Text style={styles.assignButtonText}>Assign as My Coach</Text>
+                    <MaterialIcons name="send" size={20} color={colors.textLight} />
+                    <Text style={styles.assignButtonText}>
+                      {hasPendingRequestWith(selectedCoach.id) ? 'Request Pending' : 'Send Request'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -663,6 +682,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryPale,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  pendingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.warning + '20',
+  },
+  pendingText: {
+    fontSize: 11,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: colors.warning,
   },
   becomeCoachSection: {
     marginTop: spacing.lg,

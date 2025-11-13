@@ -154,6 +154,7 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
   const [showStats, setShowStats] = useState(openStats || false);
   const [breathingPhase, setBreathingPhase] = useState<'in' | 'out'>('in');
   const [showMoodSelector, setShowMoodSelector] = useState(false);
+  const [selectedMood, setSelectedMood] = useState<'great' | 'good' | 'okay' | 'bad' | 'terrible' | null>(null);
 
   const completedSessions = stats?.totalSessions || 0;
   const totalMinutes = stats?.totalMinutes || 0;
@@ -182,13 +183,13 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 600,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.spring(slideAnim, {
         toValue: 0,
         tension: 40,
         friction: 8,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, [activeTab]);
@@ -280,7 +281,7 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
       const inhaleAnim = Animated.timing(breatheAnim, {
         toValue: 1,
         duration: 4000,
-        useNativeDriver: true,
+        useNativeDriver: false,
       });
       
       breathingAnimationRef.current = inhaleAnim;
@@ -295,7 +296,7 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
         const exhaleAnim = Animated.timing(breatheAnim, {
           toValue: 0,
           duration: 6000,
-          useNativeDriver: true,
+          useNativeDriver: false,
         });
         
         breathingAnimationRef.current = exhaleAnim;
@@ -323,12 +324,12 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
         Animated.timing(pulseAnim, {
           toValue: 1.1,
           duration: 1000,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
           duration: 1000,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ])
     ).start();
@@ -430,12 +431,69 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
   };
 
   const handleMoodLog = async (mood: 'great' | 'good' | 'okay' | 'bad' | 'terrible') => {
+    if (!mood) {
+      console.error('[MindfulnessScreen] No mood provided to handleMoodLog');
+      Alert.alert('Error', 'Please select a mood first.');
+      return;
+    }
+
+    if (!['great', 'good', 'okay', 'bad', 'terrible'].includes(mood)) {
+      console.error('[MindfulnessScreen] Invalid mood provided:', mood);
+      Alert.alert('Error', 'Invalid mood selection. Please try again.');
+      return;
+    }
+
     try {
-      await logMood(mood);
+      console.log('[MindfulnessScreen] Logging mood:', mood);
+      const result = await logMood(mood);
+      
+      if (result && result.error) {
+        console.error('[MindfulnessScreen] Mood logging failed:', result.error);
+        setSelectedMood(null);
+        
+        if (result.error.includes('connection')) {
+          Alert.alert(
+            'Connection Error', 
+            'Unable to connect to the server. Please check your internet connection and try again.',
+            [{ text: 'OK', onPress: () => setSelectedMood(null) }]
+          );
+        } else if (result.error.includes('already logged')) {
+          Alert.alert(
+            'Already Logged', 
+            'You have already logged your mood for today. Your mood has been updated.',
+            [{ text: 'OK', onPress: () => {
+              setShowMoodSelector(false);
+              setSelectedMood(null);
+            }}]
+          );
+        } else {
+          Alert.alert(
+            'Error', 
+            result.error,
+            [{ text: 'OK', onPress: () => setSelectedMood(null) }]
+          );
+        }
+        return;
+      }
+
+      console.log('[MindfulnessScreen] Mood logged successfully');
       setShowMoodSelector(false);
-    } catch (error) {
-      console.error('Error logging mood:', error);
-      Alert.alert('Error', 'Failed to log mood. Please try again.');
+      setSelectedMood(null);
+    } catch (error: any) {
+      console.error('[MindfulnessScreen] Unexpected error logging mood:', error);
+      setSelectedMood(null);
+      
+      if (error.name === 'NetworkError') {
+        Alert.alert(
+          'Network Error', 
+          'Unable to connect to the server. Please check your internet connection.',
+          [{ text: 'OK' }]
+        );
+      } else if (error.message) {
+        Alert.alert('Error', `Failed to log mood: ${error.message}`);
+      } else {
+        Alert.alert('Error', 'Failed to log mood. Please try again.');
+      }
     }
   };
 
@@ -503,14 +561,20 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
               <Text style={styles.moodLoggedText}>
                 Today's mood: <Text style={styles.moodLoggedEmoji}>{getMoodEmoji(moodLog.mood)}</Text>
               </Text>
-              <TouchableOpacity onPress={() => setShowMoodSelector(true)}>
+              <TouchableOpacity onPress={() => {
+                setSelectedMood(null);
+                setShowMoodSelector(true);
+              }}>
                 <Text style={styles.changeMoodText}>Change</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity 
               style={[styles.logMoodButton, shadows.sm]}
-              onPress={() => setShowMoodSelector(true)}
+              onPress={() => {
+                setSelectedMood(null);
+                setShowMoodSelector(true);
+              }}
             >
               <Text style={styles.logMoodButtonText}>Log Your Mood</Text>
             </TouchableOpacity>
@@ -1010,25 +1074,67 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
         <View style={styles.moodSelectorModal}>
           <View style={[styles.moodSelectorContent, shadows.lg]}>
             <Text style={styles.moodSelectorTitle}>How are you feeling?</Text>
+            <Text style={styles.debugText}>
+              Selected: {selectedMood ? selectedMood : 'None'}
+            </Text>
             
             <View style={styles.moodOptionsContainer}>
-              {(['great', 'good', 'okay', 'bad', 'terrible'] as const).map((mood) => (
-                <TouchableOpacity
-                  key={mood}
-                  style={[styles.moodOption, shadows.sm]}
-                  onPress={() => handleMoodLog(mood)}
-                >
-                  <Text style={styles.moodOptionEmoji}>{getMoodEmoji(mood)}</Text>
-                  <Text style={styles.moodOptionText}>
-                    {mood.charAt(0).toUpperCase() + mood.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {(['great', 'good', 'okay', 'bad', 'terrible'] as const).map((mood) => {
+                const isSelected = selectedMood === mood;
+                return (
+                  <TouchableOpacity
+                    key={mood}
+                    style={[
+                      styles.moodOption, 
+                      shadows.sm,
+                      isSelected && styles.moodOptionSelected
+                    ]}
+                    onPress={() => {
+                      console.log('Selecting mood:', mood, 'Current selected:', selectedMood);
+                      setSelectedMood(mood);
+                    }}
+                  >
+                    <Text style={styles.moodOptionEmoji}>{getMoodEmoji(mood)}</Text>
+                    <Text style={[
+                      styles.moodOptionText,
+                      isSelected && styles.moodOptionTextSelected
+                    ]}>
+                      {mood.charAt(0).toUpperCase() + mood.slice(1)}
+                    </Text>
+                    {isSelected && (
+                      <MaterialIcons 
+                        name="check-circle" 
+                        size={24} 
+                        color={colors.primary} 
+                        style={styles.moodOptionCheck}
+                      />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
+
+            {selectedMood ? (
+              <TouchableOpacity
+                style={[styles.confirmMoodButton, shadows.sm]}
+                onPress={() => handleMoodLog(selectedMood)}
+              >
+                <Text style={styles.confirmMoodButtonText}>
+                  Confirm - I'm feeling {selectedMood}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.selectPrompt}>
+                <Text style={styles.selectPromptText}>Select a mood above</Text>
+              </View>
+            )}
 
             <TouchableOpacity
               style={styles.closeMoodSelectorButton}
-              onPress={() => setShowMoodSelector(false)}
+              onPress={() => {
+                setSelectedMood(null);
+                setShowMoodSelector(false);
+              }}
             >
               <Text style={styles.closeMoodSelectorText}>Cancel</Text>
             </TouchableOpacity>
@@ -1738,6 +1844,53 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     fontFamily: 'Quicksand_600SemiBold',
     color: colors.textPrimary,
+    flex: 1,
+  },
+  moodOptionSelected: {
+    backgroundColor: colors.primary,
+    borderWidth: 3,
+    borderColor: colors.primaryDark,
+    transform: [{ scale: 1.05 }],
+  },
+  moodOptionTextSelected: {
+    color: colors.textLight,
+    fontFamily: 'Quicksand_700Bold',
+  },
+  moodOptionCheck: {
+    marginLeft: spacing.sm,
+  },
+  confirmMoodButton: {
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  confirmMoodButtonText: {
+    fontSize: fontSizes.md,
+    color: colors.textLight,
+    fontFamily: 'Quicksand_600SemiBold',
+  },
+  selectPrompt: {
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    alignItems: 'center',
+  },
+  selectPromptText: {
+    fontSize: fontSizes.sm,
+    color: colors.textSecondary,
+    fontFamily: 'Quicksand_500Medium',
+    fontStyle: 'italic',
+  },
+  debugText: {
+    fontSize: fontSizes.sm,
+    color: colors.primary,
+    fontFamily: 'Quicksand_600SemiBold',
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+    backgroundColor: colors.background,
+    padding: spacing.xs,
+    borderRadius: borderRadius.sm,
   },
   closeMoodSelectorButton: {
     marginTop: spacing.lg,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,11 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Alert,
   ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
 import { BackgroundDecorations } from '../components';
 import { supabase } from '../lib/supabase';
@@ -21,59 +21,271 @@ interface BecomeCoachScreenProps {
 }
 
 export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate }) => {
-  const { user } = useAuth();
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [specialization, setSpecialization] = useState('');
-  const [bio, setBio] = useState('');
+  const { user, refreshCoachStatus, switchToCoachMode, canBeCoach } = useAuth();
+  const [profile, setProfile] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const specializations = ['Nutrition', 'Fitness', 'Mental Health', 'Weight Loss', 'Sports', 'General'];
+  useEffect(() => {
+    fetchProfile();
+  }, [user]);
 
-  const handleSubmit = async () => {
-    if (!fullName || !email || !specialization) {
-      Alert.alert('Missing Information', 'Please fill in all required fields');
+  const fetchProfile = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) throw error;
+      setProfile(data);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      Alert.alert('Error', 'Failed to load profile information');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isProfileComplete = profile && profile.full_name && profile.bio && profile.fitness_level;
+
+  const missingFields: string[] = [];
+  if (!profile?.full_name) missingFields.push('Full Name');
+  if (!profile?.bio) missingFields.push('Bio/About');
+  if (!profile?.fitness_level) missingFields.push('Fitness Level');
+
+    const handleBecomeCoach = async () => {
+    console.log('[BecomeCoach] Button clicked!', { isProfileComplete, profile });
+    
+    if (!isProfileComplete) {
+      console.log('[BecomeCoach] Profile incomplete:', missingFields);
+      Alert.alert(
+        'Complete Your Profile First',
+        `To become a coach, please complete your profile with:\n${missingFields.map(field => `• ${field}`).join('\n')}\n\nGo to your profile to update these fields.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Go to Profile', onPress: () => onNavigate?.('profile') }
+        ]
+      );
       return;
     }
 
     if (!user) {
+      console.log('[BecomeCoach] No user found!');
       Alert.alert('Error', 'You must be logged in to become a coach');
       return;
     }
 
+    // Add confirmation popup before proceeding
+    if (typeof window !== 'undefined' && window.confirm) {
+      const confirmed = window.confirm('Are you sure you want to become a health coach? This will unlock coach features and allow you to help others with their fitness goals.');
+      if (!confirmed) return;
+    } else {
+      await new Promise((resolve) => {
+        Alert.alert(
+          'Confirm Becoming a Coach',
+          'Are you sure you want to become a health coach? This will unlock coach features and allow you to help others with their fitness goals.',
+          [
+            { text: 'No', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Yes, Become Coach', style: 'default', onPress: () => resolve(true) }
+          ],
+          { cancelable: true }
+        );
+      });
+    }
+
+    console.log('[BecomeCoach] Starting coach creation for user:', user.id);
     setSubmitting(true);
 
     try {
-      const { error } = await supabase
+      // Check if already a coach
+      console.log('[BecomeCoach] Checking existing coach status...');
+      const { data: existingCoach, error: checkError } = await supabase
         .from('coaches')
-        .insert({
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      console.log('[BecomeCoach] Existing coach check result:', { existingCoach, checkError });
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.log('[BecomeCoach] Database error:', checkError);
+        throw checkError;
+      }
+
+      if (existingCoach) {
+        if (existingCoach.is_active) {
+          console.log('[BecomeCoach] User is already an active coach, refreshing status...');
+          console.log('[BecomeCoach] Available functions:', { 
+            refreshCoachStatus: !!refreshCoachStatus, 
+            switchToCoachMode: !!switchToCoachMode,
+            onNavigate: !!onNavigate
+          });
+          
+          // Refresh coach status to update AuthContext
+          if (refreshCoachStatus) {
+            console.log('[BecomeCoach] Calling refreshCoachStatus...');
+            await refreshCoachStatus();
+            console.log('[BecomeCoach] refreshCoachStatus completed');
+          } else {
+            console.log('[BecomeCoach] WARNING: refreshCoachStatus not available!');
+          }
+          
+          // Switch to coach mode if available
+          if (switchToCoachMode) {
+            console.log('[BecomeCoach] Calling switchToCoachMode...');
+            await switchToCoachMode();
+            console.log('[BecomeCoach] switchToCoachMode completed');
+          } else {
+            console.log('[BecomeCoach] WARNING: switchToCoachMode not available!');
+          }
+          
+          console.log('[BecomeCoach] Showing alert...');
+          if (typeof window !== 'undefined' && window.alert) {
+            window.alert('✅ You\'re Already a Coach! Great news! You\'re already certified as a health coach. Navigating to your coach dashboard now...');
+            // Force navigate to coach dashboard
+            if (onNavigate) {
+              onNavigate('coach-dashboard');
+            }
+          } else {
+            Alert.alert(
+              '✅ You\'re Already a Coach!', 
+              'Great news! You\'re already certified as a health coach. Navigating to your coach dashboard now...',
+              [
+                {
+                  text: 'Go to Coach Dashboard',
+                  onPress: () => {
+                    console.log('[BecomeCoach] Alert button pressed, navigating to coach dashboard...');
+                    console.log('[BecomeCoach] Current auth state:', { isCoach: canBeCoach, currentMode: 'should be coach' });
+                    
+                    // Force navigate to coach dashboard
+                    if (onNavigate) {
+                      onNavigate('coach-dashboard');
+                    } else {
+                      console.log('[BecomeCoach] ERROR: onNavigate is not available!');
+                    }
+                  }
+                }
+              ]
+            );
+          }
+          return;
+        }
+        // Reactivate existing coach
+        console.log('[BecomeCoach] Reactivating existing coach...');
+        const { error: updateError } = await supabase
+          .from('coaches')
+          .update({ is_active: true })
+          .eq('user_id', user.id);
+
+        if (updateError) {
+          console.log('[BecomeCoach] Error reactivating coach:', updateError);
+          throw updateError;
+        }
+        console.log('[BecomeCoach] ✅ Coach reactivated successfully');
+      } else {
+        // Create new coach
+        console.log('[BecomeCoach] Creating new coach with data:', {
           user_id: user.id,
-          full_name: fullName,
-          email: email,
-          specialization: specialization,
-          bio: bio || null,
-          is_active: true,
+          full_name: profile.full_name,
+          email: user.email || '',
+          specialization: profile.fitness_level,
+          bio: profile.bio,
         });
+        
+        const { error: insertError } = await supabase
+          .from('coaches')
+          .insert({
+            user_id: user.id,
+            full_name: profile.full_name,
+            email: user.email || '',
+            specialization: profile.fitness_level,
+            bio: profile.bio,
+            is_active: true,
+          });
 
-      if (error) throw error;
+        if (insertError) {
+          console.log('[BecomeCoach] Error creating coach:', insertError);
+          throw insertError;
+        }
+        console.log('[BecomeCoach] ✅ New coach created successfully');
+      }
 
-      Alert.alert(
-        'Success!',
-        'Your application has been submitted. You are now a coach!',
-        [
-          {
-            text: 'OK',
-            onPress: () => onNavigate?.('home'),
-          },
-        ]
-      );
-    } catch (error: any) {
+      // Enhanced success experience with direct navigation
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert('🎉 Welcome, Coach! Congratulations! You\'re now a certified health coach. Your coach dashboard is ready!');
+        // Refresh the coach status first
+        if (refreshCoachStatus) {
+          console.log('[BecomeCoach] Refreshing coach status...');
+          await refreshCoachStatus();
+        }
+        
+        // Switch to coach mode
+        if (switchToCoachMode) {
+          console.log('[BecomeCoach] Switching to coach mode...');
+          await switchToCoachMode();
+        }
+        
+        // Navigate directly to coach dashboard
+        console.log('[BecomeCoach] Navigating to coach dashboard...');
+        onNavigate?.('coach-dashboard');
+      } else {
+        Alert.alert(
+          '🎉 Welcome, Coach!', 
+          'Congratulations! You\'re now a certified health coach. Your coach dashboard is ready!',
+          [
+            {
+              text: '🚀 Go to Coach Dashboard',
+              onPress: async () => {
+                console.log('[BecomeCoach] New coach - activating coach mode and navigating...');
+                
+                // Refresh the coach status first
+                if (refreshCoachStatus) {
+                  console.log('[BecomeCoach] Refreshing coach status...');
+                  await refreshCoachStatus();
+                }
+                
+                // Switch to coach mode
+                if (switchToCoachMode) {
+                  console.log('[BecomeCoach] Switching to coach mode...');
+                  await switchToCoachMode();
+                }
+                
+                // Navigate directly to coach dashboard
+                console.log('[BecomeCoach] Navigating to coach dashboard...');
+                onNavigate?.('coach-dashboard');
+              }
+            }
+          ],
+          { cancelable: false }
+        );
+      }
+    } catch (error) {
       console.error('Error becoming coach:', error);
-      Alert.alert('Error', error.message || 'Failed to submit application');
+      if (typeof window !== 'undefined' && window.alert) {
+        window.alert('Failed to become a coach. Please try again.');
+      } else {
+        Alert.alert('Error', 'Failed to become a coach. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <BackgroundDecorations />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading your profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -83,126 +295,141 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
         <TouchableOpacity onPress={() => onNavigate?.('coach-selection')} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Become a Coach</Text>
+        <Text style={styles.headerTitle}>Coach Qualification</Text>
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.heroSection}>
           <View style={styles.heroIcon}>
-            <MaterialIcons name="workspace-premium" size={48} color={colors.primary} />
+            <MaterialIcons name="school" size={48} color={colors.primary} />
           </View>
-          <Text style={styles.heroTitle}>Share Your Expertise</Text>
+          <Text style={styles.heroTitle}>Coach Qualification Check</Text>
           <Text style={styles.heroText}>
-            Help others achieve their health goals while building a rewarding coaching practice
+            Let's ensure you're ready to inspire and guide others on their health journey
           </Text>
         </View>
 
+        {/* Profile Status Card */}
+        <View style={styles.statusCard}>
+          <View style={styles.statusHeader}>
+            <MaterialIcons 
+              name={isProfileComplete ? "verified" : "warning"} 
+              size={24} 
+              color={isProfileComplete ? colors.success : colors.warning} 
+            />
+            <Text style={[styles.statusTitle, { color: isProfileComplete ? colors.success : colors.warning }]}>
+              Profile {isProfileComplete ? 'Complete' : 'Incomplete'}
+            </Text>
+          </View>
+          
+          {/* Requirements List */}
+          <View style={styles.requirementsList}>
+            <View style={styles.requirementItem}>
+              <MaterialIcons 
+                name={profile?.full_name ? "check-circle" : "radio-button-unchecked"} 
+                size={20} 
+                color={profile?.full_name ? colors.success : colors.textSecondary} 
+              />
+              <Text style={[styles.requirementText, profile?.full_name && styles.requirementCompleted]}>
+                Full Name: {profile?.full_name || 'Not set'}
+              </Text>
+            </View>
+            
+            <View style={styles.requirementItem}>
+              <MaterialIcons 
+                name={profile?.bio ? "check-circle" : "radio-button-unchecked"} 
+                size={20} 
+                color={profile?.bio ? colors.success : colors.textSecondary} 
+              />
+              <Text style={[styles.requirementText, profile?.bio && styles.requirementCompleted]}>
+                Bio/About: {profile?.bio ? 'Complete' : 'Missing'}
+              </Text>
+            </View>
+            
+            <View style={styles.requirementItem}>
+              <MaterialIcons 
+                name={profile?.fitness_level ? "check-circle" : "radio-button-unchecked"} 
+                size={20} 
+                color={profile?.fitness_level ? colors.success : colors.textSecondary} 
+              />
+              <Text style={[styles.requirementText, profile?.fitness_level && styles.requirementCompleted]}>
+                Fitness Level: {profile?.fitness_level || 'Not set'}
+              </Text>
+            </View>
+          </View>
+
+          {!isProfileComplete && (
+            <TouchableOpacity 
+              style={styles.profileButton}
+              onPress={() => onNavigate?.('profile')}
+            >
+              <MaterialIcons name="edit" size={20} color={colors.primary} />
+              <Text style={styles.profileButtonText}>Complete Profile</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Coach Benefits */}
         <View style={styles.benefitsSection}>
-          <Text style={styles.sectionTitle}>Coach Benefits</Text>
+          <Text style={styles.sectionTitle}>What You'll Get as a Coach</Text>
           {[
-            'Connect with motivated clients',
-            'Flexible coaching schedule',
-            'Track client progress',
+            'Track client progress & goals',
             'Secure messaging platform',
+            'Flexible coaching schedule',
             'Make a real difference',
+            'Build meaningful connections'
           ].map((benefit, index) => (
             <View key={index} style={styles.benefitItem}>
-              <MaterialIcons name="check-circle" size={20} color={colors.primary} />
+              <MaterialIcons name="check-circle" size={20} color={colors.success} />
               <Text style={styles.benefitText}>{benefit}</Text>
             </View>
           ))}
         </View>
 
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Application Form</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              Full Name <Text style={styles.required}>*</Text>
+        <View style={styles.responsibilitiesSection}>
+          <Text style={styles.sectionTitle}>Coach Responsibilities</Text>
+          <View style={styles.responsibilityCard}>
+            <Text style={styles.responsibilityText}>
+              • Provide supportive and professional guidance{'\n'}
+              • Respect client privacy and boundaries{'\n'}
+              • Maintain regular communication{'\n'}
+              • Stay updated with best practices{'\n'}
+              • Encourage and motivate clients
             </Text>
-            <TextInput
-              style={styles.input}
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Enter your full name"
-              placeholderTextColor={colors.textSecondary}
-            />
           </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              Email <Text style={styles.required}>*</Text>
-            </Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="your.email@example.com"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              Specialization <Text style={styles.required}>*</Text>
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.specializationScroll}
-            >
-              {specializations.map((spec) => (
-                <TouchableOpacity
-                  key={spec}
-                  style={[
-                    styles.specializationChip,
-                    specialization === spec && styles.specializationChipActive,
-                  ]}
-                  onPress={() => setSpecialization(spec)}
-                >
-                  <Text
-                    style={[
-                      styles.specializationChipText,
-                      specialization === spec && styles.specializationChipTextActive,
-                    ]}
-                  >
-                    {spec}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Bio</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={bio}
-              onChangeText={setBio}
-              placeholder="Tell us about your experience and coaching philosophy..."
-              placeholderTextColor={colors.textSecondary}
-              multiline
-              numberOfLines={4}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
-            onPress={handleSubmit}
-            disabled={submitting}
-          >
-            {submitting ? (
-              <ActivityIndicator color={colors.textLight} />
-            ) : (
-              <>
-                <Text style={styles.submitButtonText}>Submit Application</Text>
-                <MaterialIcons name="arrow-forward" size={20} color={colors.textLight} />
-              </>
-            )}
-          </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          style={[
+            styles.submitButton, 
+            !isProfileComplete && styles.submitButtonDisabled
+          ]}
+          onPress={handleBecomeCoach}
+          disabled={!isProfileComplete || submitting}
+        >
+          {submitting ? (
+            <ActivityIndicator size="small" color={colors.textLight} />
+          ) : (
+            <LinearGradient
+              colors={isProfileComplete ? [colors.primary, colors.primaryDark] : [colors.textSecondary, colors.textSecondary]}
+              style={styles.buttonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <MaterialIcons 
+                name={isProfileComplete ? "local-fire-department" : "warning"} 
+                size={20} 
+                color={colors.textLight} 
+              />
+              <Text style={styles.submitButtonText}>
+                {isProfileComplete ? "Become a Coach" : "Complete Profile First"}
+              </Text>
+              {isProfileComplete && (
+                <MaterialIcons name="arrow-forward" size={20} color={colors.textLight} />
+              )}
+            </LinearGradient>
+          )}
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -212,6 +439,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: spacing.md,
+    fontSize: fontSizes.md,
+    color: colors.textSecondary,
   },
   header: {
     flexDirection: 'row',
@@ -366,5 +603,79 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textLight,
     fontFamily: 'Quicksand_600SemiBold',
+  },
+  statusCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.sm,
+  },
+  statusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  statusTitle: {
+    fontSize: fontSizes.lg,
+    fontWeight: 'bold',
+    marginLeft: spacing.sm,
+    fontFamily: 'Quicksand_700Bold',
+  },
+  requirementsList: {
+    gap: spacing.sm,
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  requirementText: {
+    fontSize: fontSizes.md,
+    color: colors.textSecondary,
+    marginLeft: spacing.sm,
+    flex: 1,
+  },
+  requirementCompleted: {
+    color: colors.success,
+    fontWeight: '600',
+  },
+  profileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryPale,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+  },
+  profileButtonText: {
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+    color: colors.primary,
+    marginLeft: spacing.xs,
+  },
+  responsibilitiesSection: {
+    marginBottom: spacing.xl,
+  },
+  responsibilityCard: {
+    backgroundColor: colors.primaryPale,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  responsibilityText: {
+    fontSize: fontSizes.md,
+    color: colors.textPrimary,
+    lineHeight: 22,
+  },
+  buttonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xs,
   },
 });

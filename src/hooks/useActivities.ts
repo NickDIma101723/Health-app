@@ -121,12 +121,7 @@ export const useActivities = () => {
 
       if (insertError) throw insertError;
       
-      setActivities(prev => [...prev, data].sort((a, b) => {
-        const dateCompare = a.date.localeCompare(b.date);
-        if (dateCompare !== 0) return dateCompare;
-        return a.time.localeCompare(b.time);
-      }));
-      
+      // Don't manually update state here - the real-time subscription will handle it
       return { data, error: null };
     } catch (err: any) {
       console.error('Failed to add activity:', err);
@@ -148,8 +143,7 @@ export const useActivities = () => {
 
       if (updateError) throw updateError;
       
-      setActivities(prev => prev.map(a => a.id === id ? data : a));
-      
+      // Don't manually update state here - the real-time subscription will handle it
       return { data, error: null };
     } catch (err: any) {
       console.error('Failed to update activity:', err);
@@ -169,8 +163,7 @@ export const useActivities = () => {
 
       if (deleteError) throw deleteError;
       
-      setActivities(prev => prev.filter(a => a.id !== id));
-      
+      // Don't manually update state here - the real-time subscription will handle it
       return { error: null };
     } catch (err: any) {
       console.error('Failed to delete activity:', err);
@@ -269,11 +262,18 @@ export const useActivities = () => {
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setActivities(prev => [...prev, payload.new as Activity].sort((a, b) => {
-              const dateCompare = a.date.localeCompare(b.date);
-              if (dateCompare !== 0) return dateCompare;
-              return a.time.localeCompare(b.time);
-            }));
+            setActivities(prev => {
+              // Check if activity already exists to prevent duplicates
+              const newActivity = payload.new as Activity;
+              const exists = prev.some(a => a.id === newActivity.id);
+              if (exists) return prev;
+              
+              return [...prev, newActivity].sort((a, b) => {
+                const dateCompare = a.date.localeCompare(b.date);
+                if (dateCompare !== 0) return dateCompare;
+                return a.time.localeCompare(b.time);
+              });
+            });
           } else if (payload.eventType === 'UPDATE') {
             setActivities(prev => prev.map(a => a.id === payload.new.id ? payload.new as Activity : a));
           } else if (payload.eventType === 'DELETE') {

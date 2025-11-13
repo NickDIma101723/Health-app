@@ -37,7 +37,7 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
     Animated.timing(animatedValue, {
       toValue: percentage,
       duration: 1000,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   }, [percentage]);
 

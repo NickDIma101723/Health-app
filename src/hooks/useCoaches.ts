@@ -147,12 +147,14 @@ export const useCoaches = () => {
         }
       }
 
-      // Then check database
+      // Then check database - get most recent assignment
       const { data: assignment } = await supabase
         .from('coach_client_assignments')
         .select('coach_id, assigned_at')
         .eq('client_user_id', user.id)
         .eq('is_active', true)
+        .order('assigned_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (assignment) {
@@ -208,6 +210,88 @@ export const useCoaches = () => {
     }
   };
 
+  const fetchAllMyCoaches = async () => {
+    if (!user) return [];
+
+    try {
+      console.log('🔍 [useCoaches] Fetching all coaches for user:', user.id);
+      
+      // Get all active assignments for this client
+      const { data: assignments, error } = await supabase
+        .from('coach_client_assignments')
+        .select('coach_id, assigned_at')
+        .eq('client_user_id', user.id)
+        .eq('is_active', true)
+        .order('assigned_at', { ascending: false });
+
+      console.log('🔍 [useCoaches] Coach assignments query result:', { assignments, error });
+
+      if (error || !assignments) {
+        console.log('🔍 [useCoaches] No assignments found or error occurred');
+        return [];
+      }
+
+      // Get coach details for each assignment
+      const coachIds = assignments.map(a => a.coach_id);
+      console.log('🔍 [useCoaches] Coach IDs to fetch:', coachIds);
+      
+      const { data: coachesData, error: coachesError } = await supabase
+        .from('coaches')
+        .select('*')
+        .in('id', coachIds)
+        .eq('is_active', true);
+
+      console.log('🔍 [useCoaches] Coaches data query result:', { coachesData, coachesError });
+
+      if (coachesError || !coachesData) {
+        console.log('🔍 [useCoaches] No coaches data found or error occurred');
+        return [];
+      }
+
+      // Combine with assignment info
+      const result = coachesData.map(coach => {
+        const assignment = assignments.find(a => a.coach_id === coach.id);
+        return {
+          ...coach,
+          isAssigned: true,
+          assignedAt: assignment?.assigned_at || new Date().toISOString(),
+        };
+      });
+
+      console.log('🔍 [useCoaches] Final coaches result:', result);
+      return result;
+    } catch (err) {
+      console.error('Error fetching all coaches:', err);
+      return [];
+    }
+  };
+
+  const removeCoach = async (coachId: string) => {
+    if (!user) return { error: 'No user logged in' };
+
+    try {
+      // Deactivate the specific assignment
+      const { error } = await supabase
+        .from('coach_client_assignments')
+        .update({ is_active: false })
+        .eq('client_user_id', user.id)
+        .eq('coach_id', coachId)
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      // If this was the current "myCoach", update to the next most recent one
+      if (myCoach && myCoach.id === coachId) {
+        await fetchMyCoach();
+      }
+
+      return { error: null };
+    } catch (err: any) {
+      console.error('Error removing coach:', err);
+      return { error: err.message || 'Failed to remove coach' };
+    }
+  };
+
   const assignCoach = async (coachId: string) => {
     if (!user) {
       return { error: 'No user logged in' };
@@ -221,21 +305,40 @@ export const useCoaches = () => {
 
       // Try database assignment first
       try {
-        // Deactivate existing assignments
-        await supabase
+        // Check if assignment already exists
+        const { data: existingAssignment } = await supabase
           .from('coach_client_assignments')
-          .update({ is_active: false })
+          .select('*')
           .eq('client_user_id', user.id)
-          .eq('is_active', true);
+          .eq('coach_id', coachId)
+          .eq('is_active', true)
+          .single();
 
-        // Create new assignment
-        await supabase
-          .from('coach_client_assignments')
-          .insert({
+        if (existingAssignment) {
+          // Assignment already exists and is active - no need to do anything
+          console.log('🔍 [assignCoach] Coach already assigned to this client');
+        } else {
+          // Create new assignment (keeping all existing coaches)
+          console.log('🔍 [assignCoach] Creating new assignment:', {
             client_user_id: user.id,
-            coach_id: coachId,
-            is_active: true,
+            coach_id: coachId
           });
+          
+          const { data: insertData, error: insertError } = await supabase
+            .from('coach_client_assignments')
+            .insert({
+              client_user_id: user.id,
+              coach_id: coachId,
+              is_active: true,
+              assigned_at: new Date().toISOString(),
+              notes: 'Coach assigned by client',
+            })
+            .select();
+
+          console.log('🔍 [assignCoach] Insert result:', { insertData, insertError });
+          
+          if (insertError) throw insertError;
+        }
       } catch (dbError) {
         console.log('[useCoaches] Database assignment failed, using local storage');
       }
@@ -277,6 +380,8 @@ export const useCoaches = () => {
     error,
     fetchCoaches,
     fetchMyCoach,
+    fetchAllMyCoaches,
     assignCoach,
+    removeCoach,
   };
 };

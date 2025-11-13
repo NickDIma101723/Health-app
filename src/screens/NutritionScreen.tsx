@@ -128,13 +128,13 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 600,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.spring(slideAnim, {
         toValue: 0,
         tension: 40,
         friction: 8,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, []);
@@ -148,7 +148,7 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
       Animated.timing(modalSlideAnim, {
         toValue: 0,
         duration: 300,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }).start();
     } else {
       modalSlideAnim.setValue(300);
@@ -268,8 +268,7 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
             strokeDasharray={circumference}
             strokeDashoffset={progressOffset}
             strokeLinecap="round"
-            rotation="-90"
-            origin={`${CIRCLE_SIZE / 2}, ${CIRCLE_SIZE / 2}`}
+            transform={`rotate(-90 ${CIRCLE_SIZE / 2} ${CIRCLE_SIZE / 2})`}
           />
         </Svg>
         <View style={styles.calorieCenter}>
@@ -303,6 +302,8 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
   };
 
   const renderWaterTracker = () => {
+    const todayWaterIntakes = waterIntakes.filter(intake => intake.date === selectedDate);
+    
     return (
       <View style={styles.waterTracker}>
         <View style={styles.waterHeader}>
@@ -337,6 +338,40 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
             </View>
           ))}
         </View>
+
+        {todayWaterIntakes.length > 0 && (
+          <View style={styles.waterIntakesList}>
+            <Text style={styles.waterIntakesTitle}>Today's Water Intake</Text>
+            {todayWaterIntakes.map(intake => (
+              <View key={intake.id} style={styles.waterIntakeItem}>
+                <View style={styles.waterIntakeInfo}>
+                  <MaterialIcons name="local-drink" size={20} color={colors.teal} />
+                  <Text style={styles.waterIntakeAmount}>{intake.amount}ml</Text>
+                  <Text style={styles.waterIntakeTime}>{intake.time}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.deleteWaterButton}
+                  onPress={() => {
+                    Alert.alert(
+                      'Remove Water Intake',
+                      `Remove ${intake.amount}ml water entry?`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Remove',
+                          style: 'destructive',
+                          onPress: () => deleteWaterIntake(intake.id),
+                        },
+                      ]
+                    );
+                  }}
+                >
+                  <MaterialIcons name="close" size={18} color={colors.error} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
 
         <View style={styles.waterProgress}>
           <Text style={styles.waterProgressText}>
@@ -1310,6 +1345,50 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     fontFamily: 'Poppins_700Bold',
     color: colors.teal,
+  },
+  waterIntakesList: {
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+  },
+  waterIntakesTitle: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  waterIntakeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.xs,
+  },
+  waterIntakeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: spacing.sm,
+  },
+  waterIntakeAmount: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: colors.teal,
+  },
+  waterIntakeTime: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+  },
+  deleteWaterButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.error + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   mealsSection: {
     marginBottom: spacing.lg,

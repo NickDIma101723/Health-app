@@ -111,13 +111,13 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 600,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.spring(slideAnim, {
         toValue: 0,
         tension: 40,
         friction: 8,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, []);
@@ -231,7 +231,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
             styles.dayDate,
             isSelected && styles.dayDateSelected,
           ]}>
-            {day.date}
+            {day.dayName}
           </Text>
           <Text style={[
             styles.dayNum,
@@ -319,7 +319,18 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
       <View style={styles.header}>
         <View>
           <Text style={styles.headerSubtitle}>Your Schedule</Text>
-          <Text style={styles.headerTitle}>October 2025</Text>
+          <Text style={styles.headerTitle}>
+            {weekDays.length > 0 
+              ? new Date(weekDays[0].year, weekDays[0].month).toLocaleDateString('en-US', { 
+                  month: 'long', 
+                  year: 'numeric' 
+                })
+              : new Date().toLocaleDateString('en-US', { 
+                  month: 'long', 
+                  year: 'numeric' 
+                })
+            }
+          </Text>
         </View>
         <TouchableOpacity 
           style={styles.settingsButton}

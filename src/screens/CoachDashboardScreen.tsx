@@ -15,6 +15,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { BackgroundDecorations, CoachBottomNavigation } from '../components';
 import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
+import { useCoachRequests } from '../hooks/useCoachRequests';
 import { supabase } from '../lib/supabase';
 
 interface CoachDashboardScreenProps {
@@ -34,8 +35,9 @@ interface ClientData {
 }
 
 export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNavigate }) => {
-  const { user, coachData, signOut } = useAuth();
-  const [clients, setClients] = useState<ClientData[]>([]);
+  const { user, signOut, coachData } = useAuth();
+  const { getPendingRequestsCount, loadCoachRequests } = useCoachRequests();
+  const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({
@@ -47,6 +49,7 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
   useEffect(() => {
     if (coachData) {
       loadClients();
+      loadCoachRequests(); // Load pending requests
     }
   }, [coachData]);
 
@@ -240,12 +243,25 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>My Clients</Text>
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={handleAssignClient}
-          >
-            <MaterialIcons name="person-add" size={20} color={colors.primary} />
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity 
+              style={styles.requestsButton}
+              onPress={() => onNavigate?.('coach-requests')}
+            >
+              <MaterialIcons name="inbox" size={20} color={colors.primary} />
+              {getPendingRequestsCount() > 0 && (
+                <View style={styles.requestsBadge}>
+                  <Text style={styles.requestsBadgeText}>{getPendingRequestsCount()}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.addButton}
+              onPress={handleAssignClient}
+            >
+              <MaterialIcons name="person-add" size={20} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {clients.length === 0 ? (
@@ -415,6 +431,41 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     fontFamily: 'Quicksand_600SemiBold',
     color: colors.primary,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+
+  requestsButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary,
+    position: 'relative',
+  },
+  requestsBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: colors.error,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  requestsBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textLight,
+    fontFamily: 'Poppins_700Bold',
   },
   addButton: {
     width: 36,

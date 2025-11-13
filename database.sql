@@ -70,6 +70,23 @@ CREATE TABLE public.coach_client_assignments (
   CONSTRAINT coach_client_assignments_client_user_id_fkey FOREIGN KEY (client_user_id) REFERENCES auth.users(id),
   CONSTRAINT coach_client_assignments_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES auth.users(id)
 );
+CREATE TABLE public.coach_requests (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_user_id uuid NOT NULL,
+  coach_id uuid NOT NULL,
+  status text DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'accepted'::text, 'rejected'::text])),
+  message text,
+  requested_at timestamp with time zone NOT NULL DEFAULT now(),
+  responded_at timestamp with time zone,
+  responded_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT coach_requests_pkey PRIMARY KEY (id),
+  CONSTRAINT coach_requests_client_user_id_fkey FOREIGN KEY (client_user_id) REFERENCES auth.users(id),
+  CONSTRAINT coach_requests_coach_id_fkey FOREIGN KEY (coach_id) REFERENCES public.coaches(id),
+  CONSTRAINT coach_requests_responded_by_fkey FOREIGN KEY (responded_by) REFERENCES auth.users(id),
+  CONSTRAINT coach_requests_unique_pending UNIQUE (client_user_id, coach_id, status)
+);
 CREATE TABLE public.coach_notes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   coach_id uuid NOT NULL,
@@ -224,6 +241,7 @@ CREATE TABLE public.profiles (
   bio text,
   fitness_level text DEFAULT 'beginner'::text CHECK (fitness_level = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text])),
   goals text,
+  avatar_url text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
@@ -308,5 +326,68 @@ INSERT INTO public.coaches (id, user_id, full_name, email, specialization, bio, 
   ('30000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000003', 'Dr. Emily Rodriguez', 'emily.rodriguez@healthcoach.com', 'Mental Health', 'Licensed psychologist specializing in stress management, mindfulness, and cognitive behavioral therapy. Passionate about holistic wellness.', true),
   ('40000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000004', 'David Kim', 'david.kim@healthcoach.com', 'Weight Loss', 'Weight loss specialist who lost 100lbs himself. Expert in sustainable lifestyle changes, portion control, and motivation coaching.', true),
   ('50000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000005', 'Jessica Martinez', 'jessica.martinez@healthcoach.com', 'Sports', 'Former Olympic athlete turned performance coach. Specializes in athletic training, sports nutrition, and competition preparation.', true),
-  ('60000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000006', 'Robert Taylor', 'robert.taylor@healthcoach.com', 'General', 'Holistic health coach focusing on overall wellness, lifestyle medicine, and preventive health. 15 years in the wellness industry.', true)
+  ('60000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000006', 'Robert Taylor', 'robert.taylor@healthcoach.com', 'General', 'Holistic health coach focusing on overall wellness, lifestyle medicine, and preventive health. 15 years in the wellness industry.', true);
+
+-- Function to delete a user account completely
+-- This function can delete from auth.users table because it runs with elevated privileges
+CREATE OR REPLACE FUNCTION delete_user_account()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  user_uuid uuid;
+BEGIN
+  -- Get the current user's ID
+  user_uuid := auth.uid();
+  
+  -- Ensure user is authenticated
+  IF user_uuid IS NULL THEN
+    RAISE EXCEPTION 'User not authenticated';
+  END IF;
+  
+  -- Delete from auth.users table (this requires SECURITY DEFINER)
+  DELETE FROM auth.users WHERE id = user_uuid;
+  
+  -- Note: All related data in app tables should be deleted by foreign key constraints
+  -- or by the application before calling this function
+END;
+$$;
+
+-- Workout Plans table for coach-created workout programs
+CREATE TABLE public.workout_plans (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  coach_id uuid NOT NULL,
+  client_id uuid,
+  name text NOT NULL,
+  description text,
+  workout_days jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  is_active boolean DEFAULT true,
+  CONSTRAINT workout_plans_pkey PRIMARY KEY (id),
+  CONSTRAINT workout_plans_coach_id_fkey FOREIGN KEY (coach_id) REFERENCES public.coaches(id),
+  CONSTRAINT workout_plans_client_id_fkey FOREIGN KEY (client_id) REFERENCES auth.users(id)
+);
+
+-- Nutrition Plans table for coach-created meal plans
+CREATE TABLE public.nutrition_plans (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  coach_id uuid NOT NULL,
+  client_id uuid,
+  name text NOT NULL,
+  description text,
+  target_calories integer DEFAULT 2000,
+  target_protein integer DEFAULT 150,
+  target_carbs integer DEFAULT 200,
+  target_fats integer DEFAULT 65,
+  meal_plans jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  is_active boolean DEFAULT true,
+  CONSTRAINT nutrition_plans_pkey PRIMARY KEY (id),
+  CONSTRAINT nutrition_plans_coach_id_fkey FOREIGN KEY (coach_id) REFERENCES public.coaches(id),
+  CONSTRAINT nutrition_plans_client_id_fkey FOREIGN KEY (client_id) REFERENCES auth.users(id)
+);
+
 ON CONFLICT (id) DO NOTHING;
