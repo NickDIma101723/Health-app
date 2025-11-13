@@ -23,13 +23,14 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
   const { 
     requests, 
     loading, 
+    error,
+    processingRequests,
     acceptRequest, 
     rejectRequest, 
     loadCoachRequests,
     getPendingRequestsCount 
   } = useCoachRequests();
   
-  const [processing, setProcessing] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -54,83 +55,125 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
   const handleAcceptRequest = async (requestId: string, clientName: string) => {
     console.log('[CoachRequestsScreen] 🟢 Accept button pressed for:', { requestId, clientName });
     
-    // For web compatibility, let's directly process the request
-    console.log('[CoachRequestsScreen] 🟢 Processing accept request directly...');
-    setProcessing(requestId);
-    
-    try {
-      const result = await acceptRequest(requestId);
-      console.log('[CoachRequestsScreen] 🟢 Accept result:', result);
-      
-      if (result.error) {
-        console.error('[CoachRequestsScreen] 🟢 Accept failed:', result.error);
-        Alert.alert('Error', result.error);
-      } else {
-        console.log('[CoachRequestsScreen] 🟢 Accept succeeded! Client is now assigned.');
-        Alert.alert(
-          'Success!',
-          `${clientName} is now your client. You can start chatting with them and manage their progress.`,
-          [
-            { 
-              text: 'View Clients',
-              onPress: () => {
-                console.log('[CoachRequestsScreen] 🟢 Navigating to manage clients');
-                onNavigate?.('assign-client');
+    // Show confirmation dialog
+    Alert.alert(
+      'Accept Coaching Request',
+      `Are you sure you want to accept ${clientName}'s coaching request? This will add them as your client and they will be able to message you.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Accept',
+          style: 'default',
+          onPress: async () => {
+            console.log('[CoachRequestsScreen] 🟢 Processing accept request...');
+            
+            try {
+              const result = await acceptRequest(requestId);
+              console.log('[CoachRequestsScreen] 🟢 Accept result:', result);
+              
+              if (result.error) {
+                console.error('[CoachRequestsScreen] 🟢 Accept failed:', result.error);
+                Alert.alert(
+                  'Failed to Accept Request',
+                  result.error,
+                  [
+                    { text: 'Try Again', onPress: () => handleAcceptRequest(requestId, clientName) },
+                    { text: 'Cancel', style: 'cancel' }
+                  ]
+                );
+              } else {
+                console.log('[CoachRequestsScreen] 🟢 Accept succeeded! Client is now assigned.');
+                Alert.alert(
+                  'Request Accepted! 🎉',
+                  `${clientName} is now your client. You can start chatting with them and managing their progress.`,
+                  [
+                    { 
+                      text: 'View Clients',
+                      onPress: () => {
+                        console.log('[CoachRequestsScreen] 🟢 Navigating to manage clients');
+                        onNavigate?.('assign-client');
+                      }
+                    },
+                    { 
+                      text: 'Go to Chat',
+                      onPress: () => {
+                        console.log('[CoachRequestsScreen] 🟢 Navigating to chat list');
+                        onNavigate?.('chat');
+                      }
+                    },
+                    { text: 'OK', style: 'default' }
+                  ]
+                );
               }
-            },
-            { 
-              text: 'Go to Chat',
-              onPress: () => {
-                console.log('[CoachRequestsScreen] 🟢 Navigating to chat list');
-                onNavigate?.('chat');
-              }
+            } catch (error) {
+              console.error('[CoachRequestsScreen] 🟢 Accept exception:', error);
+              Alert.alert(
+                'Unexpected Error',
+                'An unexpected error occurred. Please try again.',
+                [
+                  { text: 'Try Again', onPress: () => handleAcceptRequest(requestId, clientName) },
+                  { text: 'Cancel', style: 'cancel' }
+                ]
+              );
             }
-          ]
-        );
-      }
-    } catch (error) {
-      console.error('[CoachRequestsScreen] 🟢 Accept exception:', error);
-      Alert.alert('Error', 'An unexpected error occurred');
-    } finally {
-      setProcessing(null);
-    }
+          }
+        }
+      ]
+    );
   };
 
   const handleRejectRequest = async (requestId: string, clientName: string) => {
     console.log('[CoachRequestsScreen] 🔴 Decline button pressed for:', { requestId, clientName });
     
-    // For web compatibility, let's directly process the request  
-    console.log('[CoachRequestsScreen] 🔴 Processing decline request directly...');
-    setProcessing(requestId);
-    
-    try {
-      const result = await rejectRequest(requestId);
-      console.log('[CoachRequestsScreen] 🔴 Decline result:', result);
-      
-      if (result.error) {
-        console.error('[CoachRequestsScreen] 🔴 Decline failed:', result.error);
-        Alert.alert('Error', result.error);
-      } else {
-        console.log('[CoachRequestsScreen] 🔴 Decline succeeded!');
-        Alert.alert(
-          'Request Declined', 
-          `${clientName}'s request has been declined.`,
-          [{ 
-            text: 'OK',
-            onPress: () => {
-              console.log('[CoachRequestsScreen] 🔴 Decline alert dismissed');
-              // Refresh the requests list
-              loadCoachRequests();
+    // Show confirmation dialog
+    Alert.alert(
+      'Decline Coaching Request',
+      `Are you sure you want to decline ${clientName}'s coaching request? They will be notified of your decision.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Decline',
+          style: 'destructive',
+          onPress: async () => {
+            console.log('[CoachRequestsScreen] 🔴 Processing decline request...');
+            
+            try {
+              const result = await rejectRequest(requestId);
+              console.log('[CoachRequestsScreen] 🔴 Decline result:', result);
+              
+              if (result.error) {
+                console.error('[CoachRequestsScreen] 🔴 Decline failed:', result.error);
+                Alert.alert(
+                  'Failed to Decline Request',
+                  result.error,
+                  [
+                    { text: 'Try Again', onPress: () => handleRejectRequest(requestId, clientName) },
+                    { text: 'Cancel', style: 'cancel' }
+                  ]
+                );
+              } else {
+                console.log('[CoachRequestsScreen] 🔴 Decline succeeded!');
+                Alert.alert(
+                  'Request Declined',
+                  `${clientName}'s request has been declined. They have been notified.`,
+                  [{ text: 'OK', style: 'default' }]
+                );
+              }
+            } catch (error) {
+              console.error('[CoachRequestsScreen] 🔴 Decline exception:', error);
+              Alert.alert(
+                'Unexpected Error',
+                'An unexpected error occurred. Please try again.',
+                [
+                  { text: 'Try Again', onPress: () => handleRejectRequest(requestId, clientName) },
+                  { text: 'Cancel', style: 'cancel' }
+                ]
+              );
             }
-          }]
-        );
-      }
-    } catch (error) {
-      console.error('[CoachRequestsScreen] 🔴 Decline exception:', error);
-      Alert.alert('Error', 'An unexpected error occurred');
-    } finally {
-      setProcessing(null);
-    }
+          }
+        }
+      ]
+    );
   };
 
   const pendingRequests = requests.filter(req => req.status === 'pending');
@@ -201,11 +244,11 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
       {isPending && (
         <View style={styles.actionButtons}>
           <TouchableOpacity
-            style={[styles.actionButton, styles.rejectButton]}
+            style={[styles.actionButton, styles.rejectButton, processingRequests.has(request.id) && styles.disabledButton]}
             onPress={() => handleRejectRequest(request.id, request.client_profile?.full_name || 'Client')}
-            disabled={processing === request.id}
+            disabled={processingRequests.has(request.id)}
           >
-            {processing === request.id ? (
+            {processingRequests.has(request.id) ? (
               <ActivityIndicator size="small" color={colors.error} />
             ) : (
               <>
@@ -216,11 +259,11 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={[styles.actionButton, styles.acceptButton]}
+            style={[styles.actionButton, styles.acceptButton, processingRequests.has(request.id) && styles.disabledButton]}
             onPress={() => handleAcceptRequest(request.id, request.client_profile?.full_name || 'Client')}
-            disabled={processing === request.id}
+            disabled={processingRequests.has(request.id)}
           >
-            {processing === request.id ? (
+            {processingRequests.has(request.id) ? (
               <ActivityIndicator size="small" color={colors.textLight} />
             ) : (
               <>
@@ -276,6 +319,15 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
         }
         showsVerticalScrollIndicator={false}
       >
+        {error && (
+          <View style={styles.errorContainer}>
+            <MaterialIcons name="error-outline" size={20} color={colors.error} />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {loading && !refreshing ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -378,6 +430,34 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: spacing.lg,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.error + '20',
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.error + '40',
+  },
+  errorText: {
+    flex: 1,
+    fontSize: fontSizes.sm,
+    color: colors.error,
+    fontFamily: 'Quicksand_500Medium',
+    marginLeft: spacing.sm,
+  },
+  retryButton: {
+    backgroundColor: colors.error,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  retryButtonText: {
+    fontSize: fontSizes.xs,
+    color: colors.textLight,
+    fontFamily: 'Quicksand_600SemiBold',
   },
   loadingContainer: {
     flex: 1,
@@ -534,6 +614,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: borderRadius.md,
     gap: spacing.xs,
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   acceptButton: {
     backgroundColor: colors.primary,

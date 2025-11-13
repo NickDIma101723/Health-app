@@ -32,6 +32,35 @@ export const useCoachRequests = () => {
   const [requests, setRequests] = useState<CoachRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [processingRequests, setProcessingRequests] = useState<Set<string>>(new Set());
+
+  // Retry configuration
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 1000; // 1 second
+
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const retryOperation = async <T>(
+    operation: () => Promise<T>,
+    operationName: string,
+    retries = MAX_RETRIES
+  ): Promise<T> => {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        console.warn(`[${operationName}] Attempt ${i + 1} failed:`, error.message);
+        
+        if (i === retries) {
+          throw error;
+        }
+        
+        // Wait before retrying (exponential backoff)
+        await sleep(RETRY_DELAY * Math.pow(2, i));
+      }
+    }
+    throw new Error(`${operationName} failed after ${retries + 1} attempts`);
+  };
 
   // Load requests for current coach
   const loadCoachRequests = async () => {
@@ -186,72 +215,113 @@ export const useCoachRequests = () => {
     }
   };
 
-  // Send a coach request from client
+  // Send a coach request from client with better validation
   const sendCoachRequest = async (coachId: string, message?: string) => {
-    if (!user) return { error: 'No user logged in' };
+    if (!user) {
+      return { error: 'You must be logged in to send a request' };
+    }
+
+    if (!coachId) {
+      return { error: 'Coach ID is required' };
+    }
+
+    // Validate message length if provided
+    if (message && message.length > 500) {
+      return { error: 'Message must be less than 500 characters' };
+    }
 
     try {
       console.log('Sending coach request:', { client_user_id: user.id, coach_id: coachId, message });
 
-      // Check if request already exists
-      const { data: existingRequest } = await supabase
-        .from('coach_requests')
-        .select('*')
-        .eq('client_user_id', user.id)
-        .eq('coach_id', coachId)
-        .eq('status', 'pending')
-        .single();
+      // Check if request already exists with retry
+      const existingRequest = await retryOperation(async () => {
+        const { data, error } = await supabase
+          .from('coach_requests')
+          .select('*')
+          .eq('client_user_id', user.id)
+          .eq('coach_id', coachId)
+          .eq('status', 'pending')
+          .single();
+
+        if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
+          throw error;
+        }
+        return data;
+      }, 'Check Existing Request');
 
       if (existingRequest) {
         return { error: 'You already have a pending request with this coach' };
       }
 
-      const { data, error } = await supabase
-        .from('coach_requests')
-        .insert({
-          client_user_id: user.id,
-          coach_id: coachId,
-          message: message || null,
-          status: 'pending',
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      console.log('Coach request sent successfully:', data);
-
-      // Create notification for the coach (get coach's user_id first)
-      const { data: coachProfile } = await supabase
-        .from('coaches')
-        .select('user_id')
-        .eq('id', coachId)
-        .single();
-
-      if (coachProfile?.user_id) {
-        const { error: notificationError } = await supabase
-          .from('notifications')
+      // Send the request with retry
+      const requestData = await retryOperation(async () => {
+        const { data, error } = await supabase
+          .from('coach_requests')
           .insert({
-            user_id: coachProfile.user_id, // Use the coach's actual user_id
-            title: 'New Coaching Request',
-            message: `You have a new coaching request from a client`,
-            notification_type: 'message',
-            is_read: false,
-          });
+            client_user_id: user.id,
+            coach_id: coachId,
+            message: message?.trim() || null,
+            status: 'pending',
+          })
+          .select()
+          .single();
 
-        if (notificationError) {
-          console.error('Failed to create notification:', notificationError);
+        if (error) throw error;
+        return data;
+      }, 'Send Coach Request');
+
+      console.log('Coach request sent successfully:', requestData);
+
+      // Create notification for the coach with retry
+      try {
+        const coachProfile = await retryOperation(async () => {
+          const { data, error } = await supabase
+            .from('coaches')
+            .select('user_id, full_name')
+            .eq('id', coachId)
+            .single();
+
+          if (error) throw error;
+          return data;
+        }, 'Get Coach Profile');
+
+        if (coachProfile?.user_id) {
+          await retryOperation(async () => {
+            const { error: notificationError } = await supabase
+              .from('notifications')
+              .insert({
+                user_id: coachProfile.user_id,
+                title: 'New Coaching Request! 📬',
+                message: `${user.user_metadata?.full_name || 'A client'} has sent you a coaching request${message ? ' with a message' : ''}. Check your requests to respond.`,
+                notification_type: 'message',
+                is_read: false,
+              });
+
+            if (notificationError) throw notificationError;
+          }, 'Create Coach Notification');
         }
+      } catch (notificationError) {
+        // Don't fail the whole operation if notification fails
+        console.warn('Failed to create notification for coach:', notificationError);
       }
 
-      return { data, error: null };
+      return { data: requestData, error: null };
     } catch (err: any) {
       console.error('Error sending coach request:', err);
-      return { error: err.message || 'Failed to send request' };
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to send request. Please try again.';
+      if (err.message?.includes('duplicate key')) {
+        errorMessage = 'You already have a pending request with this coach';
+      } else if (err.message?.includes('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      }
+      
+      return { error: errorMessage };
     }
   };
 
-  // Accept a coach request
+  // Accept a coach request with optimistic updates
   const acceptRequest = async (requestId: string) => {
     console.log('[useCoachRequests] 🟢 acceptRequest called:', { requestId, user: !!user, coachData: !!coachData });
     
@@ -260,81 +330,91 @@ export const useCoachRequests = () => {
       return { error: 'Invalid coach data' };
     }
 
+    // Prevent multiple simultaneous operations on the same request
+    if (processingRequests.has(requestId)) {
+      console.log('[useCoachRequests] 🟢 Request already processing:', requestId);
+      return { error: 'Request is already being processed' };
+    }
+
+    setProcessingRequests(prev => new Set(prev).add(requestId));
+
+    // Optimistic update - immediately update UI
+    const originalRequests = [...requests];
+    setRequests(prev => prev.map(req => 
+      req.id === requestId 
+        ? { ...req, status: 'accepted' as const, responded_at: new Date().toISOString(), responded_by: user.id }
+        : req
+    ));
+
     try {
       console.log('[useCoachRequests] 🟢 Updating request status to accepted...');
-      // Update request status
-      const { error: updateError } = await supabase
-        .from('coach_requests')
-        .update({
-          status: 'accepted',
-          responded_at: new Date().toISOString(),
-          responded_by: user.id,
-        })
-        .eq('id', requestId);
+      
+      await retryOperation(async () => {
+        const { error: updateError } = await supabase
+          .from('coach_requests')
+          .update({
+            status: 'accepted',
+            responded_at: new Date().toISOString(),
+            responded_by: user.id,
+          })
+          .eq('id', requestId);
 
-      if (updateError) {
-        console.error('[useCoachRequests] 🟢 Update error:', updateError);
-        throw updateError;
-      }
+        if (updateError) throw updateError;
+      }, 'Accept Request Update');
+
       console.log('[useCoachRequests] 🟢 Request status updated successfully');
 
       // Get the request details
       console.log('[useCoachRequests] 🟢 Getting request details...');
-      const { data: request, error: requestError } = await supabase
-        .from('coach_requests')
-        .select('client_user_id')
-        .eq('id', requestId)
-        .single();
-
-      if (requestError) {
-        console.error('[useCoachRequests] 🟢 Request fetch error:', requestError);
-        throw requestError;
-      }
-
+      const request = requests.find(r => r.id === requestId);
       if (!request) {
-        console.error('[useCoachRequests] 🟢 Request not found');
-        throw new Error('Request not found');
+        throw new Error('Request not found in local state');
       }
       
       console.log('[useCoachRequests] 🟢 Request found:', request);
 
       // Create coach-client assignment
       console.log('[useCoachRequests] 🟢 Creating coach-client assignment...');
-      const { error: assignmentError } = await supabase
-        .from('coach_client_assignments')
-        .insert({
-          coach_id: coachData.id,
-          client_user_id: request.client_user_id,
-          is_active: true,
-          assigned_by: user.id,
-          notes: 'Assigned via coach request approval',
-        });
+      await retryOperation(async () => {
+        const { error: assignmentError } = await supabase
+          .from('coach_client_assignments')
+          .insert({
+            coach_id: coachData.id,
+            client_user_id: request.client_user_id,
+            is_active: true,
+            assigned_by: user.id,
+            notes: 'Assigned via coach request approval',
+          });
 
-      if (assignmentError) {
-        console.error('[useCoachRequests] 🟢 Assignment error:', assignmentError);
-        throw assignmentError;
-      }
+        if (assignmentError) throw assignmentError;
+      }, 'Create Assignment');
+
       console.log('[useCoachRequests] 🟢 Assignment created successfully');
 
       // Create notification for the client
       console.log('[useCoachRequests] 🟢 Creating notification...');
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: request.client_user_id,
-          title: 'Coach Request Accepted',
-          message: `Your coaching request has been accepted!`,
-          notification_type: 'message',
-          is_read: false,
-        });
+      try {
+        await retryOperation(async () => {
+          const { error: notificationError } = await supabase
+            .from('notifications')
+            .insert({
+              user_id: request.client_user_id,
+              title: 'Coach Request Accepted! 🎉',
+              message: `${coachData.full_name || 'Your coach'} has accepted your coaching request. You can now start your fitness journey together!`,
+              notification_type: 'message',
+              is_read: false,
+            });
 
-      if (notificationError) {
-        console.error('[useCoachRequests] 🟢 Notification error:', notificationError);
-      } else {
+          if (notificationError) throw notificationError;
+        }, 'Create Notification');
+        
         console.log('[useCoachRequests] 🟢 Notification created successfully');
+      } catch (notificationError) {
+        // Don't fail the whole operation if notification fails
+        console.warn('[useCoachRequests] 🟢 Notification creation failed, but request was accepted:', notificationError);
       }
 
-      // Reload requests
+      // Reload requests to get fresh data
       console.log('[useCoachRequests] 🟢 Reloading requests...');
       await loadCoachRequests();
 
@@ -343,11 +423,21 @@ export const useCoachRequests = () => {
       return { error: null, success: true };
     } catch (err: any) {
       console.error('[useCoachRequests] 🟢 Error accepting request:', err);
-      return { error: err.message || 'Failed to accept request' };
+      
+      // Revert optimistic update on failure
+      setRequests(originalRequests);
+      
+      return { error: err.message || 'Failed to accept request. Please try again.' };
+    } finally {
+      setProcessingRequests(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(requestId);
+        return newSet;
+      });
     }
   };
 
-  // Reject a coach request
+  // Reject a coach request with optimistic updates
   const rejectRequest = async (requestId: string) => {
     console.log('[useCoachRequests] 🔴 rejectRequest called:', { requestId, user: !!user });
     
@@ -356,56 +446,69 @@ export const useCoachRequests = () => {
       return { error: 'No user logged in' };
     }
 
+    // Prevent multiple simultaneous operations on the same request
+    if (processingRequests.has(requestId)) {
+      console.log('[useCoachRequests] 🔴 Request already processing:', requestId);
+      return { error: 'Request is already being processed' };
+    }
+
+    setProcessingRequests(prev => new Set(prev).add(requestId));
+
+    // Optimistic update - immediately update UI
+    const originalRequests = [...requests];
+    setRequests(prev => prev.map(req => 
+      req.id === requestId 
+        ? { ...req, status: 'rejected' as const, responded_at: new Date().toISOString(), responded_by: user.id }
+        : req
+    ));
+
     try {
       console.log('[useCoachRequests] 🔴 Updating request status to rejected...');
-      const { error } = await supabase
-        .from('coach_requests')
-        .update({
-          status: 'rejected',
-          responded_at: new Date().toISOString(),
-          responded_by: user.id,
-        })
-        .eq('id', requestId);
+      
+      await retryOperation(async () => {
+        const { error } = await supabase
+          .from('coach_requests')
+          .update({
+            status: 'rejected',
+            responded_at: new Date().toISOString(),
+            responded_by: user.id,
+          })
+          .eq('id', requestId);
 
-      if (error) {
-        console.error('[useCoachRequests] 🔴 Reject update error:', error);
-        throw error;
-      }
+        if (error) throw error;
+      }, 'Reject Request Update');
+
       console.log('[useCoachRequests] 🔴 Request status updated to rejected');
 
       // Get the request details for notification
       console.log('[useCoachRequests] 🔴 Getting request details for notification...');
-      const { data: request, error: requestError } = await supabase
-        .from('coach_requests')
-        .select('client_user_id')
-        .eq('id', requestId)
-        .single();
-
-      if (requestError) {
-        console.error('[useCoachRequests] 🔴 Request fetch error:', requestError);
-      }
-
+      const request = requests.find(r => r.id === requestId);
+      
       if (request) {
         console.log('[useCoachRequests] 🔴 Creating rejection notification...');
-        // Create notification for the client
-        const { error: notificationError } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: request.client_user_id,
-            title: 'Coach Request Status',
-            message: `Your coaching request could not be processed at this time.`,
-            notification_type: 'message',
-            is_read: false,
-          });
+        try {
+          await retryOperation(async () => {
+            const { error: notificationError } = await supabase
+              .from('notifications')
+              .insert({
+                user_id: request.client_user_id,
+                title: 'Coach Request Update',
+                message: `Thank you for your interest. Unfortunately, we are unable to accept your coaching request at this time. Feel free to try again later or explore other coaches.`,
+                notification_type: 'message',
+                is_read: false,
+              });
 
-        if (notificationError) {
-          console.error('[useCoachRequests] 🔴 Notification error:', notificationError);
-        } else {
+            if (notificationError) throw notificationError;
+          }, 'Create Rejection Notification');
+          
           console.log('[useCoachRequests] 🔴 Notification created successfully');
+        } catch (notificationError) {
+          // Don't fail the whole operation if notification fails
+          console.warn('[useCoachRequests] 🔴 Notification creation failed, but request was rejected:', notificationError);
         }
       }
 
-      // Reload requests
+      // Reload requests to get fresh data
       console.log('[useCoachRequests] 🔴 Reloading requests...');
       await loadCoachRequests();
 
@@ -413,7 +516,17 @@ export const useCoachRequests = () => {
       return { error: null };
     } catch (err: any) {
       console.error('[useCoachRequests] 🔴 Error rejecting request:', err);
-      return { error: err.message || 'Failed to reject request' };
+      
+      // Revert optimistic update on failure
+      setRequests(originalRequests);
+      
+      return { error: err.message || 'Failed to reject request. Please try again.' };
+    } finally {
+      setProcessingRequests(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(requestId);
+        return newSet;
+      });
     }
   };
 
@@ -434,6 +547,7 @@ export const useCoachRequests = () => {
     requests,
     loading,
     error,
+    processingRequests,
     sendCoachRequest,
     acceptRequest,
     rejectRequest,
