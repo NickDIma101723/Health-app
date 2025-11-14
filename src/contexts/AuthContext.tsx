@@ -39,44 +39,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkPersistedMode = async () => {
     try {
       const savedMode = await AsyncStorage.getItem('user_mode');
-      console.log('[checkIsCoach] Checking persisted mode:', savedMode);
-      
+      console.log('[checkPersistedMode] Checking persisted mode:', savedMode);
+
       if (savedMode === 'coach') {
-        console.log('[checkIsCoach] 🔄 Restoring COACH mode from AsyncStorage');
+        console.log('[checkPersistedMode] 🔄 Restoring COACH mode from AsyncStorage');
         setCurrentMode('coach');
         setIsCoach(true);
+        return true; // Indicate coach mode was restored
       } else if (savedMode === 'client') {
-        console.log('[checkIsCoach] 👤 Setting to CLIENT mode from AsyncStorage');
+        console.log('[checkPersistedMode] 👤 Setting to CLIENT mode from AsyncStorage');
         setCurrentMode('client');
         setIsCoach(false);
+        return false; // Indicate client mode was restored
       } else {
-        // No persisted mode, default based on canBeCoach
-        if (canBeCoach) {
-          console.log('[checkIsCoach] No persisted mode, defaulting coach to COACH mode');
-          setCurrentMode('coach');
-          setIsCoach(true);
-          // Save the default coach mode
-          try {
-            await AsyncStorage.setItem('user_mode', 'coach');
-          } catch (error) {
-            console.error('[checkIsCoach] Failed to save default coach mode:', error);
-          }
-        } else {
-          console.log('[checkIsCoach] No persisted mode, defaulting to CLIENT mode');
-          setCurrentMode('client');
-          setIsCoach(false);
-        }
+        console.log('[checkPersistedMode] No persisted mode found');
+        return null; // No persisted mode
       }
     } catch (error) {
-      console.error('[checkIsCoach] Error checking persisted mode:', error);
-      // On error, default based on canBeCoach
-      if (canBeCoach) {
-        setCurrentMode('coach');
-        setIsCoach(true);
-      } else {
-        setCurrentMode('client');
-        setIsCoach(false);
-      }
+      console.error('[checkPersistedMode] Error checking persisted mode:', error);
+      return null; // Error, no persisted mode
     }
   };
 
@@ -113,10 +94,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return;
     }
-    
+
     const requestPromise = (async () => {
       try {
         console.log('[checkIsCoach] Checking coach status for user:', user.id);
+
+        // First, check if there's a persisted mode
+        const persistedMode = await checkPersistedMode();
+        console.log('[checkIsCoach] Persisted mode result:', persistedMode);
+
+        // Always check the database to ensure accuracy
         const { data, error } = await supabase
           .from('coaches')
           .select('*')
@@ -128,21 +115,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('[checkIsCoach] ✅ User CAN be a coach:', data);
           setCanBeCoach(true);
           setCoachData(data);
+
+          // If no persisted mode was found, default coaches to coach mode
+          if (persistedMode === null) {
+            console.log('[checkIsCoach] No persisted mode, defaulting coach to COACH mode');
+            setCurrentMode('coach');
+            setIsCoach(true);
+
+            // Save the default coach mode
+            try {
+              await AsyncStorage.setItem('user_mode', 'coach');
+              console.log('[checkIsCoach] ✅ Saved default coach mode to AsyncStorage');
+            } catch (error) {
+              console.error('[checkIsCoach] Failed to save default coach mode:', error);
+            }
+          } else {
+            // Use the persisted mode
+            console.log('[checkIsCoach] Using persisted mode for coach:', persistedMode ? 'coach' : 'client');
+            setIsCoach(persistedMode);
+            setCurrentMode(persistedMode ? 'coach' : 'client');
+          }
         } else {
           console.log('[checkIsCoach] ❌ User CANNOT be a coach - error:', error?.message);
           setCanBeCoach(false);
           setCoachData(null);
-        }
 
-        // Now check persisted mode
-        await checkPersistedMode();
+          // User is not a coach, so they should be in client mode
+          setCurrentMode('client');
+          setIsCoach(false);
+
+          // Clear any incorrect persisted coach mode
+          if (persistedMode === true) {
+            console.log('[checkIsCoach] Clearing incorrect persisted coach mode');
+            try {
+              await AsyncStorage.removeItem('user_mode');
+            } catch (error) {
+              console.error('[checkIsCoach] Failed to clear persisted mode:', error);
+            }
+          }
+        }
       } catch (err) {
         console.error('[checkIsCoach] 🔥 Exception during coach check:', err);
         setIsCoach(false);
         setCoachData(null);
         setCanBeCoach(false);
-        // Still check persisted mode
-        await checkPersistedMode();
+        setCurrentMode('client');
       } finally {
         // Clear the promise reference but keep the cache timestamp
         if (lastCoachCheck.current) {
@@ -392,24 +409,124 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    return { error };
+    try {
+      // Validate input before sending to Supabase
+      const trimmedEmail = email?.trim();
+      const trimmedPassword = password?.trim();
+
+      if (!trimmedEmail || !trimmedPassword) {
+        console.error('[Auth] Empty credentials provided');
+        return { 
+          error: { 
+            message: 'Email and password are required',
+            name: 'ValidationError',
+            status: 400
+          } as any
+        };
+      }
+
+      // Basic email format validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmedEmail)) {
+        console.error('[Auth] Invalid email format');
+        return { 
+          error: { 
+            message: 'Please enter a valid email address',
+            name: 'ValidationError',
+            status: 400
+          } as any
+        };
+      }
+
+      if (trimmedPassword.length < 6) {
+        console.error('[Auth] Password too short');
+        return { 
+          error: { 
+            message: 'Password must be at least 6 characters',
+            name: 'ValidationError',
+            status: 400
+          } as any
+        };
+      }
+
+      console.log('[Auth] Attempting sign in with email:', trimmedEmail);
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password: trimmedPassword,
+      });
+
+      if (error) {
+        console.error('[Auth] Sign in error:', error);
+        
+        // Provide more specific error messages
+        if (error.message.includes('Invalid login credentials')) {
+          return { 
+            error: { 
+              ...error,
+              message: 'Invalid email or password. Please check your credentials and try again.'
+            }
+          };
+        }
+        
+        if (error.message.includes('Email not confirmed')) {
+          return { 
+            error: { 
+              ...error,
+              message: 'Please verify your email address before signing in. Check your inbox for the confirmation link.'
+            }
+          };
+        }
+
+        return { error };
+      }
+
+      console.log('[Auth] ✅ Sign in successful');
+      return { error: null };
+      
+    } catch (err: any) {
+      console.error('[Auth] Unexpected error during sign in:', err);
+      return { 
+        error: { 
+          message: err?.message || 'An unexpected error occurred during sign in. Please try again.',
+          name: 'UnexpectedError',
+          status: 500
+        } as any
+      };
+    }
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (!error) {
-      setUser(null);
-      setSession(null);
-      setIsCoach(false);
-      setCoachData(null);
-      setCurrentMode(null);
-      setCanBeCoach(false);
-      lastCoachCheck.current = null;
+    // Clear React state
+    setUser(null);
+    setSession(null);
+    setIsCoach(false);
+    setCoachData(null);
+    setCurrentMode(null);
+    setCanBeCoach(false);
+    lastCoachCheck.current = null;
+    
+    // Clear all auth-related storage
+    try {
+      const keys = [
+        'userMode',
+        'lastModeCheck',
+        'supabase.auth.token',
+        'sb-fkmthgmwrvzgygdqoqvq-auth-token', // Supabase stores tokens with project reference
+      ];
+      
+      await Promise.all(keys.map(key => AsyncStorage.removeItem(key)));
+      
+      // Also try to clear all Supabase keys
+      const allKeys = await AsyncStorage.getAllKeys();
+      const supabaseKeys = allKeys.filter(key => 
+        key.startsWith('supabase.') || key.startsWith('sb-')
+      );
+      await Promise.all(supabaseKeys.map(key => AsyncStorage.removeItem(key)));
+      
+      console.log('[Auth] ✅ Successfully signed out and cleared storage');
+    } catch (storageError) {
+      console.warn('[Auth] Error clearing AsyncStorage:', storageError);
     }
   };
 
@@ -421,24 +538,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const switchToCoachMode = async () => {
     console.log('[AuthContext] 🔄 switchToCoachMode called - canBeCoach:', canBeCoach, 'coachData:', !!coachData);
-    if (canBeCoach && coachData) {
-      console.log('[AuthContext] 🔄 Switching to COACH mode - setting currentMode=coach, isCoach=true');
-      setCurrentMode('coach');
-      setIsCoach(true);
+    
+    // If not already a coach, force refresh first
+    if (!canBeCoach || !coachData) {
+      console.log('[AuthContext] ❌ Cannot switch to coach mode yet - refreshing coach status...');
+      await refreshCoachStatus();
       
-      // Persist coach mode to AsyncStorage
-      try {
-        await AsyncStorage.setItem('user_mode', 'coach');
-        console.log('[AuthContext] ✅ Coach mode persisted to AsyncStorage');
-      } catch (error) {
-        console.error('[AuthContext] ❌ Failed to persist coach mode:', error);
-      }
-      
-      console.log('[AuthContext] ✅ Coach mode switch completed - isCoach:', true, 'currentMode: coach');
-    } else {
-      console.log('[AuthContext] ❌ Cannot switch to coach mode - user is not a coach');
-      console.log('[AuthContext] Debug state:', { canBeCoach, coachData: !!coachData, currentMode });
+      // Wait for state to update after refresh
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
+    
+    // Check fresh data from database directly
+    if (!user) {
+      throw new Error('No user logged in');
+    }
+    
+    const { data: freshCoachData, error } = await supabase
+      .from('coaches')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle();
+    
+    if (error || !freshCoachData) {
+      console.log('[AuthContext] ❌ Database check failed - user is not a coach');
+      throw new Error('You are not registered as a coach. Please complete the coach registration process first.');
+    }
+    
+    // Update local state with fresh data
+    console.log('[AuthContext] ✅ Fresh coach data confirmed, switching to coach mode');
+    setCanBeCoach(true);
+    setCoachData(freshCoachData);
+    setCurrentMode('coach');
+    setIsCoach(true);
+
+    try {
+      await AsyncStorage.setItem('user_mode', 'coach');
+      console.log('[AuthContext] ✅ Coach mode persisted to AsyncStorage');
+    } catch (error) {
+      console.error('[AuthContext] ❌ Failed to persist coach mode:', error);
+    }
+
+    console.log('[AuthContext] ✅ Coach mode switch completed - isCoach:', true, 'currentMode: coach');
   };
 
   const switchToClientMode = async () => {

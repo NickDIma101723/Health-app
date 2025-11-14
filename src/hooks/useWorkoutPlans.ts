@@ -42,9 +42,13 @@ export const useWorkoutPlans = () => {
   const { user, coachData } = useAuth();
   const [workoutPlans, setWorkoutPlans] = useState<WorkoutPlan[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
 
   const fetchWorkoutPlans = async (clientId?: string) => {
+    if (isFetching) return;
+
     try {
+      setIsFetching(true);
       setLoading(true);
 
       let query = supabase
@@ -66,7 +70,15 @@ export const useWorkoutPlans = () => {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        // If table doesn't exist, just log and return empty array
+        if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
+          console.log('Workout plans table not found, returning empty array');
+          setWorkoutPlans([]);
+          return;
+        }
+        throw error;
+      }
       
       setWorkoutPlans(data || []);
     } catch (error) {
@@ -74,6 +86,7 @@ export const useWorkoutPlans = () => {
       setWorkoutPlans([]);
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
   };
 
@@ -89,7 +102,12 @@ export const useWorkoutPlans = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
+          throw new Error('Workout plans feature is not available yet. Please contact support.');
+        }
+        throw error;
+      }
       
       setWorkoutPlans(prev => [data, ...prev]);
       return data;
@@ -111,7 +129,12 @@ export const useWorkoutPlans = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
+          throw new Error('Workout plans feature is not available yet. Please contact support.');
+        }
+        throw error;
+      }
       
       setWorkoutPlans(prev => 
         prev.map(plan => plan.id === planId ? data : plan)
@@ -130,7 +153,12 @@ export const useWorkoutPlans = () => {
         .update({ is_active: false })
         .eq('id', planId);
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
+          throw new Error('Workout plans feature is not available yet. Please contact support.');
+        }
+        throw error;
+      }
       
       setWorkoutPlans(prev => prev.filter(plan => plan.id !== planId));
     } catch (error) {
@@ -151,7 +179,12 @@ export const useWorkoutPlans = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
+          throw new Error('Workout plans feature is not available yet. Please contact support.');
+        }
+        throw error;
+      }
       
       setWorkoutPlans(prev => 
         prev.map(plan => plan.id === planId ? data : plan)

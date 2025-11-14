@@ -37,7 +37,11 @@ const { width } = Dimensions.get('window');
 type Screen = 'splash' | 'login' | 'register' | 'home' | 'mindfulness' | 'mindfulness-insights' | 'chat' | 'chat-list' | 'individual-chat' | 'schedule' | 'nutrition' | 'nutrition-calculator' | 'profile' | 'coach-dashboard' | 'coach-client-detail' | 'coach-notes' | 'assign-client' | 'coach-requests' | 'coach-selection' | 'become-coach' | 'create-workout-plan' | 'client-workout-plans' | 'create-nutrition-plan' | 'client-progress-analytics';
 
 function AppContent() {
-  const { user, loading: authLoading, isCoach, coachStatusLoaded } = useAuth();
+  const { user, loading: authLoading, isCoach, coachStatusLoaded, canBeCoach, currentMode } = useAuth();
+  
+  // Add safety checks for initial values
+  const safeCanBeCoach = canBeCoach ?? false;
+  const safeCurrentMode = currentMode ?? null;
   const [currentScreen, setCurrentScreen] = useState<Screen>('splash');
   const [displayScreen, setDisplayScreen] = useState<Screen>('splash');
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -100,10 +104,29 @@ function AppContent() {
       if (user) {
         // Only route based on isCoach once coach status has been loaded
         if (coachStatusLoaded) {
-          const targetScreen = isCoach ? 'coach-dashboard' : 'home';
+          // For coaches, always ensure they start in coach mode
+          let targetScreen: Screen = isCoach ? 'coach-dashboard' : 'home';
+          
+          // If user can be a coach but isCoach is false, they might be in client mode
+          // but we should respect their choice if they explicitly switched to client mode
+          if (safeCanBeCoach && !isCoach && safeCurrentMode === 'client') {
+            // User explicitly chose client mode, keep them there
+            targetScreen = 'home';
+          } else if (safeCanBeCoach && !isCoach && safeCurrentMode !== null) {
+            // User is a coach but not in coach mode - this shouldn't happen, switch them
+            console.log('[App] 🔄 Coach user not in coach mode, correcting...');
+            targetScreen = 'coach-dashboard';
+          } else if (safeCanBeCoach && !isCoach && safeCurrentMode === null) {
+            // Coach status loaded but mode not set yet, default to coach mode
+            console.log('[App] 🔄 Coach user with null mode, defaulting to coach mode...');
+            targetScreen = 'coach-dashboard';
+          }
+          
           console.log('[App] User logged in, determining target screen:', {
             userId: user.id,
             isCoach,
+            canBeCoach: safeCanBeCoach,
+            currentMode: safeCurrentMode,
             coachStatusLoaded,
             targetScreen,
             currentScreen,
@@ -114,6 +137,7 @@ function AppContent() {
             console.log('[App] Initial routing after login:', {
               userId: user.id,
               isCoach,
+              canBeCoach: safeCanBeCoach,
               targetScreen,
               currentScreen
             });
@@ -128,9 +152,9 @@ function AppContent() {
             console.log('[App] 🔄 Switching interface based on isCoach change:', {
               userId: user.id,
               isCoach,
+              canBeCoach: safeCanBeCoach,
               targetScreen,
               currentScreen,
-              targetScreen,
               reason: isCoach ? 'user became coach' : 'user switched to client'
             });
             setCurrentScreen(targetScreen);

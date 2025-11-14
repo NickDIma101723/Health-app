@@ -9,7 +9,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
 } from 'react-native';
+import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { BackgroundDecorations, CoachBottomNavigation } from '../components';
@@ -36,6 +38,7 @@ interface ClientData {
 
 export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNavigate }) => {
   const { user, signOut, coachData } = useAuth();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { getPendingRequestsCount, loadCoachRequests } = useCoachRequests();
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -176,7 +179,12 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
   };
 
   const handleLogout = () => {
-    signOut();
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = async () => {
+    setShowLogoutConfirm(false);
+    await signOut();
   };
 
   const handleAssignClient = async () => {
@@ -207,7 +215,8 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
           <Text style={styles.headerTitle}>{coachData?.full_name || 'Coach'}</Text>
         </View>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <MaterialIcons name="logout" size={22} color={colors.error} />
+          <MaterialIcons name="logout" size={18} color={colors.error} />
+          <Text style={styles.logoutButtonText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
 
@@ -218,60 +227,99 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        <View style={styles.statsContainer}>
-          <LinearGradient
-            colors={[colors.primary, colors.primaryLight] as [string, string, ...string[]]}
-            style={styles.statCard}
-          >
-            <MaterialIcons name="people" size={32} color={colors.textLight} />
-            <Text style={styles.statValue}>{stats.totalClients}</Text>
-            <Text style={styles.statLabel}>Total Clients</Text>
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 600, delay: 100 }}
+        >
+          <View style={styles.statsContainer}>
+            <LinearGradient
+              colors={['#667eea', '#764ba2'] as [string, string, ...string[]]}
+              style={styles.statWidget}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+            <View style={styles.widgetIconBadge}>
+              <MaterialIcons name="people" size={28} color={colors.textLight} />
+            </View>
+            <Text style={styles.widgetValue}>{stats.totalClients}</Text>
+            <Text style={styles.widgetLabel}>Total Clients</Text>
+            <View style={styles.widgetDecoration} />
           </LinearGradient>
 
-          <View style={[styles.statCard, styles.statCardWhite]}>
-            <MaterialIcons name="fitness-center" size={32} color={colors.success} />
-            <Text style={[styles.statValue, styles.statValueDark]}>{stats.activeToday}</Text>
-            <Text style={[styles.statLabel, styles.statLabelDark]}>Active Today</Text>
-          </View>
+          <LinearGradient
+            colors={['#11998e', '#38ef7d'] as [string, string, ...string[]]}
+            style={styles.statWidget}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <View style={styles.widgetIconBadge}>
+              <MaterialIcons name="fitness-center" size={28} color={colors.textLight} />
+            </View>
+            <Text style={styles.widgetValue}>{stats.activeToday}</Text>
+            <Text style={styles.widgetLabel}>Active Today</Text>
+            <View style={styles.widgetDecoration} />
+          </LinearGradient>
 
-          <View style={[styles.statCard, styles.statCardWhite]}>
-            <MaterialIcons name="warning" size={32} color={colors.warning} />
-            <Text style={[styles.statValue, styles.statValueDark]}>{stats.needsAttention}</Text>
-            <Text style={[styles.statLabel, styles.statLabelDark]}>Needs Attention</Text>
+          <LinearGradient
+            colors={['#f093fb', '#f5576c'] as [string, string, ...string[]]}
+            style={styles.statWidget}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <View style={styles.widgetIconBadge}>
+              <MaterialIcons name="notifications-active" size={28} color={colors.textLight} />
+            </View>
+            <Text style={styles.widgetValue}>{stats.needsAttention}</Text>
+            <Text style={styles.widgetLabel}>Needs Attention</Text>
+            <View style={styles.widgetDecoration} />
+          </LinearGradient>
           </View>
-        </View>
+        </MotiView>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>My Clients</Text>
-          <View style={styles.headerButtons}>
-            <TouchableOpacity 
-              style={styles.requestsButton}
-              onPress={() => onNavigate?.('coach-requests')}
-            >
-              <MaterialIcons name="inbox" size={20} color={colors.primary} />
-              {getPendingRequestsCount() > 0 && (
-                <View style={styles.requestsBadge}>
-                  <Text style={styles.requestsBadgeText}>{getPendingRequestsCount()}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.addButton}
-              onPress={handleAssignClient}
-            >
-              <MaterialIcons name="person-add" size={20} color={colors.primary} />
-            </TouchableOpacity>
+        <MotiView
+          from={{ opacity: 0, translateX: -20 }}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{ type: 'timing', duration: 500, delay: 300 }}
+        >
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>My Clients</Text>
+            <View style={styles.headerButtons}>
+              <TouchableOpacity 
+                style={styles.requestsButton}
+                onPress={() => onNavigate?.('coach-requests')}
+              >
+                <MaterialIcons name="inbox" size={20} color={colors.primary} />
+                {getPendingRequestsCount() > 0 && (
+                  <View style={styles.requestsBadge}>
+                    <Text style={styles.requestsBadgeText}>{getPendingRequestsCount()}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.addButton}
+                onPress={handleAssignClient}
+              >
+                <MaterialIcons name="person-add" size={20} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </MotiView>
 
         {clients.length === 0 ? (
-          <View style={styles.emptyState}>
-            <MaterialIcons name="people-outline" size={64} color={colors.textSecondary} />
-            <Text style={styles.emptyStateTitle}>No Clients Yet</Text>
-            <Text style={styles.emptyStateText}>
-              Clients will appear here when they are assigned to you.
-            </Text>
-          </View>
+          <MotiView
+            from={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', delay: 600, damping: 12 }}
+          >
+            <View style={styles.emptyState}>
+              <MaterialIcons name="people-outline" size={64} color={colors.textSecondary} />
+              <Text style={styles.emptyStateText}>No clients yet</Text>
+              <Text style={styles.emptyStateSubtext}>
+                Clients will appear here when they're assigned to you
+              </Text>
+            </View>
+          </MotiView>
         ) : (
           <View style={styles.clientsList}>
             {clients.map((client) => (
@@ -279,39 +327,52 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
                 key={client.user_id}
                 style={styles.clientCard}
                 onPress={() => onNavigate?.('coach-client-detail', { clientId: client.user_id })}
+                activeOpacity={0.7}
               >
-                <View style={styles.clientCardLeft}>
-                  <LinearGradient
-                    colors={[colors.primary, colors.primaryLight] as [string, string, ...string[]]}
-                    style={styles.clientAvatar}
-                  >
-                    <Text style={styles.clientAvatarText}>
-                      {client.full_name.charAt(0).toUpperCase()}
-                    </Text>
-                  </LinearGradient>
-                  <View style={styles.clientInfo}>
-                    <Text style={styles.clientName}>{client.full_name}</Text>
-                    <View style={styles.clientMeta}>
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>
-                          {client.fitness_level.charAt(0).toUpperCase() + client.fitness_level.slice(1)}
-                        </Text>
+                <LinearGradient
+                  colors={['rgba(102, 126, 234, 0.1)', 'rgba(118, 75, 162, 0.05)']} 
+                  style={styles.clientCardGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={styles.clientCardLeft}>
+                    <LinearGradient
+                      colors={['#FF6B9D', '#C06C84'] as [string, string, ...string[]]}
+                      style={styles.clientAvatar}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <Text style={styles.clientAvatarText}>
+                        {client.full_name.charAt(0).toUpperCase()}
+                      </Text>
+                    </LinearGradient>
+                    <View style={styles.clientInfo}>
+                      <Text style={styles.clientName}>{client.full_name}</Text>
+                      <View style={styles.clientMeta}>
+                        <View style={styles.badge}>
+                          <Text style={styles.badgeText}>
+                            {client.fitness_level.charAt(0).toUpperCase() + client.fitness_level.slice(1)}
+                          </Text>
+                        </View>
+                        {client.age && (
+                          <Text style={styles.clientAge}>{client.age} years</Text>
+                        )}
                       </View>
-                      {client.age && (
-                        <Text style={styles.clientAge}>{client.age} years</Text>
-                      )}
                     </View>
                   </View>
-                </View>
-                <View style={styles.clientCardRight}>
-                  <View style={styles.progressContainer}>
-                    <Text style={styles.progressText}>
-                      {client.weekly_workouts}/{client.weekly_goal}
-                    </Text>
-                    <Text style={styles.progressLabel}>Workouts</Text>
+                  <View style={styles.clientCardRight}>
+                    <View style={styles.progressContainer}>
+                      <View style={styles.workoutBadge}>
+                        <MaterialIcons name="fitness-center" size={16} color={colors.success} />
+                        <Text style={styles.progressText}>
+                          {client.weekly_workouts}/{client.weekly_goal}
+                        </Text>
+                      </View>
+                      <Text style={styles.progressLabel}>This Week</Text>
+                    </View>
+                    <MaterialIcons name="chevron-right" size={24} color={colors.primary} />
                   </View>
-                  <MaterialIcons name="chevron-right" size={24} color={colors.textSecondary} />
-                </View>
+                </LinearGradient>
               </TouchableOpacity>
             ))}
           </View>
@@ -322,6 +383,43 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
         activeTab="coach-dashboard" 
         onTabChange={(tab) => onNavigate?.(tab)} 
       />
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        visible={showLogoutConfirm}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowLogoutConfirm(false)}
+      >
+        <View style={styles.logoutModalOverlay}>
+          <View style={styles.logoutModal}>
+            <View style={styles.logoutIconContainer}>
+              <MaterialIcons name="logout" size={48} color={colors.error} />
+            </View>
+            
+            <Text style={styles.logoutTitle}>Sign Out</Text>
+            <Text style={styles.logoutMessage}>
+              Are you sure you want to sign out?
+            </Text>
+
+            <View style={styles.logoutButtons}>
+              <TouchableOpacity 
+                style={styles.logoutCancelButton}
+                onPress={() => setShowLogoutConfirm(false)}
+              >
+                <Text style={styles.logoutCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.logoutConfirmButton}
+                onPress={confirmLogout}
+              >
+                <Text style={styles.logoutConfirmText}>Sign Out</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -354,13 +452,21 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   logoutButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.error + '30',
     ...shadows.sm,
+  },
+  logoutButtonText: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: colors.error,
   },
   loadingContainer: {
     flex: 1,
@@ -384,6 +490,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     marginBottom: spacing.xl,
+  },
+  statWidget: {
+    flex: 1,
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 130,
+    position: 'relative',
+    overflow: 'hidden',
+    ...shadows.md,
+  },
+  widgetIconBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  widgetValue: {
+    fontSize: 36,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.textLight,
+    marginTop: spacing.xs,
+  },
+  widgetLabel: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: colors.textLight,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+    opacity: 0.95,
+  },
+  widgetDecoration: {
+    position: 'absolute',
+    top: -20,
+    right: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   statCard: {
     flex: 1,
@@ -496,17 +645,28 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     maxWidth: 280,
   },
+  emptyStateSubtext: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    maxWidth: 280,
+  },
   clientsList: {
     gap: spacing.md,
   },
   clientCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    marginBottom: spacing.sm,
+    ...shadows.md,
+  },
+  clientCardGradient: {
+    flexDirection: 'row',
     padding: spacing.lg,
     alignItems: 'center',
     justifyContent: 'space-between',
-    ...shadows.sm,
   },
   clientCardLeft: {
     flexDirection: 'row',
@@ -564,14 +724,94 @@ const styles = StyleSheet.create({
   progressContainer: {
     alignItems: 'flex-end',
   },
+  workoutBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.success + '20',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+  },
   progressText: {
-    fontSize: fontSizes.lg,
+    fontSize: fontSizes.md,
     fontFamily: 'Poppins_700Bold',
-    color: colors.primary,
+    color: colors.success,
   },
   progressLabel: {
     fontSize: fontSizes.xs,
     fontFamily: 'Quicksand_500Medium',
     color: colors.textSecondary,
+  },
+  logoutModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: spacing.lg,
+  },
+  logoutModal: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xxl,
+    padding: spacing.xl,
+    width: '90%',
+    maxWidth: 400,
+    alignSelf: 'center',
+    alignItems: 'center',
+    ...shadows.lg,
+  },
+  logoutIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 69, 58, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  logoutTitle: {
+    fontSize: fontSizes.xxl,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    fontFamily: 'Poppins_700Bold',
+    marginBottom: spacing.sm,
+  },
+  logoutMessage: {
+    fontSize: fontSizes.md,
+    color: colors.textSecondary,
+    fontFamily: 'Quicksand_500Medium',
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+  },
+  logoutButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    width: '100%',
+  },
+  logoutCancelButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.border,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  logoutCancelText: {
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    fontFamily: 'Quicksand_600SemiBold',
+  },
+  logoutConfirmButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.error,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  logoutConfirmText: {
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+    color: colors.textLight,
+    fontFamily: 'Quicksand_600SemiBold',
   },
 });

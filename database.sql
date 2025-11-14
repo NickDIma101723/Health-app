@@ -1,4 +1,3 @@
-
 CREATE TABLE public.achievements (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
@@ -211,7 +210,6 @@ CREATE TABLE public.notifications (
   notification_type text NOT NULL CHECK (notification_type = ANY (ARRAY['achievement'::text, 'reminder'::text, 'suggestion'::text, 'report'::text, 'message'::text])),
   is_read boolean DEFAULT false,
   read_at timestamp with time zone,
-  action_url text,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT notifications_pkey PRIMARY KEY (id),
   CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
@@ -288,7 +286,7 @@ CREATE TABLE public.water_intake (
   amount integer NOT NULL,
   date date NOT NULL,
   time text NOT NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT water_intake_pkey PRIMARY KEY (id),
   CONSTRAINT water_intake_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );

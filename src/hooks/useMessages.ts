@@ -13,6 +13,7 @@ export const useMessages = (coachId?: string) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isFetching, setIsFetching] = useState(false);
 
   const fetchMessages = async () => {
     console.log('[useMessages] fetchMessages called - user:', user?.id, 'coachId:', coachId);
@@ -23,8 +24,14 @@ export const useMessages = (coachId?: string) => {
       return;
     }
 
+    if (isFetching) {
+      console.log('[useMessages] Already fetching, skipping duplicate request');
+      return;
+    }
+
     try {
       console.log('[useMessages] Fetching messages...');
+      setIsFetching(true);
       setLoading(true);
       
       const { data, error: fetchError } = await supabase
@@ -52,6 +59,7 @@ export const useMessages = (coachId?: string) => {
     } finally {
       console.log('[useMessages] Setting loading to FALSE (completed)');
       setLoading(false);
+      setIsFetching(false);
     }
   };
 
@@ -214,16 +222,7 @@ export const useMessages = (coachId?: string) => {
               
               if (newMessage.sender_id === coachId && newMessage.receiver_id === user.id && !newMessage.is_read) {
                 setUnreadCount(prev => prev + 1);
-                
-                supabase.from('notifications').insert({
-                  user_id: user.id,
-                  title: 'New Message',
-                  message: `You have a new message from your coach`,
-                  type: 'chat',
-                  is_read: false,
-                }).then(({ error }) => {
-                  if (error) console.error('Failed to create notification:', error);
-                });
+                // Notification removed due to RLS policy restrictions
               }
             } else if (payload.eventType === 'UPDATE') {
               const updatedMessage = payload.new as Message;

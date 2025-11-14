@@ -32,6 +32,12 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
   } = useCoachRequests();
   
   const [refreshing, setRefreshing] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    type: 'accept' | 'decline' | null;
+    requestId: string | null;
+    clientName: string | null;
+  }>({ visible: false, type: null, requestId: null, clientName: null });
 
   useEffect(() => {
     console.log('[CoachRequestsScreen] Loading coach requests...');
@@ -55,125 +61,127 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
   const handleAcceptRequest = async (requestId: string, clientName: string) => {
     console.log('[CoachRequestsScreen] 🟢 Accept button pressed for:', { requestId, clientName });
     
-    // Show confirmation dialog
-    Alert.alert(
-      'Accept Coaching Request',
-      `Are you sure you want to accept ${clientName}'s coaching request? This will add them as your client and they will be able to message you.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Accept',
-          style: 'default',
-          onPress: async () => {
-            console.log('[CoachRequestsScreen] 🟢 Processing accept request...');
-            
-            try {
-              const result = await acceptRequest(requestId);
-              console.log('[CoachRequestsScreen] 🟢 Accept result:', result);
-              
-              if (result.error) {
-                console.error('[CoachRequestsScreen] 🟢 Accept failed:', result.error);
-                Alert.alert(
-                  'Failed to Accept Request',
-                  result.error,
-                  [
-                    { text: 'Try Again', onPress: () => handleAcceptRequest(requestId, clientName) },
-                    { text: 'Cancel', style: 'cancel' }
-                  ]
-                );
-              } else {
-                console.log('[CoachRequestsScreen] 🟢 Accept succeeded! Client is now assigned.');
-                Alert.alert(
-                  'Request Accepted! 🎉',
-                  `${clientName} is now your client. You can start chatting with them and managing their progress.`,
-                  [
-                    { 
-                      text: 'View Clients',
-                      onPress: () => {
-                        console.log('[CoachRequestsScreen] 🟢 Navigating to manage clients');
-                        onNavigate?.('assign-client');
-                      }
-                    },
-                    { 
-                      text: 'Go to Chat',
-                      onPress: () => {
-                        console.log('[CoachRequestsScreen] 🟢 Navigating to chat list');
-                        onNavigate?.('chat');
-                      }
-                    },
-                    { text: 'OK', style: 'default' }
-                  ]
-                );
+    // Show confirmation modal
+    setConfirmModal({
+      visible: true,
+      type: 'accept',
+      requestId,
+      clientName,
+    });
+  };
+
+  const confirmAcceptRequest = async () => {
+    const { requestId, clientName } = confirmModal;
+    if (!requestId || !clientName) return;
+    
+    setConfirmModal({ visible: false, type: null, requestId: null, clientName: null });
+    
+    try {
+      console.log('[CoachRequestsScreen] 🟢 Processing accept request...');
+      
+      const result = await acceptRequest(requestId);
+      console.log('[CoachRequestsScreen] 🟢 Accept result:', result);
+      
+      if (result.error) {
+        console.error('[CoachRequestsScreen] 🟢 Accept failed:', result.error);
+        Alert.alert(
+          'Failed to Accept Request',
+          result.error,
+          [
+            { text: 'Try Again', onPress: () => handleAcceptRequest(requestId, clientName) },
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        );
+      } else {
+        console.log('[CoachRequestsScreen] 🟢 Accept succeeded! Client is now assigned.');
+        Alert.alert(
+          'Request Accepted! 🎉',
+          `${clientName} is now your client. You can start chatting with them and managing their progress.`,
+          [
+            { 
+              text: 'View Clients',
+              onPress: () => {
+                console.log('[CoachRequestsScreen] 🟢 Navigating to manage clients');
+                onNavigate?.('assign-client');
               }
-            } catch (error) {
-              console.error('[CoachRequestsScreen] 🟢 Accept exception:', error);
-              Alert.alert(
-                'Unexpected Error',
-                'An unexpected error occurred. Please try again.',
-                [
-                  { text: 'Try Again', onPress: () => handleAcceptRequest(requestId, clientName) },
-                  { text: 'Cancel', style: 'cancel' }
-                ]
-              );
-            }
-          }
-        }
-      ]
-    );
+            },
+            { 
+              text: 'Go to Chat',
+              onPress: () => {
+                console.log('[CoachRequestsScreen] 🟢 Navigating to chat list');
+                onNavigate?.('chat');
+              }
+            },
+            { text: 'OK', style: 'default' }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('[CoachRequestsScreen] 🟢 Accept exception:', error);
+      Alert.alert(
+        'Unexpected Error',
+        'An unexpected error occurred. Please try again.',
+        [
+          { text: 'Try Again', onPress: () => handleAcceptRequest(requestId, clientName) },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+    }
   };
 
   const handleRejectRequest = async (requestId: string, clientName: string) => {
     console.log('[CoachRequestsScreen] 🔴 Decline button pressed for:', { requestId, clientName });
     
-    // Show confirmation dialog
-    Alert.alert(
-      'Decline Coaching Request',
-      `Are you sure you want to decline ${clientName}'s coaching request? They will be notified of your decision.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Decline',
-          style: 'destructive',
-          onPress: async () => {
-            console.log('[CoachRequestsScreen] 🔴 Processing decline request...');
-            
-            try {
-              const result = await rejectRequest(requestId);
-              console.log('[CoachRequestsScreen] 🔴 Decline result:', result);
-              
-              if (result.error) {
-                console.error('[CoachRequestsScreen] 🔴 Decline failed:', result.error);
-                Alert.alert(
-                  'Failed to Decline Request',
-                  result.error,
-                  [
-                    { text: 'Try Again', onPress: () => handleRejectRequest(requestId, clientName) },
-                    { text: 'Cancel', style: 'cancel' }
-                  ]
-                );
-              } else {
-                console.log('[CoachRequestsScreen] 🔴 Decline succeeded!');
-                Alert.alert(
-                  'Request Declined',
-                  `${clientName}'s request has been declined. They have been notified.`,
-                  [{ text: 'OK', style: 'default' }]
-                );
-              }
-            } catch (error) {
-              console.error('[CoachRequestsScreen] 🔴 Decline exception:', error);
-              Alert.alert(
-                'Unexpected Error',
-                'An unexpected error occurred. Please try again.',
-                [
-                  { text: 'Try Again', onPress: () => handleRejectRequest(requestId, clientName) },
-                  { text: 'Cancel', style: 'cancel' }
-                ]
-              );
-            }
-          }
-        }
-      ]
-    );
+    // Show confirmation modal
+    setConfirmModal({
+      visible: true,
+      type: 'decline',
+      requestId,
+      clientName,
+    });
+  };
+
+  const confirmRejectRequest = async () => {
+    const { requestId, clientName } = confirmModal;
+    if (!requestId || !clientName) return;
+    
+    setConfirmModal({ visible: false, type: null, requestId: null, clientName: null });
+    
+    try {
+      console.log('[CoachRequestsScreen] 🔴 Processing decline request...');
+      
+      const result = await rejectRequest(requestId);
+      console.log('[CoachRequestsScreen] 🔴 Decline result:', result);
+      
+      if (result.error) {
+        console.error('[CoachRequestsScreen] 🔴 Decline failed:', result.error);
+        Alert.alert(
+          'Failed to Decline Request',
+          result.error,
+          [
+            { text: 'Try Again', onPress: () => handleRejectRequest(requestId, clientName) },
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        );
+      } else {
+        console.log('[CoachRequestsScreen] 🔴 Decline succeeded!');
+        Alert.alert(
+          'Request Declined',
+          `${clientName}'s request has been declined. They have been notified.`,
+          [{ text: 'OK', style: 'default' }]
+        );
+      }
+    } catch (error) {
+      console.error('[CoachRequestsScreen] 🔴 Decline exception:', error);
+      Alert.alert(
+        'Unexpected Error',
+        'An unexpected error occurred. Please try again.',
+        [
+          { text: 'Try Again', onPress: () => handleRejectRequest(requestId, clientName) },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+    }
   };
 
   const pendingRequests = requests.filter(req => req.status === 'pending');
@@ -245,8 +253,12 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
         <View style={styles.actionButtons}>
           <TouchableOpacity
             style={[styles.actionButton, styles.rejectButton, processingRequests.has(request.id) && styles.disabledButton]}
-            onPress={() => handleRejectRequest(request.id, request.client_profile?.full_name || 'Client')}
+            onPress={() => {
+              console.log('[CoachRequestsScreen] Decline button pressed');
+              handleRejectRequest(request.id, request.client_profile?.full_name || 'Client');
+            }}
             disabled={processingRequests.has(request.id)}
+            activeOpacity={0.7}
           >
             {processingRequests.has(request.id) ? (
               <ActivityIndicator size="small" color={colors.error} />
@@ -260,8 +272,12 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
           
           <TouchableOpacity
             style={[styles.actionButton, styles.acceptButton, processingRequests.has(request.id) && styles.disabledButton]}
-            onPress={() => handleAcceptRequest(request.id, request.client_profile?.full_name || 'Client')}
+            onPress={() => {
+              console.log('[CoachRequestsScreen] Accept button pressed');
+              handleAcceptRequest(request.id, request.client_profile?.full_name || 'Client');
+            }}
             disabled={processingRequests.has(request.id)}
+            activeOpacity={0.7}
           >
             {processingRequests.has(request.id) ? (
               <ActivityIndicator size="small" color={colors.textLight} />
@@ -372,6 +388,38 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
           </>
         )}
       </ScrollView>
+
+      {/* Confirmation Modal */}
+      {confirmModal.visible && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {confirmModal.type === 'accept' ? 'Accept Coaching Request' : 'Decline Coaching Request'}
+            </Text>
+            <Text style={styles.modalMessage}>
+              {confirmModal.type === 'accept'
+                ? `Are you sure you want to accept ${confirmModal.clientName}'s coaching request? This will add them as your client and they will be able to message you.`
+                : `Are you sure you want to decline ${confirmModal.clientName}'s coaching request? They will be notified of your decision.`}
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelButton]}
+                onPress={() => setConfirmModal({ visible: false, type: null, requestId: null, clientName: null })}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, confirmModal.type === 'accept' ? styles.modalAcceptButton : styles.modalDeclineButton]}
+                onPress={confirmModal.type === 'accept' ? confirmAcceptRequest : confirmRejectRequest}
+              >
+                <Text style={styles.modalConfirmText}>
+                  {confirmModal.type === 'accept' ? 'Accept' : 'Decline'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -667,5 +715,74 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: spacing.xl,
     lineHeight: 22,
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    marginHorizontal: spacing.xl,
+    maxWidth: 400,
+    width: '90%',
+    ...shadows.lg,
+  },
+  modalTitle: {
+    fontSize: fontSizes.xl,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    fontFamily: 'Poppins_700Bold',
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: fontSizes.md,
+    color: colors.textSecondary,
+    fontFamily: 'Quicksand_500Medium',
+    marginBottom: spacing.xl,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalAcceptButton: {
+    backgroundColor: colors.primary,
+  },
+  modalDeclineButton: {
+    backgroundColor: colors.error,
+  },
+  modalCancelText: {
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    fontFamily: 'Quicksand_600SemiBold',
+  },
+  modalConfirmText: {
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+    color: colors.textLight,
+    fontFamily: 'Quicksand_600SemiBold',
   },
 });

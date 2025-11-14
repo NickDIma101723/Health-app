@@ -207,17 +207,16 @@ export const RecipeBrowser: React.FC<RecipeBrowserProps> = ({
         onRequestClose={onClose}
       >
         <View style={styles.container}>
-          {/* Header */}
-          <LinearGradient
-            colors={[colors.primary, colors.primaryDark]}
-            style={styles.header}
-          >
-            <View style={styles.headerContent}>
+          {/* Compact Header */}
+          <View style={styles.header}>
+            <View style={styles.headerTop}>
+              <View style={styles.headerTitleSection}>
+                <MaterialIcons name="restaurant-menu" size={28} color={colors.primary} />
+                <Text style={styles.headerTitle}>Recipe Browser</Text>
+              </View>
               <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <MaterialIcons name="close" size={24} color={colors.textLight} />
+                <MaterialIcons name="close" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>Recipe Browser</Text>
-              <View style={{ width: 40 }} />
             </View>
 
             {/* Search Bar */}
@@ -232,13 +231,15 @@ export const RecipeBrowser: React.FC<RecipeBrowserProps> = ({
               />
               {searchQuery !== '' && (
                 <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <MaterialIcons name="close" size={20} color={colors.textSecondary} />
+                  <MaterialIcons name="close" size={18} color={colors.textSecondary} />
                 </TouchableOpacity>
               )}
             </View>
+          </View>
 
-            {/* Type Filter */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+          {/* Type Filter - Below Header */}
+          <View style={styles.filterSection}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScrollContent}>
               {['all', 'breakfast', 'lunch', 'dinner', 'snack'].map(type => (
                 <TouchableOpacity
                   key={type}
@@ -259,10 +260,13 @@ export const RecipeBrowser: React.FC<RecipeBrowserProps> = ({
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </LinearGradient>
+            <View style={styles.resultsCountBadge}>
+              <Text style={styles.resultsCount}>{filteredRecipes.length}</Text>
+            </View>
+          </View>
 
           {/* Results */}
-          <ScrollView style={styles.resultsScroll}>
+          <ScrollView style={styles.resultsScroll} contentContainerStyle={styles.resultsScrollContent}>
             <View style={styles.resultsContainer}>
               {filteredRecipes.length === 0 ? (
                 <View style={styles.emptyState}>
@@ -279,48 +283,68 @@ export const RecipeBrowser: React.FC<RecipeBrowserProps> = ({
                     style={styles.recipeCard}
                     onPress={() => setSelectedRecipe(recipe)}
                   >
-                    <View style={styles.recipeCardHeader}>
-                      <View style={styles.recipeCardInfo}>
-                        <Text style={styles.recipeCardTitle}>{recipe.name}</Text>
-                        <Text style={styles.recipeCardDescription} numberOfLines={2}>
-                          {recipe.description}
-                        </Text>
-                      </View>
-                      <Text
-                        style={[
-                          styles.difficultyText,
-                          { color: getDifficultyColor(recipe.difficulty) },
-                        ]}
-                      >
-                        {recipe.difficulty}
+                    <View style={styles.recipeCardTop}>
+                      <Text style={styles.recipeCardTitle} numberOfLines={2}>
+                        {recipe.name}
                       </Text>
-                    </View>
-
-                    <View style={styles.recipeCardStats}>
-                      <View style={styles.recipeCardStat}>
-                        <MaterialIcons name="local-fire-department" size={16} color={colors.accent} />
-                        <Text style={styles.recipeCardStatText}>{recipe.calories} cal</Text>
-                      </View>
-                      <View style={styles.recipeCardStat}>
-                        <MaterialIcons name="timer" size={16} color={colors.primary} />
-                        <Text style={styles.recipeCardStatText}>
-                          {recipe.prepTime + recipe.cookTime} min
-                        </Text>
-                      </View>
-                      <View style={styles.recipeCardStat}>
-                        <MaterialIcons name="restaurant-menu" size={16} color={colors.teal} />
-                        <Text style={styles.recipeCardStatText}>
-                          P: {recipe.protein}g C: {recipe.carbs}g F: {recipe.fats}g
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.recipeCardTags}>
-                      {recipe.tags.slice(0, 3).map(tag => (
-                        <View key={tag} style={styles.tag}>
-                          <Text style={styles.tagText}>{tag}</Text>
+                      <View style={styles.recipeCardBadges}>
+                        <View
+                          style={[
+                            styles.difficultyChip,
+                            { backgroundColor: getDifficultyColor(recipe.difficulty) + '20', borderColor: getDifficultyColor(recipe.difficulty) },
+                          ]}
+                        >
+                          <Text style={[styles.difficultyChipText, { color: getDifficultyColor(recipe.difficulty) }]}>
+                            {recipe.difficulty}
+                          </Text>
                         </View>
-                      ))}
+                        <View style={styles.calorieChip}>
+                          <MaterialIcons name="local-fire-department" size={16} color={colors.accent} />
+                          <Text style={styles.calorieChipText}>{recipe.calories}</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={styles.recipeCardMeta}>
+                      <View style={styles.recipeMetaItem}>
+                        <View style={styles.metaIconCircle}>
+                          <MaterialIcons name="schedule" size={14} color={colors.primary} />
+                        </View>
+                        <Text style={styles.recipeMetaText}>{recipe.prepTime + recipe.cookTime} min</Text>
+                      </View>
+                      <View style={styles.recipeMetaItem}>
+                        <View style={styles.metaIconCircle}>
+                          <MaterialIcons name="restaurant-menu" size={14} color={colors.teal} />
+                        </View>
+                        <Text style={styles.recipeMetaText}>{recipe.servings} servings</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.recipeMacrosSection}>
+                      <Text style={styles.macrosLabel}>Macros</Text>
+                      <View style={styles.macrosGrid}>
+                        <View style={styles.macroItem}>
+                          <View style={[styles.macroIconBadge, { backgroundColor: colors.primary + '15' }]}>
+                            <MaterialIcons name="fitness-center" size={14} color={colors.primary} />
+                          </View>
+                          <Text style={styles.macroValue}>{recipe.protein}g</Text>
+                          <Text style={styles.macroLabel}>Protein</Text>
+                        </View>
+                        <View style={styles.macroItem}>
+                          <View style={[styles.macroIconBadge, { backgroundColor: colors.secondary + '15' }]}>
+                            <MaterialIcons name="grain" size={14} color={colors.secondary} />
+                          </View>
+                          <Text style={styles.macroValue}>{recipe.carbs}g</Text>
+                          <Text style={styles.macroLabel}>Carbs</Text>
+                        </View>
+                        <View style={styles.macroItem}>
+                          <View style={[styles.macroIconBadge, { backgroundColor: colors.purple + '15' }]}>
+                            <MaterialIcons name="water-drop" size={14} color={colors.purple} />
+                          </View>
+                          <Text style={styles.macroValue}>{recipe.fats}g</Text>
+                          <Text style={styles.macroLabel}>Fats</Text>
+                        </View>
+                      </View>
                     </View>
                   </TouchableOpacity>
                 ))
@@ -344,79 +368,109 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
     paddingHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  headerContent: {
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: spacing.md,
   },
+  headerTitleSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: fontSizes.xl,
+    fontSize: fontSizes.lg,
     fontWeight: '700',
-    color: colors.textLight,
+    color: colors.textPrimary,
     fontFamily: 'Poppins_700Bold',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: borderRadius.xl,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.md,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     gap: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   searchInput: {
     flex: 1,
-    fontSize: fontSizes.md,
+    fontSize: fontSizes.sm,
     color: colors.textPrimary,
     fontFamily: 'Quicksand_500Medium',
   },
-  filterScroll: {
-    marginBottom: spacing.sm,
+  filterSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingLeft: spacing.lg,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  filterScrollContent: {
+    paddingRight: spacing.md,
+    gap: spacing.xs,
   },
   filterChip: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: borderRadius.xl,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    marginRight: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   filterChipActive: {
-    backgroundColor: colors.textLight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterChipText: {
-    fontSize: fontSizes.sm,
-    color: colors.textLight,
+    fontSize: fontSizes.xs,
+    color: colors.textPrimary,
     fontFamily: 'Quicksand_600SemiBold',
   },
   filterChipTextActive: {
-    color: colors.primary,
+    color: colors.textLight,
+  },
+  resultsCountBadge: {
+    marginLeft: spacing.md,
+    marginRight: spacing.lg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.full,
+    minWidth: 32,
+    alignItems: 'center',
+  },
+  resultsCount: {
+    fontSize: fontSizes.xs,
+    fontWeight: '700',
+    color: colors.textLight,
+    fontFamily: 'Poppins_700Bold',
   },
   resultsScroll: {
     flex: 1,
   },
+  resultsScrollContent: {
+    padding: spacing.md,
+  },
   resultsContainer: {
-    padding: spacing.lg,
+    gap: spacing.sm,
   },
   emptyState: {
     alignItems: 'center',
@@ -437,83 +491,129 @@ const styles = StyleSheet.create({
   },
   recipeCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.06)',
+    elevation: 2,
   },
-  recipeCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  recipeCardTop: {
     marginBottom: spacing.sm,
   },
-  recipeCardInfo: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
   recipeCardTitle: {
-    fontSize: fontSizes.lg,
+    fontSize: fontSizes.md,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
     fontFamily: 'Poppins_700Bold',
+    lineHeight: 22,
+    marginBottom: spacing.xs,
   },
-  recipeCardDescription: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-  },
-  difficultyBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: borderRadius.md,
-    justifyContent: 'center',
+  recipeCardBadges: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.xs,
   },
-  difficultyText: {
-    fontSize: 10,
+  difficultyChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+  },
+  difficultyChipText: {
+    fontSize: fontSizes.xs,
     fontWeight: '600',
     fontFamily: 'Quicksand_600SemiBold',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  recipeCardStats: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.lg,
-    marginBottom: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  recipeCardStat: {
+  calorieChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
+    backgroundColor: colors.accent + '10',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
   },
-  recipeCardStatText: {
-    fontSize: fontSizes.sm,
+  calorieChipText: {
+    fontSize: fontSizes.xs,
+    fontWeight: '700',
+    color: colors.accent,
+    fontFamily: 'Poppins_700Bold',
+  },
+  recipeCardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+  },
+  recipeMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  metaIconCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recipeMetaText: {
+    fontSize: fontSizes.xs,
     color: colors.textSecondary,
     fontFamily: 'Quicksand_600SemiBold',
   },
-  recipeCardTags: {
+  recipeMacrosSection: {
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  macrosLabel: {
+    fontSize: fontSizes.xs,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    fontFamily: 'Quicksand_600SemiBold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
+  },
+  macrosGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.xs,
-    marginTop: spacing.xs,
   },
-  tag: {
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: borderRadius.md,
+  macroItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
   },
-  tagText: {
+  macroIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  macroValue: {
+    fontSize: fontSizes.sm,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    fontFamily: 'Poppins_700Bold',
+  },
+  macroLabel: {
     fontSize: fontSizes.xs,
     color: colors.textSecondary,
     fontFamily: 'Quicksand_500Medium',
+  },
+  macroBarDot: {
+    fontSize: fontSizes.sm,
+    color: colors.border,
+    fontFamily: 'Quicksand_600SemiBold',
   },
   detailContainer: {
     flex: 1,

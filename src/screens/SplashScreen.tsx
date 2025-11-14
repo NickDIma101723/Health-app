@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { MotiView } from 'moti';
 import { colors, fontSizes, spacing, borderRadius } from '../constants/theme';
 
 interface SplashScreenProps {
@@ -9,103 +10,149 @@ interface SplashScreenProps {
 const { width } = Dimensions.get('window');
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
-  const slideUpAnim = useRef(new Animated.Value(50)).current;
-  const buttonFadeAnim = useRef(new Animated.Value(0)).current;
-  const buttonScaleAnim = useRef(new Animated.Value(0.8)).current;
-
-  useEffect(() => {
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: false,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 40,
-          friction: 7,
-          useNativeDriver: false,
-        }),
-      ]),
-      Animated.parallel([
-        Animated.spring(slideUpAnim, {
-          toValue: 0,
-          tension: 50,
-          friction: 8,
-          useNativeDriver: false,
-        }),
-        Animated.timing(buttonFadeAnim, {
-          toValue: 1,
-          duration: 600,
-          delay: 200,
-          useNativeDriver: false,
-        }),
-        Animated.spring(buttonScaleAnim, {
-          toValue: 1,
-          tension: 50,
-          friction: 7,
-          delay: 200,
-          useNativeDriver: false,
-        }),
-      ]),
-    ]).start();
-  }, []);
+  const [exitAnimation, setExitAnimation] = useState(false);
 
   const handleGetStarted = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: false,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 0.9,
-        duration: 300,
-        useNativeDriver: false,
-      }),
-    ]).start(() => onFinish());
+    setExitAnimation(true);
+    setTimeout(() => onFinish(), 400);
   };
 
   return (
     <View style={styles.container}>
-      <Animated.View
-        style={[
-          styles.content,
-          {
-            opacity: fadeAnim,
-            transform: [{ scale: scaleAnim }],
-          },
-        ]}
+      <MotiView
+        style={styles.content}
+        from={{ opacity: 0, scale: 0.9 }}
+        animate={{ 
+          opacity: exitAnimation ? 0 : 1, 
+          scale: exitAnimation ? 0.9 : 1 
+        }}
+        transition={{ 
+          type: 'timing',
+          duration: exitAnimation ? 300 : 800,
+        }}
       >
-        <View style={styles.illustrationContainer}>
+        <MotiView 
+          style={styles.illustrationContainer}
+          from={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ 
+            type: 'spring',
+            delay: 100,
+            damping: 15,
+          }}
+        >
           <View style={styles.illustrationBackground}>
-            <View style={[styles.decorativeCircle, styles.circle1]} />
-            <View style={[styles.decorativeCircle, styles.circle2]} />
-            <View style={[styles.decorativeCircle, styles.circle3]} />
+            <MotiView 
+              style={[styles.decorativeCircle, styles.circle1]}
+              from={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 0.2 }}
+              transition={{ 
+                type: 'spring',
+                delay: 200,
+                damping: 12,
+              }}
+            />
+            <MotiView 
+              style={[styles.decorativeCircle, styles.circle2]}
+              from={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 0.25 }}
+              transition={{ 
+                type: 'spring',
+                delay: 300,
+                damping: 12,
+              }}
+            />
+            <MotiView 
+              style={[styles.decorativeCircle, styles.circle3]}
+              from={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 0.3 }}
+              transition={{ 
+                type: 'spring',
+                delay: 400,
+                damping: 12,
+              }}
+            />
           </View>
           
-          <View style={styles.logoCircle}>
+          <MotiView 
+            style={styles.logoCircle}
+            from={{ scale: 0, rotate: '-180deg' }}
+            animate={{ scale: 1, rotate: '0deg' }}
+            transition={{ 
+              type: 'spring',
+              delay: 500,
+              damping: 10,
+            }}
+          >
             <Text style={styles.logoText}>A</Text>
-          </View>
+          </MotiView>
           
           <View style={styles.illustrationAccents}>
-            <View style={[styles.accentDot, styles.dot1]} />
-            <View style={[styles.accentDot, styles.dot2]} />
-            <View style={[styles.accentDot, styles.dot3]} />
+            <MotiView 
+              style={[styles.accentDot, styles.dot1]}
+              from={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ 
+                type: 'spring',
+                delay: 700,
+                damping: 8,
+              }}
+            />
+            <MotiView 
+              style={[styles.accentDot, styles.dot2]}
+              from={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ 
+                type: 'spring',
+                delay: 800,
+                damping: 8,
+              }}
+            />
+            <MotiView 
+              style={[styles.accentDot, styles.dot3]}
+              from={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ 
+                type: 'spring',
+                delay: 900,
+                damping: 8,
+              }}
+            />
           </View>
-        </View>
+        </MotiView>
 
         <View style={styles.textContent}>
-          <Text style={styles.brandName}>Aria</Text>
-          <Text style={styles.tagline}>Health & Wellness</Text>
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ 
+              type: 'timing',
+              delay: 600,
+              duration: 600,
+            }}
+          >
+            <Text style={styles.brandName}>Aria</Text>
+          </MotiView>
           
-          <Animated.View
-            style={{
-              opacity: fadeAnim,
-              transform: [{ translateY: slideUpAnim }],
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ 
+              type: 'timing',
+              delay: 700,
+              duration: 600,
+            }}
+          >
+            <Text style={styles.tagline}>Health & Wellness</Text>
+          </MotiView>
+          
+          <MotiView
+            from={{ opacity: 0, translateY: 30 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ 
+              type: 'spring',
+              delay: 900,
+              damping: 15,
             }}
           >
             <Text style={styles.welcomeText}>
@@ -114,18 +161,19 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
             <Text style={styles.description}>
               Track your health, connect with coaches,{'\n'}and achieve your wellness goals
             </Text>
-          </Animated.View>
+          </MotiView>
         </View>
-      </Animated.View>
+      </MotiView>
 
-      <Animated.View
-        style={[
-          styles.buttonContainer,
-          {
-            opacity: buttonFadeAnim,
-            transform: [{ scale: buttonScaleAnim }],
-          },
-        ]}
+      <MotiView
+        style={styles.buttonContainer}
+        from={{ opacity: 0, scale: 0.8, translateY: 30 }}
+        animate={{ opacity: 1, scale: 1, translateY: 0 }}
+        transition={{ 
+          type: 'spring',
+          delay: 1100,
+          damping: 15,
+        }}
       >
         <TouchableOpacity
           style={styles.getStartedButton}
@@ -141,7 +189,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
         <Text style={styles.footerText}>
           Tap to begin your journey
         </Text>
-      </Animated.View>
+      </MotiView>
     </View>
   );
 };
@@ -207,10 +255,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
+    boxShadow: '0px 8px 20px rgba(109, 207, 246, 0.3)',
     elevation: 10,
   },
   logoText: {
@@ -301,10 +346,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     width: '100%',
     maxWidth: 320,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
+    boxShadow: '0px 6px 12px rgba(109, 207, 246, 0.25)',
     elevation: 8,
   },
   buttonText: {

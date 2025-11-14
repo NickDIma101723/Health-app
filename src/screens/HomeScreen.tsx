@@ -936,7 +936,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         transparent={true}
         onRequestClose={() => setShowLogoutConfirm(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.logoutModalOverlay}>
           <View style={styles.logoutModal}>
             <View style={styles.logoutIconContainer}>
               <MaterialIcons name="logout" size={48} color={colors.error} />
@@ -1619,12 +1619,20 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontFamily: 'Quicksand_500Medium',
   },
+  logoutModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: spacing.lg,
+  },
   logoutModal: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xxl,
     padding: spacing.xl,
-    width: '100%',
+    width: '90%',
     maxWidth: 400,
+    alignSelf: 'center',
     alignItems: 'center',
     ...shadows.lg,
   },

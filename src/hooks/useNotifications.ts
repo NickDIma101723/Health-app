@@ -11,6 +11,7 @@ export const useNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
 
   const fetchNotifications = async () => {
     if (!user) {
@@ -18,7 +19,10 @@ export const useNotifications = () => {
       return;
     }
 
+    if (isFetching) return;
+
     try {
+      setIsFetching(true);
       setLoading(true);
       const { data, error: fetchError } = await supabase
         .from('notifications')
@@ -34,6 +38,7 @@ export const useNotifications = () => {
       setError(err.message || 'Failed to fetch notifications');
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
   };
 

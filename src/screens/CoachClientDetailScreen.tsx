@@ -10,7 +10,9 @@ import {
   RefreshControl,
   Alert,
   Platform,
+  Image,
 } from 'react-native';
+import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { BackgroundDecorations } from '../components';
@@ -41,6 +43,7 @@ interface ClientProfile {
   health_notes: string;
   goals: string;
   created_at: string;
+  avatar_url?: string | null;
 }
 
 interface WeeklyGoal {
@@ -130,17 +133,6 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
       if (profileError) throw profileError;
       setProfile(profileData);
 
-      const { data: goalsData, error: goalsError } = await supabase
-        .from('weekly_goals')
-        .select('*')
-        .eq('user_id', clientId)
-        .maybeSingle();
-
-      if (goalsError && goalsError.code !== 'PGRST116') throw goalsError;
-      setWeeklyGoal(goalsData);
-
-      console.log('Loading assignment for:', { coachId: coachData.id, clientId });
-      
       const { data: assignmentData, error: assignmentError } = await supabase
         .from('coach_client_assignments')
         .select('assigned_at, notes')
@@ -148,8 +140,6 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
         .eq('client_user_id', clientId)
         .eq('is_active', true)
         .single();
-
-      console.log('Assignment query result:', { assignmentData, assignmentError });
 
       if (assignmentError && assignmentError.code !== 'PGRST116') throw assignmentError;
       setAssignment(assignmentData);
@@ -229,8 +219,6 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
   };
 
   const handleReassignClient = async () => {
-    console.log('🔄 Unassign Client button pressed!');
-    console.log('Current data:', { clientId, coachData: coachData?.id, profile: profile?.full_name });
     
     // Use platform-specific confirmation
     const confirmed = Platform.OS === 'web' 
@@ -247,24 +235,18 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
         });
 
     if (confirmed) {
-      console.log('✅ User confirmed unassignment');
             try {
               if (!coachData) {
                 Alert.alert('Error', 'Coach data not found');
                 return;
               }
-
-              console.log('Unassigning client:', { clientId, coachId: coachData.id });
               
-              // First check if assignment exists
               const { data: existing, error: checkError } = await supabase
                 .from('coach_client_assignments')
                 .select('*')
                 .eq('client_user_id', clientId)
                 .eq('coach_id', coachData.id)
                 .eq('is_active', true);
-
-              console.log('Existing assignments:', { existing, checkError });
 
               if (checkError) {
                 console.error('Error checking assignment:', checkError);
@@ -284,8 +266,6 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
                 .eq('is_active', true)
                 .select();
 
-              console.log('Unassign result:', { data, error });
-
               if (error) {
                 console.error('Update error:', error);
                 throw new Error(`Failed to unassign client: ${error.message}`);
@@ -295,8 +275,6 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
                 Alert.alert('Error', 'No assignment was updated. The client may already be unassigned.');
                 return;
               }
-
-              console.log('Successfully unassigned client:', data);
               
               // Platform-specific success message
               if (Platform.OS === 'web') {
@@ -413,24 +391,6 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
         </View>
       </View>
 
-      {/* Debug buttons - remove these later */}
-      <TouchableOpacity 
-        style={{backgroundColor: 'red', padding: 10, margin: 10}}
-        onPress={() => {
-          console.log('DEBUG: Test button pressed!');
-          Alert.alert('Debug', 'Test button works!');
-        }}
-      >
-        <Text style={{color: 'white', textAlign: 'center'}}>DEBUG: Test Button</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity 
-        style={{backgroundColor: 'orange', padding: 10, margin: 10}}
-        onPress={handleReassignClient}
-      >
-        <Text style={{color: 'white', textAlign: 'center'}}>DEBUG: Direct Unassign</Text>
-      </TouchableOpacity>
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -442,11 +402,18 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
           colors={[colors.primary, colors.primaryLight] as [string, string, ...string[]]}
           style={styles.profileCard}
         >
-          <View style={styles.profileAvatar}>
-            <Text style={styles.profileAvatarText}>
-              {profile.full_name.charAt(0).toUpperCase()}
-            </Text>
-          </View>
+          {profile.avatar_url ? (
+            <Image
+              source={{ uri: profile.avatar_url }}
+              style={styles.profileAvatarImage}
+            />
+          ) : (
+            <View style={styles.profileAvatar}>
+              <Text style={styles.profileAvatarText}>
+                {profile.full_name.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
           <Text style={styles.profileName}>{profile.full_name}</Text>
           <View style={styles.profileMetaRow}>
             {profile.age && (
@@ -465,36 +432,59 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
         </LinearGradient>
 
         {(profile.height || profile.weight || profile.gender) && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Physical Stats</Text>
-            <View style={styles.statsGrid}>
-              {profile.height && (
-                <View style={styles.statItem}>
-                  <MaterialIcons name="height" size={24} color={colors.primary} />
-                  <Text style={styles.statValue}>{profile.height} cm</Text>
-                  <Text style={styles.statLabel}>Height</Text>
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'timing', duration: 500, delay: 200 }}
+          >
+            <View style={styles.section}>
+              <LinearGradient
+                colors={[colors.primary + '15', colors.primaryLight + '10']}
+                style={styles.compactStatsCard}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.compactStatsHeader}>
+                  <MaterialIcons name="assessment" size={20} color={colors.primary} />
+                  <Text style={styles.compactStatsTitle}>Physical Stats</Text>
                 </View>
-              )}
-              {profile.weight && (
-                <View style={styles.statItem}>
-                  <MaterialIcons name="monitor-weight" size={24} color={colors.primary} />
-                  <Text style={styles.statValue}>{profile.weight} kg</Text>
-                  <Text style={styles.statLabel}>Weight</Text>
-                </View>
-              )}
-              {bmi && (
-                <View style={styles.statItem}>
-                  <MaterialIcons name="analytics" size={24} color={bmiCategory?.color} />
-                  <Text style={[styles.statValue, { color: bmiCategory?.color }]}>{bmi}</Text>
-                  <Text style={styles.statLabel}>{bmiCategory?.text}</Text>
-                </View>
-              )}
+              <View style={styles.compactStatsGrid}>
+                {profile.height && (
+                  <View style={styles.compactStatItem}>
+                    <Text style={styles.compactStatLabel}>Height</Text>
+                    <Text style={styles.compactStatValue}>{profile.height} cm</Text>
+                  </View>
+                )}
+                {profile.height && profile.weight && <View style={styles.compactStatDivider} />}
+                {profile.weight && (
+                  <View style={styles.compactStatItem}>
+                    <Text style={styles.compactStatLabel}>Weight</Text>
+                    <Text style={styles.compactStatValue}>{profile.weight} kg</Text>
+                  </View>
+                )}
+                {bmi && profile.weight && <View style={styles.compactStatDivider} />}
+                {bmi && (
+                  <View style={styles.compactStatItem}>
+                    <Text style={styles.compactStatLabel}>BMI</Text>
+                    <View style={styles.bmiValueContainer}>
+                      <Text style={[styles.compactStatValue, { color: bmiCategory?.color }]}>{bmi}</Text>
+                      <Text style={[styles.bmiCategory, { color: bmiCategory?.color }]}>({bmiCategory?.text})</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </LinearGradient>
             </View>
-          </View>
+          </MotiView>
         )}
 
         {weeklyGoal && (
-          <View style={styles.section}>
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'timing', duration: 500, delay: 300 }}
+          >
+            <View style={styles.section}>
             <Text style={styles.sectionTitle}>Weekly Progress</Text>
             
             <View style={styles.progressItem}>
@@ -562,16 +552,23 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
                 />
               </View>
             </View>
-          </View>
+            </View>
+          </MotiView>
         )}
 
         {profile.fitness_goals && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Fitness Goals</Text>
-            <View style={styles.card}>
-              <Text style={styles.cardText}>{profile.fitness_goals}</Text>
+          <MotiView
+            from={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', delay: 400, damping: 15 }}
+          >
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Fitness Goals</Text>
+              <View style={styles.card}>
+                <Text style={styles.cardText}>{profile.fitness_goals}</Text>
+              </View>
             </View>
-          </View>
+          </MotiView>
         )}
 
         {profile.health_notes && (
@@ -609,14 +606,9 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
                   </Text>
                 </View>
               )}
-              
               <TouchableOpacity 
                 style={styles.reassignButton}
-                onPress={() => {
-                  console.log('🚨 UNASSIGN BUTTON PRESSED!');
-                  Alert.alert('DEBUG', 'Unassign button was pressed!');
-                  handleReassignClient();
-                }}
+                onPress={handleReassignClient}
               >
                 <MaterialIcons name="swap-horiz" size={20} color={colors.warning} />
                 <Text style={styles.reassignButtonText}>Unassign Client</Text>
@@ -656,111 +648,219 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
         )}
 
         {healthMetrics.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Health Metrics (Last 7 Days)</Text>
-            {healthMetrics.map((metric, index) => (
-              <View key={index} style={[styles.card, { marginBottom: spacing.md }]}>
-                <Text style={styles.metricDate}>
-                  {new Date(metric.date).toLocaleDateString()}
-                </Text>
-                <View style={styles.statsGrid}>
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'timing', duration: 500, delay: 500 }}
+          >
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Health Metrics (Last 7 Days)</Text>
+              {healthMetrics.map((metric, index) => (
+                <MotiView
+                  key={index}
+                  from={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: 'spring', delay: 600 + (index * 100), damping: 15 }}
+                >
+                  <View style={styles.metricDayCard}>
+                <View style={styles.metricDayHeader}>
+                  <View style={styles.metricDayDateBadge}>
+                    <MaterialIcons name="calendar-today" size={14} color={colors.primary} />
+                    <Text style={styles.metricDayDate}>
+                      {new Date(metric.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </Text>
+                  </View>
+                </View>
+                
+                <View style={styles.widgetGrid}>
                   {metric.steps > 0 && (
-                    <View style={styles.statItem}>
-                      <MaterialIcons name="directions-walk" size={20} color={colors.primary} />
-                      <Text style={styles.statValue}>{metric.steps}</Text>
-                      <Text style={styles.statLabel}>Steps</Text>
-                    </View>
+                    <LinearGradient
+                      colors={[colors.primary + '20', colors.primary + '10']}
+                      style={styles.metricWidget}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <View style={[styles.widgetIconBadge, { backgroundColor: colors.primary + '30' }]}>
+                        <MaterialIcons name="directions-walk" size={20} color={colors.primary} />
+                      </View>
+                      <Text style={styles.widgetValue}>{metric.steps.toLocaleString()}</Text>
+                      <Text style={styles.widgetLabel}>Steps</Text>
+                    </LinearGradient>
                   )}
+                  
                   {metric.calories_burned > 0 && (
-                    <View style={styles.statItem}>
-                      <MaterialIcons name="local-fire-department" size={20} color={colors.warning} />
-                      <Text style={styles.statValue}>{metric.calories_burned}</Text>
-                      <Text style={styles.statLabel}>Calories</Text>
-                    </View>
+                    <LinearGradient
+                      colors={[colors.warning + '20', colors.warning + '10']}
+                      style={styles.metricWidget}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <View style={[styles.widgetIconBadge, { backgroundColor: colors.warning + '30' }]}>
+                        <MaterialIcons name="local-fire-department" size={20} color={colors.warning} />
+                      </View>
+                      <Text style={styles.widgetValue}>{metric.calories_burned}</Text>
+                      <Text style={styles.widgetLabel}>Calories</Text>
+                    </LinearGradient>
                   )}
+                  
                   {metric.water_intake > 0 && (
-                    <View style={styles.statItem}>
-                      <MaterialIcons name="water-drop" size={20} color={colors.info} />
-                      <Text style={styles.statValue}>{metric.water_intake}</Text>
-                      <Text style={styles.statLabel}>Water (L)</Text>
-                    </View>
+                    <LinearGradient
+                      colors={[colors.info + '20', colors.info + '10']}
+                      style={styles.metricWidget}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <View style={[styles.widgetIconBadge, { backgroundColor: colors.info + '30' }]}>
+                        <MaterialIcons name="water-drop" size={20} color={colors.info} />
+                      </View>
+                      <Text style={styles.widgetValue}>{metric.water_intake}L</Text>
+                      <Text style={styles.widgetLabel}>Water</Text>
+                    </LinearGradient>
                   )}
-                </View>
-                <View style={styles.statsGrid}>
+                  
                   {metric.sleep_hours > 0 && (
-                    <View style={styles.statItem}>
-                      <MaterialIcons name="bedtime" size={20} color={colors.secondary} />
-                      <Text style={styles.statValue}>{metric.sleep_hours}</Text>
-                      <Text style={styles.statLabel}>Sleep (h)</Text>
-                    </View>
+                    <LinearGradient
+                      colors={[colors.secondary + '20', colors.secondary + '10']}
+                      style={styles.metricWidget}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <View style={[styles.widgetIconBadge, { backgroundColor: colors.secondary + '30' }]}>
+                        <MaterialIcons name="bedtime" size={20} color={colors.secondary} />
+                      </View>
+                      <Text style={styles.widgetValue}>{metric.sleep_hours}h</Text>
+                      <Text style={styles.widgetLabel}>Sleep</Text>
+                    </LinearGradient>
                   )}
+                  
                   {metric.exercise_minutes > 0 && (
-                    <View style={styles.statItem}>
-                      <MaterialIcons name="fitness-center" size={20} color={colors.primary} />
-                      <Text style={styles.statValue}>{metric.exercise_minutes}</Text>
-                      <Text style={styles.statLabel}>Exercise (min)</Text>
-                    </View>
+                    <LinearGradient
+                      colors={[colors.success + '20', colors.success + '10']}
+                      style={styles.metricWidget}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <View style={[styles.widgetIconBadge, { backgroundColor: colors.success + '30' }]}>
+                        <MaterialIcons name="fitness-center" size={20} color={colors.success} />
+                      </View>
+                      <Text style={styles.widgetValue}>{metric.exercise_minutes}m</Text>
+                      <Text style={styles.widgetLabel}>Exercise</Text>
+                    </LinearGradient>
                   )}
+                  
                   {metric.weight_kg > 0 && (
-                    <View style={styles.statItem}>
-                      <MaterialIcons name="monitor-weight" size={20} color={colors.accent} />
-                      <Text style={styles.statValue}>{metric.weight_kg}</Text>
-                      <Text style={styles.statLabel}>Weight (kg)</Text>
-                    </View>
+                    <LinearGradient
+                      colors={[colors.accent + '20', colors.accent + '10']}
+                      style={styles.metricWidget}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <View style={[styles.widgetIconBadge, { backgroundColor: colors.accent + '30' }]}>
+                        <MaterialIcons name="monitor-weight" size={20} color={colors.accent} />
+                      </View>
+                      <Text style={styles.widgetValue}>{metric.weight_kg}kg</Text>
+                      <Text style={styles.widgetLabel}>Weight</Text>
+                    </LinearGradient>
                   )}
                 </View>
-              </View>
-            ))}
-          </View>
+                  </View>
+                </MotiView>
+              ))}
+            </View>
+          </MotiView>
         )}
 
         {activityLogs.length > 0 && (
-          <View style={styles.section}>
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'timing', duration: 500, delay: 700 }}
+          >
+            <View style={styles.section}>
             <Text style={styles.sectionTitle}>Recent Activities</Text>
-            {activityLogs.map((activity) => (
-              <View key={activity.id} style={[styles.card, { marginBottom: spacing.md }]}>
-                <View style={styles.activityHeader}>
-                  <View style={styles.activityTitleRow}>
-                    <MaterialIcons 
-                      name={
-                        activity.activity_type === 'workout' ? 'fitness-center' :
-                        activity.activity_type === 'meal' ? 'restaurant' :
-                        activity.activity_type === 'mindfulness' ? 'self-improvement' :
-                        'event'
-                      } 
-                      size={20} 
-                      color={
-                        activity.status === 'completed' ? colors.success :
-                        activity.status === 'failed' ? colors.error :
-                        colors.textSecondary
-                      }
-                    />
-                    <Text style={styles.activityTitle}>{activity.title}</Text>
-                  </View>
-                  <Text style={[
-                    styles.activityStatus,
-                    { color: activity.status === 'completed' ? colors.success : colors.textSecondary }
-                  ]}>
-                    {activity.status}
-                  </Text>
-                </View>
-                <View style={styles.activityMeta}>
-                  <Text style={styles.activityMetaText}>
-                    {new Date(activity.date).toLocaleDateString()}
-                  </Text>
-                  {activity.duration && (
-                    <Text style={styles.activityMetaText}>
-                      {activity.duration} min
-                    </Text>
-                  )}
-                </View>
-              </View>
-            ))}
-          </View>
+            {activityLogs.map((activity) => {
+              const getActivityColor = () => {
+                if (activity.activity_type === 'workout') return { primary: '#11998e', light: '#38ef7d' };
+                if (activity.activity_type === 'meal') return { primary: '#f093fb', light: '#f5576c' };
+                if (activity.activity_type === 'mindfulness') return { primary: '#667eea', light: '#764ba2' };
+                return { primary: colors.primary, light: colors.primaryLight };
+              };
+              
+              const activityColors = getActivityColor();
+              
+              return (
+                <TouchableOpacity key={activity.id} activeOpacity={0.7}>
+                  <LinearGradient
+                    colors={[`${activityColors.primary}15`, `${activityColors.light}10`]}
+                    style={[styles.card, styles.activityCard]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <View style={styles.activityHeader}>
+                      <View style={styles.activityTitleRow}>
+                        <View style={[styles.activityIconBadge, { backgroundColor: `${activityColors.primary}25` }]}>
+                          <MaterialIcons 
+                            name={
+                              activity.activity_type === 'workout' ? 'fitness-center' :
+                              activity.activity_type === 'meal' ? 'restaurant' :
+                              activity.activity_type === 'mindfulness' ? 'self-improvement' :
+                              'event'
+                            } 
+                            size={18} 
+                            color={activityColors.primary}
+                          />
+                        </View>
+                        <View style={styles.activityTextContainer}>
+                          <Text style={styles.activityTitle}>{activity.title}</Text>
+                          <Text style={styles.activityType}>{activity.activity_type}</Text>
+                        </View>
+                      </View>
+                      <View style={[
+                        styles.activityStatusBadge,
+                        { backgroundColor: activity.status === 'completed' ? colors.success + '20' : colors.textSecondary + '20' }
+                      ]}>
+                        <MaterialIcons 
+                          name={activity.status === 'completed' ? 'check-circle' : 'schedule'}
+                          size={14}
+                          color={activity.status === 'completed' ? colors.success : colors.textSecondary}
+                        />
+                        <Text style={[
+                          styles.activityStatusText,
+                          { color: activity.status === 'completed' ? colors.success : colors.textSecondary }
+                        ]}>
+                          {activity.status}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.activityMeta}>
+                      <MaterialIcons name="calendar-today" size={14} color={colors.textSecondary} />
+                      <Text style={styles.activityMetaText}>
+                        {new Date(activity.date).toLocaleDateString()}
+                      </Text>
+                      {activity.duration && (
+                        <>
+                          <MaterialIcons name="schedule" size={14} color={colors.textSecondary} />
+                          <Text style={styles.activityMetaText}>
+                            {activity.duration} min
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              );
+            })}
+            </View>
+          </MotiView>
         )}
 
         {meals.length > 0 && (
-          <View style={styles.section}>
+          <MotiView
+            from={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', delay: 800, damping: 15 }}
+          >
+            <View style={styles.section}>
             <Text style={styles.sectionTitle}>Recent Meals</Text>
             {meals.map((meal) => (
               <View key={meal.id} style={[styles.card, { marginBottom: spacing.md }]}>
@@ -791,11 +891,17 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
                 </Text>
               </View>
             ))}
-          </View>
+            </View>
+          </MotiView>
         )}
 
         {profile.created_at && (
-          <View style={styles.section}>
+          <MotiView
+            from={{ opacity: 0, translateY: 10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'timing', duration: 400, delay: 900 }}
+          >
+            <View style={styles.section}>
             <Text style={styles.sectionTitle}>Account Information</Text>
             <View style={styles.card}>
               <View style={styles.assignmentRow}>
@@ -811,7 +917,8 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
                 </Text>
               </View>
             </View>
-          </View>
+            </View>
+          </MotiView>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -930,6 +1037,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.md,
   },
+  profileAvatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: spacing.md,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
   profileAvatarText: {
     fontSize: 36,
     fontFamily: 'Poppins_700Bold',
@@ -966,28 +1081,190 @@ const styles = StyleSheet.create({
   },
   statsGrid: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing.lg,
+    marginBottom: spacing.sm,
   },
   statItem: {
     flex: 1,
     backgroundColor: colors.surface,
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    paddingVertical: spacing.xl,
+    borderRadius: borderRadius.xl,
     alignItems: 'center',
-    ...shadows.sm,
+    ...shadows.md,
   },
   statValue: {
     fontSize: fontSizes.xl,
     fontFamily: 'Poppins_700Bold',
     color: colors.textPrimary,
-    marginTop: spacing.sm,
+    marginTop: spacing.lg,
     textAlign: 'center',
   },
   statLabel: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+    marginTop: spacing.lg,
+  },
+  compactStatsCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    ...shadows.md,
+  },
+  compactStatsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border + '30',
+  },
+  compactStatsTitle: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Poppins_600SemiBold',
+    color: colors.textPrimary,
+  },
+  compactStatsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  compactStatItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  compactStatLabel: {
     fontSize: fontSizes.xs,
     fontFamily: 'Quicksand_500Medium',
     color: colors.textSecondary,
-    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  compactStatValue: {
+    fontSize: fontSizes.lg,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.primary,
+  },
+  compactStatDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: colors.border + '40',
+  },
+  bmiValueContainer: {
+    alignItems: 'center',
+  },
+  bmiCategory: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Quicksand_500Medium',
+    marginTop: 2,
+  },
+  compactMetricCard: {
+    marginBottom: spacing.md,
+  },
+  metricCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border + '30',
+  },
+  compactMetricDate: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Poppins_600SemiBold',
+    color: colors.textPrimary,
+  },
+  compactMetricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  compactMetricItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  compactMetricTextContainer: {
+    alignItems: 'flex-start',
+  },
+  compactMetricValue: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.textPrimary,
+  },
+  compactMetricLabel: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+  },
+  compactMetricDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: colors.border + '40',
+    marginHorizontal: spacing.sm,
+  },
+  metricDayCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.md,
+  },
+  metricDayHeader: {
+    marginBottom: spacing.md,
+  },
+  metricDayDateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    alignSelf: 'flex-start',
+  },
+  metricDayDate: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Poppins_600SemiBold',
+    color: colors.primary,
+  },
+  widgetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  metricWidget: {
+    flex: 1,
+    minWidth: 100,
+    maxWidth: '48%',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    ...shadows.sm,
+  },
+  widgetIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  widgetValue: {
+    fontSize: fontSizes.xl,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  widgetLabel: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   progressItem: {
     marginBottom: spacing.lg,
@@ -1070,6 +1347,9 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.md,
   },
+  activityCard: {
+    marginBottom: spacing.md,
+  },
   activityHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1082,10 +1362,40 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     flex: 1,
   },
+  activityIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activityTextContainer: {
+    flex: 1,
+  },
   activityTitle: {
     fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_600SemiBold',
+    fontFamily: 'Poppins_600SemiBold',
     color: colors.textPrimary,
+  },
+  activityType: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+    textTransform: 'capitalize',
+    marginTop: 2,
+  },
+  activityStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+  },
+  activityStatusText: {
+    fontSize: fontSizes.xs,
+    fontFamily: 'Quicksand_600SemiBold',
+    textTransform: 'capitalize',
   },
   activityStatus: {
     fontSize: fontSizes.sm,
@@ -1094,12 +1404,15 @@ const styles = StyleSheet.create({
   },
   activityMeta: {
     flexDirection: 'row',
-    gap: spacing.md,
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
   },
   activityMetaText: {
-    fontSize: fontSizes.sm,
+    fontSize: fontSizes.xs,
     fontFamily: 'Quicksand_500Medium',
     color: colors.textSecondary,
+    marginRight: spacing.sm,
   },
   mealName: {
     fontSize: fontSizes.md,
