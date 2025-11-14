@@ -33,6 +33,7 @@ interface ChatPreview {
   lastMessage: string;
   timestamp: string;
   avatar: string;
+  avatar_url?: string | null;
   isOnline: boolean;
   unreadCount: number;
   isCoach: boolean;
@@ -43,11 +44,21 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
   const { messages } = useMessages();
   const { coaches, myCoach } = useCoaches();
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [chatPreviews, setChatPreviews] = useState<ChatPreview[]>([]);
   const [coachClients, setCoachClients] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Load coach clients if in coach mode
   const loadCoachClients = async () => {
@@ -56,7 +67,10 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
       return;
     }
 
+    if (isLoadingClients) return; // Prevent duplicate requests
+
     try {
+      setIsLoadingClients(true);
       setIsLoading(true);
       console.log('[ChatList] Loading clients for coach:', coachData.id);
       
@@ -109,11 +123,12 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
       // Add a small delay to prevent flash
       setTimeout(() => {
         setIsLoading(false);
+        setIsLoadingClients(false);
         setInitialLoadComplete(true);
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }).start();
       }, 100);
     }
@@ -121,14 +136,14 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
 
   useEffect(() => {
     console.log('[ChatList] Mode check:', { currentMode, coachData: !!coachData });
-    if (currentMode === 'coach' && coachData) {
+    if (currentMode === 'coach' && coachData && !isLoadingClients) {
       console.log('[ChatList] Loading coach clients...');
       loadCoachClients();
-    } else {
+    } else if (currentMode !== 'coach') {
       // Client mode - create chat previews from messages and coaches
       const previews: ChatPreview[] = [];
 
-      // Add coach chat if user has one
+      // Add coach chat if user has one (ONLY show current coach)
       if (myCoach) {
         const coachMessages = messages.filter(msg => 
           msg.sender_id === myCoach.user_id || msg.receiver_id === myCoach.user_id
@@ -147,28 +162,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
         });
       }
 
-      // Add other coaches you've chatted with (previous coaches)
-      coaches.forEach(coach => {
-        if (coach.user_id !== myCoach?.user_id) {
-          const coachMessages = messages.filter(msg => 
-            msg.sender_id === coach.user_id || msg.receiver_id === coach.user_id
-          );
-          
-          if (coachMessages.length > 0) {
-            const lastMessage = coachMessages[coachMessages.length - 1];
-            previews.push({
-              id: coach.user_id,
-              name: coach.full_name,
-              lastMessage: lastMessage.message_text || 'Previous conversation',
-              timestamp: formatTimestamp(new Date(lastMessage.created_at)),
-              avatar: '👨‍⚕️',
-              isOnline: false, // Previous coaches show as offline
-              unreadCount: coachMessages.filter(msg => msg.sender_id === coach.user_id && !msg.is_read).length,
-              isCoach: true,
-            });
-          }
-        }
-      });
+      // Removed previous coaches from chat list - only show current coach
 
       setChatPreviews(previews);
       // Add a small delay to prevent flash
@@ -178,13 +172,13 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }).start();
       }, 100);
     }
-  }, [currentMode, messages, coaches, myCoach, coachData]);
+  }, [currentMode, coachData?.id]); // Only re-run when mode or coach changes
 
-  // Create coach chat previews from clients
+  // Create coach chat previews from clients (memoized to prevent excessive updates)
   useEffect(() => {
     console.log('[ChatList] Coach clients effect:', { 
       currentMode, 
@@ -192,7 +186,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
       coachClients: coachClients.map(c => ({ name: c.full_name, id: c.user_id }))
     });
     
-    if (currentMode === 'coach' && coachClients.length > 0) {
+    if (currentMode === 'coach' && coachClients.length > 0 && messages) {
       const previews: ChatPreview[] = coachClients.map(client => {
         const clientMessages = messages.filter(msg => 
           msg.sender_id === client.user_id || msg.receiver_id === client.user_id
@@ -205,6 +199,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
           lastMessage: lastMessage?.message_text || 'Start chatting with your client!',
           timestamp: lastMessage ? formatTimestamp(new Date(lastMessage.created_at)) : 'New',
           avatar: client.full_name?.charAt(0)?.toUpperCase() || '�',
+          avatar_url: client.avatar_url,
           isOnline: true, // Assume clients are available
           unreadCount: clientMessages.filter(msg => msg.sender_id === client.user_id && !msg.is_read).length,
           isCoach: false, // These are clients, not coaches
@@ -217,7 +212,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
       console.log('[ChatList] 📝 No coach clients found, clearing chat previews');
       setChatPreviews([]);
     }
-  }, [coachClients, messages, currentMode]);
+  }, [coachClients.length, messages.length, currentMode]); // Only when counts change
 
   const formatTimestamp = (timestamp: Date): string => {
     const now = new Date();
@@ -231,7 +226,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
   };
 
   const filteredChats = chatPreviews.filter(chat =>
-    chat.name.toLowerCase().includes(searchQuery.toLowerCase())
+    chat.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
   );
 
   console.log('[ChatList] Rendering - filteredChats count:', filteredChats.length);
@@ -259,9 +254,16 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
         activeOpacity={0.7}
       >
         <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{chat.avatar}</Text>
-          </View>
+          {chat.avatar_url ? (
+            <Image
+              source={{ uri: chat.avatar_url }}
+              style={styles.avatarImage}
+            />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{chat.avatar}</Text>
+            </View>
+          )}
           {chat.isOnline && <View style={styles.onlineIndicator} />}
         </View>
 
@@ -486,6 +488,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryPale,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
   avatarText: {
     fontSize: 24,

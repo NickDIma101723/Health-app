@@ -217,13 +217,7 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
       // Enhanced success experience with direct navigation
       if (typeof window !== 'undefined' && window.alert) {
         window.alert('🎉 Welcome, Coach! Congratulations! You\'re now a certified health coach. Your coach dashboard is ready!');
-        // Refresh the coach status first
-        if (refreshCoachStatus) {
-          console.log('[BecomeCoach] Refreshing coach status...');
-          await refreshCoachStatus();
-        }
-        
-        // Switch to coach mode
+        // Switch to coach mode (it will refresh internally)
         if (switchToCoachMode) {
           console.log('[BecomeCoach] Switching to coach mode...');
           await switchToCoachMode();
@@ -242,13 +236,7 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
               onPress: async () => {
                 console.log('[BecomeCoach] New coach - activating coach mode and navigating...');
                 
-                // Refresh the coach status first
-                if (refreshCoachStatus) {
-                  console.log('[BecomeCoach] Refreshing coach status...');
-                  await refreshCoachStatus();
-                }
-                
-                // Switch to coach mode
+                // Switch to coach mode (it will refresh internally)
                 if (switchToCoachMode) {
                   console.log('[BecomeCoach] Switching to coach mode...');
                   await switchToCoachMode();
@@ -370,32 +358,49 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
         </View>
 
         {/* Coach Benefits */}
-        <View style={styles.benefitsSection}>
-          <Text style={styles.sectionTitle}>What You'll Get as a Coach</Text>
-          {[
-            'Track client progress & goals',
-            'Secure messaging platform',
-            'Flexible coaching schedule',
-            'Make a real difference',
-            'Build meaningful connections'
-          ].map((benefit, index) => (
-            <View key={index} style={styles.benefitItem}>
-              <MaterialIcons name="check-circle" size={20} color={colors.success} />
-              <Text style={styles.benefitText}>{benefit}</Text>
-            </View>
-          ))}
+        <View style={styles.benefitsCard}>
+          <View style={styles.cardHeader}>
+            <MaterialIcons name="stars" size={24} color={colors.primary} />
+            <Text style={styles.cardTitle}>What You'll Get as a Coach</Text>
+          </View>
+          <View style={styles.benefitsList}>
+            {[
+              { icon: 'trending-up', text: 'Track client progress & goals' },
+              { icon: 'chat', text: 'Secure messaging platform' },
+              { icon: 'schedule', text: 'Flexible coaching schedule' },
+              { icon: 'favorite', text: 'Make a real difference' },
+              { icon: 'people', text: 'Build meaningful connections' }
+            ].map((benefit, index) => (
+              <View key={index} style={styles.benefitWidget}>
+                <View style={styles.benefitIconContainer}>
+                  <MaterialIcons name={benefit.icon} size={18} color={colors.primary} />
+                </View>
+                <Text style={styles.benefitText}>{benefit.text}</Text>
+              </View>
+            ))}
+          </View>
         </View>
 
-        <View style={styles.responsibilitiesSection}>
-          <Text style={styles.sectionTitle}>Coach Responsibilities</Text>
-          <View style={styles.responsibilityCard}>
-            <Text style={styles.responsibilityText}>
-              • Provide supportive and professional guidance{'\n'}
-              • Respect client privacy and boundaries{'\n'}
-              • Maintain regular communication{'\n'}
-              • Stay updated with best practices{'\n'}
-              • Encourage and motivate clients
-            </Text>
+        <View style={styles.responsibilitiesCard}>
+          <View style={styles.cardHeader}>
+            <MaterialIcons name="assignment" size={24} color={colors.warning} />
+            <Text style={styles.cardTitle}>Coach Responsibilities</Text>
+          </View>
+          <View style={styles.responsibilityList}>
+            {[
+              { icon: 'support', text: 'Provide supportive and professional guidance' },
+              { icon: 'shield', text: 'Respect client privacy and boundaries' },
+              { icon: 'message', text: 'Maintain regular communication' },
+              { icon: 'school', text: 'Stay updated with best practices' },
+              { icon: 'emoji-events', text: 'Encourage and motivate clients' }
+            ].map((item, index) => (
+              <View key={index} style={styles.responsibilityWidget}>
+                <View style={styles.responsibilityIconContainer}>
+                  <MaterialIcons name={item.icon} size={16} color={colors.warning} />
+                </View>
+                <Text style={styles.responsibilityText}>{item.text}</Text>
+              </View>
+            ))}
           </View>
         </View>
 
@@ -507,82 +512,50 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: spacing.xl,
   },
-  benefitsSection: {
-    marginBottom: spacing.xl,
+  benefitsCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.md,
   },
-  sectionTitle: {
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  cardTitle: {
     fontSize: fontSizes.lg,
     fontWeight: '700',
     color: colors.textPrimary,
     fontFamily: 'Poppins_700Bold',
-    marginBottom: spacing.md,
+    flex: 1,
   },
-  benefitItem: {
+  benefitsList: {
+    gap: spacing.sm,
+  },
+  benefitWidget: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: colors.primaryPale,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
     gap: spacing.sm,
-    marginBottom: spacing.sm,
+  },
+  benefitIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   benefitText: {
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-  },
-  formSection: {
-    marginBottom: spacing.xl,
-  },
-  inputGroup: {
-    marginBottom: spacing.lg,
-  },
-  label: {
     fontSize: fontSizes.sm,
-    fontWeight: '600',
     color: colors.textPrimary,
     fontFamily: 'Quicksand_600SemiBold',
-    marginBottom: spacing.xs,
-  },
-  required: {
-    color: colors.error,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: fontSizes.md,
-    color: colors.textPrimary,
-    fontFamily: 'Quicksand_500Medium',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: 'top',
-    paddingTop: spacing.sm,
-  },
-  specializationScroll: {
-    marginTop: spacing.xs,
-  },
-  specializationChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginRight: spacing.sm,
-  },
-  specializationChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  specializationChipText: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  specializationChipTextActive: {
-    color: colors.textLight,
+    flex: 1,
   },
   submitButton: {
     flexDirection: 'row',
@@ -593,7 +566,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     gap: spacing.xs,
     marginTop: spacing.md,
-    ...shadows.md,
   },
   submitButtonDisabled: {
     opacity: 0.6,
@@ -655,20 +627,37 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginLeft: spacing.xs,
   },
-  responsibilitiesSection: {
-    marginBottom: spacing.xl,
-  },
-  responsibilityCard: {
-    backgroundColor: colors.primaryPale,
+  responsibilitiesCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
     padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
+    marginBottom: spacing.lg,
+    ...shadows.md,
+  },
+  responsibilityList: {
+    gap: spacing.sm,
+  },
+  responsibilityWidget: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+    gap: spacing.xs,
+  },
+  responsibilityIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   responsibilityText: {
-    fontSize: fontSizes.md,
+    fontSize: fontSizes.sm,
     color: colors.textPrimary,
-    lineHeight: 22,
+    fontFamily: 'Quicksand_500Medium',
+    flex: 1,
   },
   buttonGradient: {
     flexDirection: 'row',
@@ -679,3 +668,5 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
 });
+
+

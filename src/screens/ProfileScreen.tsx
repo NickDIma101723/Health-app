@@ -661,8 +661,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
 
   const handleConvertToCoach = () => {
     console.log('[ProfileScreen] handleConvertToCoach called - canBeCoach:', canBeCoach, 'isCoach:', isCoach);
-    // Use browser alert for web testing
-    if (typeof window !== 'undefined' && window.alert) {
+    // Use browser confirm for web testing
+    if (Platform.OS === 'web') {
       const confirmed = window.confirm("Are you sure you want to become a health coach? This will unlock coach features while keeping your client access.");
       if (confirmed) {
         console.log('[ProfileScreen] User confirmed becoming coach, showing qualification modal');
@@ -701,7 +701,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
     }
 
     // Add confirmation before proceeding
-    if (typeof window !== 'undefined' && window.confirm) {
+    if (Platform.OS === 'web') {
       const confirmed = window.confirm('Are you sure you want to become a health coach? This action cannot be undone easily.');
       if (confirmed) {
         // Proceed with coach creation
@@ -759,7 +759,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
           }
 
           // Enhanced success experience with creative mode switching
-          if (typeof window !== 'undefined' && window.alert) {
+          if (Platform.OS === 'web') {
             window.alert('🎉 Welcome, Coach! Congratulations! You\'re now a certified health coach. Your coach dashboard is ready.');
             // Refresh the coach status first
             if (refreshCoachStatus) {
@@ -774,7 +774,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 
                 // Show celebration and navigation
                 setTimeout(() => {
-                  if (typeof window !== 'undefined' && window.alert) {
+                  if (Platform.OS === 'web') {
                     window.alert('🌟 Coach Mode Activated! You\'re now in Coach Mode! Navigate to your Coach Dashboard to start managing clients.');
                   } else {
                     Alert.alert(
@@ -836,7 +836,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
           }
         } catch (error) {
           console.error('Error converting to coach:', error);
-          if (typeof window !== 'undefined' && window.alert) {
+          if (Platform.OS === 'web') {
             window.alert('Failed to convert to coach. Please try again.');
           } else {
             Alert.alert('Error', 'Failed to convert to coach. Please try again.');
@@ -1163,24 +1163,42 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
 
         {!editing && (
           <View style={styles.statsSection}>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{profile.age || '--'}</Text>
-              <Text style={styles.statLabel}>Age</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{profile.height || '--'}</Text>
-              <Text style={styles.statLabel}>Height (cm)</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{profile.weight || '--'}</Text>
-              <Text style={styles.statLabel}>Weight (kg)</Text>
-            </View>
-            {bmi && (
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{bmi}</Text>
-                <Text style={styles.statLabel}>BMI</Text>
+            <LinearGradient
+              colors={[colors.primary + '15', colors.primaryLight + '10']}
+              style={styles.statsCard}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.statsHeader}>
+                <MaterialIcons name="assessment" size={20} color={colors.primary} />
+                <Text style={styles.statsTitle}>Physical Stats</Text>
               </View>
-            )}
+              <View style={styles.statsGrid}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statItemLabel}>Age</Text>
+                  <Text style={styles.statItemValue}>{profile.age || '--'}</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <Text style={styles.statItemLabel}>Height</Text>
+                  <Text style={styles.statItemValue}>{profile.height ? `${profile.height} cm` : '--'}</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <Text style={styles.statItemLabel}>Weight</Text>
+                  <Text style={styles.statItemValue}>{profile.weight ? `${profile.weight} kg` : '--'}</Text>
+                </View>
+                {bmi && (
+                  <>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                      <Text style={styles.statItemLabel}>BMI</Text>
+                      <Text style={styles.statItemValue}>{bmi}</Text>
+                    </View>
+                  </>
+                )}
+              </View>
+            </LinearGradient>
           </View>
         )}
 
@@ -1409,85 +1427,164 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, styles.coachQualificationModal]}>
-            <View style={styles.modalHeader}>
-              <MaterialIcons name="school" size={32} color={colors.primary} />
-              <Text style={styles.modalTitle}>Coach Qualification</Text>
-            </View>
+            <LinearGradient
+              colors={['#667eea', '#764ba2']}
+              style={styles.qualificationHeader}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.qualificationIconBadge}>
+                <MaterialIcons name="school" size={40} color={colors.textLight} />
+              </View>
+              <Text style={styles.qualificationTitle}>Become a Coach</Text>
+              <Text style={styles.qualificationSubtitle}>Join our community of health experts</Text>
+            </LinearGradient>
             
             <ScrollView style={styles.qualificationContent} showsVerticalScrollIndicator={false}>
-              <Text style={styles.modalDescription}>
-                Ready to inspire others? Let's make sure you're set up for success as a health coach.
+              <Text style={styles.qualificationDescription}>
+                🌟 Ready to inspire others? Let's ensure you're fully prepared to make a real impact.
               </Text>
 
               <View style={styles.requirementsList}>
-                <View style={styles.requirementItem}>
-                  <MaterialIcons 
-                    name={profile.full_name ? "check-circle" : "radio-button-unchecked"} 
-                    size={20} 
-                    color={profile.full_name ? colors.success : colors.textSecondary} 
-                  />
-                  <Text style={[styles.requirementText, profile.full_name && styles.requirementCompleted]}>
-                    Complete your full name
-                  </Text>
-                </View>
+                <LinearGradient
+                  colors={profile.full_name ? ['#11998e20', '#38ef7d10'] : [colors.surface, colors.surface]}
+                  style={styles.requirementCard}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={[
+                    styles.requirementIconBadge,
+                    { backgroundColor: profile.full_name ? colors.success + '25' : colors.textSecondary + '20' }
+                  ]}>
+                    <MaterialIcons 
+                      name={profile.full_name ? "check-circle" : "person"} 
+                      size={24} 
+                      color={profile.full_name ? colors.success : colors.textSecondary} 
+                    />
+                  </View>
+                  <View style={styles.requirementTextContainer}>
+                    <Text style={[styles.requirementTitle, profile.full_name && styles.requirementCompleted]}>
+                      Full Name
+                    </Text>
+                    <Text style={styles.requirementDesc}>
+                      {profile.full_name ? '✓ Completed' : 'Add your full name to your profile'}
+                    </Text>
+                  </View>
+                </LinearGradient>
                 
-                <View style={styles.requirementItem}>
-                  <MaterialIcons 
-                    name={profile.bio ? "check-circle" : "radio-button-unchecked"} 
-                    size={20} 
-                    color={profile.bio ? colors.success : colors.textSecondary} 
-                  />
-                  <Text style={[styles.requirementText, profile.bio && styles.requirementCompleted]}>
-                    Write your bio/about section
-                  </Text>
-                </View>
+                <LinearGradient
+                  colors={profile.bio ? ['#f093fb20', '#f5576c10'] : [colors.surface, colors.surface]}
+                  style={styles.requirementCard}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={[
+                    styles.requirementIconBadge,
+                    { backgroundColor: profile.bio ? colors.success + '25' : colors.textSecondary + '20' }
+                  ]}>
+                    <MaterialIcons 
+                      name={profile.bio ? "check-circle" : "description"} 
+                      size={24} 
+                      color={profile.bio ? colors.success : colors.textSecondary} 
+                    />
+                  </View>
+                  <View style={styles.requirementTextContainer}>
+                    <Text style={[styles.requirementTitle, profile.bio && styles.requirementCompleted]}>
+                      Professional Bio
+                    </Text>
+                    <Text style={styles.requirementDesc}>
+                      {profile.bio ? '✓ Completed' : 'Tell clients about your expertise'}
+                    </Text>
+                  </View>
+                </LinearGradient>
                 
-                <View style={styles.requirementItem}>
-                  <MaterialIcons 
-                    name={profile.fitness_level ? "check-circle" : "radio-button-unchecked"} 
-                    size={20} 
-                    color={profile.fitness_level ? colors.success : colors.textSecondary} 
-                  />
-                  <Text style={[styles.requirementText, profile.fitness_level && styles.requirementCompleted]}>
-                    Set your fitness level
-                  </Text>
-                </View>
+                <LinearGradient
+                  colors={profile.fitness_level ? ['#667eea20', '#764ba210'] : [colors.surface, colors.surface]}
+                  style={styles.requirementCard}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={[
+                    styles.requirementIconBadge,
+                    { backgroundColor: profile.fitness_level ? colors.success + '25' : colors.textSecondary + '20' }
+                  ]}>
+                    <MaterialIcons 
+                      name={profile.fitness_level ? "check-circle" : "fitness-center"} 
+                      size={24} 
+                      color={profile.fitness_level ? colors.success : colors.textSecondary} 
+                    />
+                  </View>
+                  <View style={styles.requirementTextContainer}>
+                    <Text style={[styles.requirementTitle, profile.fitness_level && styles.requirementCompleted]}>
+                      Fitness Level
+                    </Text>
+                    <Text style={styles.requirementDesc}>
+                      {profile.fitness_level ? '✓ Completed' : 'Set your fitness expertise level'}
+                    </Text>
+                  </View>
+                </LinearGradient>
               </View>
 
-              <View style={styles.coachAgreement}>
-                <Text style={styles.agreementTitle}>Coach Responsibilities:</Text>
-                <Text style={styles.agreementText}>
-                  • Provide supportive and professional guidance{'\n'}
-                  • Respect client privacy and boundaries{'\n'}
-                  • Maintain regular communication with clients{'\n'}
-                  • Stay updated with health and fitness best practices
-                </Text>
-              </View>
+              <LinearGradient
+                colors={['#ffecd2', '#fcb69f']}
+                style={styles.coachAgreementCard}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.agreementIconContainer}>
+                  <MaterialIcons name="verified-user" size={24} color={colors.warning} />
+                </View>
+                <Text style={styles.agreementTitle}>Coach Responsibilities</Text>
+                <View style={styles.agreementListItem}>
+                  <MaterialIcons name="check" size={16} color={colors.textPrimary} />
+                  <Text style={styles.agreementItemText}>Provide supportive and professional guidance</Text>
+                </View>
+                <View style={styles.agreementListItem}>
+                  <MaterialIcons name="check" size={16} color={colors.textPrimary} />
+                  <Text style={styles.agreementItemText}>Respect client privacy and boundaries</Text>
+                </View>
+                <View style={styles.agreementListItem}>
+                  <MaterialIcons name="check" size={16} color={colors.textPrimary} />
+                  <Text style={styles.agreementItemText}>Maintain regular communication with clients</Text>
+                </View>
+                <View style={styles.agreementListItem}>
+                  <MaterialIcons name="check" size={16} color={colors.textPrimary} />
+                  <Text style={styles.agreementItemText}>Stay updated with health best practices</Text>
+                </View>
+              </LinearGradient>
             </ScrollView>
 
-            <View style={styles.modalButtons}>
+            <View style={styles.qualificationButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalCancelButton]}
+                style={styles.qualificationCancelButton}
                 onPress={() => setShowPasswordModal(false)}
               >
-                <Text style={styles.modalCancelButtonText}>Not Ready</Text>
+                <MaterialIcons name="close" size={20} color={colors.textSecondary} />
+                <Text style={styles.qualificationCancelText}>Not Ready</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
-                  styles.modalButton, 
-                  styles.modalConfirmButton,
-                  (!profile.full_name || !profile.bio || !profile.fitness_level) && styles.modalButtonDisabled
+                  styles.qualificationSubmitButton,
+                  (!profile.full_name || !profile.bio || !profile.fitness_level) && styles.qualificationSubmitDisabled
                 ]}
                 onPress={handleCoachQualificationSubmit}
                 disabled={!profile.full_name || !profile.bio || !profile.fitness_level}
+                activeOpacity={0.8}
               >
-                <Text style={[
-                  styles.modalConfirmButtonText,
-                  (!profile.full_name || !profile.bio || !profile.fitness_level) && styles.modalButtonTextDisabled
-                ]}>
-                  I'm Qualified! 🚀
-                </Text>
+                <LinearGradient
+                  colors={(!profile.full_name || !profile.bio || !profile.fitness_level) 
+                    ? [colors.textSecondary, colors.textSecondary] 
+                    : ['#11998e', '#38ef7d']}
+                  style={styles.qualificationSubmitGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <MaterialIcons name="verified" size={20} color={colors.textLight} />
+                  <Text style={styles.qualificationSubmitText}>
+                    Become a Coach 🚀
+                  </Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
@@ -1622,33 +1719,52 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   statsSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: spacing.xl,
-    flexWrap: 'wrap',
   },
-  statCard: {
-    flex: 1,
-    minWidth: '22%',
+  statsCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    ...shadows.md,
+  },
+  statsHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 2,
-    marginBottom: spacing.xs,
-    ...shadows.sm,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border + '30',
   },
-  statValue: {
-    fontSize: fontSizes.xl,
-    fontFamily: 'Poppins_700Bold',
-    color: colors.primary,
-    marginBottom: 4,
+  statsTitle: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Poppins_600SemiBold',
+    color: colors.textPrimary,
   },
-  statLabel: {
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statItemLabel: {
     fontSize: fontSizes.xs,
     fontFamily: 'Quicksand_500Medium',
     color: colors.textSecondary,
-    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  statItemValue: {
+    fontSize: fontSizes.lg,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.primary,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: colors.border + '40',
   },
   formSection: {
     backgroundColor: colors.surface,
@@ -1892,17 +2008,167 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   coachQualificationModal: {
-    maxHeight: '80%',
+    maxHeight: '85%',
+    backgroundColor: 'transparent',
+    padding: 0,
+    overflow: 'hidden',
+  },
+  qualificationHeader: {
+    padding: spacing.xl,
+    alignItems: 'center',
+    paddingTop: spacing.xl + 10,
+    paddingBottom: spacing.xl + 10,
+  },
+  qualificationIconBadge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  qualificationTitle: {
+    fontSize: fontSizes.xxl,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.textLight,
+    marginBottom: spacing.xs,
+  },
+  qualificationSubtitle: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textLight,
+    opacity: 0.9,
+  },
+  qualificationContent: {
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+    maxHeight: 400,
+  },
+  qualificationDescription: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textPrimary,
+    marginBottom: spacing.lg,
+    lineHeight: 22,
+  },
+  requirementsList: {
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  requirementCard: {
+    flexDirection: 'row',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    ...shadows.sm,
+  },
+  requirementIconBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  requirementTextContainer: {
+    flex: 1,
+  },
+  requirementTitle: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Poppins_600SemiBold',
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  requirementDesc: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textSecondary,
+  },
+  requirementCompleted: {
+    color: colors.success,
+  },
+  coachAgreementCard: {
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    ...shadows.sm,
+  },
+  agreementIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  agreementTitle: {
+    fontSize: fontSizes.lg,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  agreementListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  agreementItemText: {
+    fontSize: fontSizes.sm,
+    fontFamily: 'Quicksand_500Medium',
+    color: colors.textPrimary,
+    flex: 1,
+    lineHeight: 20,
+  },
+  qualificationButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  qualificationCancelButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  qualificationCancelText: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: colors.textSecondary,
+  },
+  qualificationSubmitButton: {
+    flex: 2,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    ...shadows.md,
+  },
+  qualificationSubmitGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  qualificationSubmitText: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Poppins_700Bold',
+    color: colors.textLight,
+  },
+  qualificationSubmitDisabled: {
+    opacity: 0.5,
   },
   modalHeader: {
     alignItems: 'center',
     marginBottom: spacing.lg,
-  },
-  qualificationContent: {
-    maxHeight: 300,
-  },
-  requirementsList: {
-    marginVertical: spacing.lg,
   },
   requirementItem: {
     flexDirection: 'row',
@@ -1915,21 +2181,11 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
     flex: 1,
   },
-  requirementCompleted: {
-    color: colors.success,
-    fontWeight: '600',
-  },
   coachAgreement: {
     backgroundColor: colors.background,
     padding: spacing.md,
     borderRadius: borderRadius.md,
     marginTop: spacing.lg,
-  },
-  agreementTitle: {
-    fontSize: fontSizes.md,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
   },
   agreementText: {
     fontSize: fontSizes.sm,

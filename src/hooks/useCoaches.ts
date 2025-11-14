@@ -91,8 +91,11 @@ export const useCoaches = () => {
   const [myCoach, setMyCoach] = useState<CoachWithStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
 
   const fetchCoaches = async () => {
+    if (isFetching) return;
+    setIsFetching(true);
     setLoading(true);
     try {
       // Try to fetch from database, fallback to samples
@@ -111,6 +114,7 @@ export const useCoaches = () => {
       setCoaches(SAMPLE_COACHES);
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
   };
 
@@ -120,6 +124,8 @@ export const useCoaches = () => {
       return;
     }
 
+    if (isFetching && !forceRefresh) return;
+    setIsFetching(true);
     setLoading(true);
     
     try {
@@ -207,6 +213,7 @@ export const useCoaches = () => {
       }
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
   };
 

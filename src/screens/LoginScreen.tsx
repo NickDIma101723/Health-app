@@ -69,24 +69,35 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
   const handleLogin = async () => {
     if (!validateForm()) return;
 
+    console.log('[LoginScreen] Attempting login...');
     setLoading(true);
-    const { error } = await signIn(email, password);
-    setLoading(false);
+    
+    try {
+      const { error } = await signIn(email.trim(), password.trim());
+      setLoading(false);
 
-    if (error) {
-      let errorMessage = 'An unexpected error occurred';
-      
-      if (error.message.includes('Invalid login credentials')) {
-        errorMessage = 'Wrong password or email. Please try again.';
-      } else if (error.message.includes('Email not confirmed')) {
-        errorMessage = 'Please verify your email address before signing in.';
-      } else if (error.message.includes('User not found')) {
-        errorMessage = 'No account found with this email.';
-      } else if (error.message) {
-        errorMessage = error.message;
+      if (error) {
+        console.error('[LoginScreen] Login error:', error);
+        let errorMessage = 'An unexpected error occurred';
+        
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Wrong password or email. Please try again.';
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Please verify your email address before signing in.';
+        } else if (error.message.includes('User not found')) {
+          errorMessage = 'No account found with this email.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        Alert.alert('Login Failed', errorMessage);
+      } else {
+        console.log('[LoginScreen] ✅ Login successful');
       }
-      
-      Alert.alert('Login Failed', errorMessage);
+    } catch (err) {
+      console.error('[LoginScreen] Unexpected error:', err);
+      setLoading(false);
+      Alert.alert('Login Failed', 'An unexpected error occurred. Please try again.');
     }
   };
 

@@ -16,6 +16,7 @@ export const useActivities = () => {
   const [weeklyGoals, setWeeklyGoals] = useState<WeeklyGoals | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
 
   const getWeekStart = (date: Date = new Date()): string => {
     const d = new Date(date);
@@ -32,7 +33,10 @@ export const useActivities = () => {
       return;
     }
 
+    if (isFetching) return;
+
     try {
+      setIsFetching(true);
       setLoading(true);
       
       const { data, error: fetchError } = await supabase
@@ -51,6 +55,7 @@ export const useActivities = () => {
       console.error('Error fetching activities:', err);
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
   };
 

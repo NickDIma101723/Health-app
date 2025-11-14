@@ -30,10 +30,12 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
   const { coaches, loading, fetchCoaches } = useCoaches();
   const { sendCoachRequest, hasPendingRequestWith, loadUserRequests } = useCoachRequests();
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedSpecialization, setSelectedSpecialization] = useState<string | null>(null);
   const [requesting, setRequesting] = useState<string | null>(null);
   const [selectedCoach, setSelectedCoach] = useState<any>(null);
   const [showCoachDetail, setShowCoachDetail] = useState(false);
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{
     visible: boolean;
     title: string;
@@ -47,18 +49,30 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
     onConfirm: () => {},
   });
 
-  // Fetch coaches when screen mounts
+  // Debounce search query
   useEffect(() => {
-    fetchCoaches();
-    loadUserRequests(); // Load existing requests to check status
-  }, []);
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch coaches when screen mounts (only once)
+  useEffect(() => {
+    if (!hasFetchedOnce) {
+      fetchCoaches();
+      loadUserRequests();
+      setHasFetchedOnce(true);
+    }
+  }, [hasFetchedOnce]);
 
   const specializations = ['Nutrition', 'Fitness', 'Mental Health', 'Weight Loss', 'Sports', 'General'];
 
   const filteredCoaches = coaches.filter(coach => {
     const matchesSearch = 
-      coach.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (coach.specialization || '').toLowerCase().includes(searchQuery.toLowerCase());
+      coach.full_name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+      (coach.specialization || '').toLowerCase().includes(debouncedSearchQuery.toLowerCase());
     
     const matchesSpecialization = 
       !selectedSpecialization || 
@@ -278,19 +292,8 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
                   <Text style={styles.coachName}>{coach.full_name}</Text>
                   {coach.specialization && (
                     <View style={[styles.specializationBadge, { backgroundColor: getSpecializationColor(coach.specialization) + '15' }]}>
-                      <MaterialIcons
-                        name="star"
-                        size={12}
-                        color={getSpecializationColor(coach.specialization)}
-                      />
-                      <Text
-                        style={[
-                          styles.specializationText,
-                          { color: getSpecializationColor(coach.specialization) },
-                        ]}
-                      >
-                        {coach.specialization}
-                      </Text>
+                      <MaterialIcons name="star" size={12} color={getSpecializationColor(coach.specialization)} />
+                      <Text style={[styles.specializationText, { color: getSpecializationColor(coach.specialization) }]}>{coach.specialization}</Text>
                     </View>
                   )}
                   {coach.bio && (

@@ -12,6 +12,7 @@ export const useHealthMetrics = (date?: string) => {
   const [metrics, setMetrics] = useState<HealthMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
 
   const targetDate = date || new Date().toISOString().split('T')[0];
 
@@ -21,7 +22,10 @@ export const useHealthMetrics = (date?: string) => {
       return;
     }
 
+    if (isFetching) return;
+
     try {
+      setIsFetching(true);
       setLoading(true);
       const { data, error: fetchError } = await supabase
         .from('health_metrics')
@@ -61,6 +65,7 @@ export const useHealthMetrics = (date?: string) => {
       setError(err.message || 'Failed to fetch health metrics');
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
   };
 

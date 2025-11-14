@@ -7,15 +7,17 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSignUp = async () => {
+    setError('');
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      setError('Please fill in all fields');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      setError('Password must be at least 6 characters');
       return;
     }
 
@@ -27,7 +29,7 @@ export default function AuthScreen() {
       });
 
       if (error) {
-        Alert.alert('Sign Up Error', error.message);
+        setError(error.message);
       } else {
         Alert.alert(
           'Success!',
@@ -36,35 +38,50 @@ export default function AuthScreen() {
         );
       }
     } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred');
+      setError('An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSignIn = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+  const handleResetPassword = async () => {
+    if (!email) {
+      setError('Please enter your email address');
       return;
     }
 
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    Alert.alert(
+      'Reset Password',
+      `Send password reset link to ${email}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Send Reset Link',
+          style: 'default',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: 'your-app-scheme://reset-password', // Adjust as needed
+              });
 
-      if (error) {
-        Alert.alert('Sign In Error', error.message);
-      } else {
-        Alert.alert('Success!', 'Logged in successfully!');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred');
-    } finally {
-      setLoading(false);
-    }
+              if (error) {
+                setError(error.message);
+              } else {
+                Alert.alert('Success!', 'Password reset email sent. Check your email.');
+              }
+            } catch (error) {
+              setError('An unexpected error occurred');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -99,7 +116,10 @@ export default function AuthScreen() {
                 className="bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-base"
                 placeholder="your.email@example.com"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (error) setError(''); // Clear error on typing
+                }}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 editable={!loading}
@@ -115,7 +135,10 @@ export default function AuthScreen() {
                 className="bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-base"
                 placeholder="Enter your password"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (error) setError(''); // Clear error on typing
+                }}
                 secureTextEntry
                 editable={!loading}
               />
@@ -124,7 +147,27 @@ export default function AuthScreen() {
                   Must be at least 6 characters
                 </Text>
               )}
+              {error ? (
+                <Text className="text-xs text-red-500 mt-1">
+                  {error}
+                </Text>
+              ) : null}
             </View>
+
+            {/* Forgot Password */}
+            {!isSignUp && (
+              <View className="mb-6">
+                <TouchableOpacity 
+                  className="bg-gray-100 rounded-lg py-3 px-4" 
+                  onPress={handleResetPassword} 
+                  disabled={loading}
+                >
+                  <Text className="text-blue-600 text-sm text-center font-medium">
+                    Forgot Password?
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Submit Button */}
             <TouchableOpacity
@@ -142,7 +185,10 @@ export default function AuthScreen() {
               <Text className="text-gray-600">
                 {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
               </Text>
-              <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)} disabled={loading}>
+              <TouchableOpacity onPress={() => {
+                setIsSignUp(!isSignUp);
+                setError('');
+              }} disabled={loading}>
                 <Text className="text-blue-600 font-semibold">
                   {isSignUp ? 'Sign In' : 'Sign Up'}
                 </Text>
