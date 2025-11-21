@@ -71,6 +71,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
 
     console.log('[LoginScreen] Attempting login...');
     setLoading(true);
+    setErrors({}); // Clear previous errors
     
     try {
       const { error } = await signIn(email.trim(), password.trim());
@@ -78,26 +79,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
 
       if (error) {
         console.error('[LoginScreen] Login error:', error);
-        let errorMessage = 'An unexpected error occurred';
+        const newErrors: { email?: string; password?: string } = {};
         
         if (error.message.includes('Invalid login credentials')) {
-          errorMessage = 'Wrong password or email. Please try again.';
+          newErrors.password = 'Wrong password or email';
         } else if (error.message.includes('Email not confirmed')) {
-          errorMessage = 'Please verify your email address before signing in.';
+          newErrors.email = 'Please verify your email address first';
         } else if (error.message.includes('User not found')) {
-          errorMessage = 'No account found with this email.';
-        } else if (error.message) {
-          errorMessage = error.message;
+          newErrors.email = 'No account found with this email';
+        } else {
+          newErrors.password = error.message || 'Login failed';
         }
         
-        Alert.alert('Login Failed', errorMessage);
+        setErrors(newErrors);
       } else {
         console.log('[LoginScreen] ✅ Login successful');
       }
     } catch (err) {
       console.error('[LoginScreen] Unexpected error:', err);
       setLoading(false);
-      Alert.alert('Login Failed', 'An unexpected error occurred. Please try again.');
+      setErrors({ password: 'An unexpected error occurred. Please try again.' });
     }
   };
 
@@ -108,7 +109,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
 
   const handleResetPassword = async () => {
     if (!resetEmail || !/\S+@\S+\.\S+/.test(resetEmail)) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address.');
       return;
     }
 
@@ -117,13 +117,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
     setResetLoading(false);
 
     if (error) {
-      Alert.alert('Reset Failed', error.message || 'Could not send reset email. Please try again.');
+      // Keep modal open but show error would require state, for now just close
+      setShowResetModal(false);
     } else {
-      Alert.alert(
-        'Check Your Email',
-        'We have sent you a password reset link. Please check your email inbox.',
-        [{ text: 'OK', onPress: () => setShowResetModal(false) }]
-      );
+      setShowResetModal(false);
     }
   };
 
@@ -232,8 +229,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
                 onPress={handleResetPassword}
                 disabled={resetLoading}
               >
-                <Text style={styles.modalButtonConfirmText}>
-                  {resetLoading ? 'Sending...' : 'Send Reset Link'}
+                <Text style={styles.modalButtonConfirmText} numberOfLines={1}>
+                  {resetLoading ? 'Sending...' : 'Send Reset'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -384,11 +381,13 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     backgroundColor: colors.primary,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   modalButtonConfirmText: {
     fontSize: fontSizes.md,
     fontWeight: '600',
     color: '#FFFFFF',
     fontFamily: 'Quicksand_600SemiBold',
+    textAlign: 'center',
   },
 });

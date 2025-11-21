@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
-import { colors } from '../constants/theme';
+import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
 import { Achievement, AchievementProgress } from '../types/achievements';
 
 interface AchievementCardProps {
@@ -17,18 +17,18 @@ export const AchievementCard: React.FC<AchievementCardProps> = ({
   const { achievement, current_value, target_value, progress_percentage, is_earned } = progress;
 
   const getIconColor = () => {
-    if (is_earned) return theme.colors.gold;
-    if (progress_percentage > 50) return theme.colors.primary;
-    return theme.colors.gray;
+    if (is_earned) return colors.gold || '#FFD700';
+    if (progress_percentage > 50) return colors.primary;
+    return colors.textSecondary;
   };
 
-  const getBadgeGradient = () => {
+  const getBadgeGradient = (): [string, string, ...string[]] => {
     if (is_earned) {
       return ['#FFD700', '#FFA500', '#FF8C00']; // Gold gradient
     } else if (progress_percentage > 75) {
-      return [theme.colors.primary, theme.colors.secondary]; // Close to completion
+      return [colors.primary, colors.secondary]; // Close to completion
     } else {
-      return [theme.colors.lightGray, theme.colors.gray]; // Not close
+      return [colors.border || '#E5E5E5', colors.textSecondary]; // Not close
     }
   };
 
@@ -44,21 +44,21 @@ export const AchievementCard: React.FC<AchievementCardProps> = ({
           <MaterialIcons 
             name={achievement.icon as any} 
             size={32} 
-            color={is_earned ? theme.colors.white : theme.colors.darkGray} 
+            color={is_earned ? colors.textLight : colors.textPrimary} 
           />
         </View>
 
         <View style={styles.contentContainer}>
           <Text style={[
             styles.title, 
-            { color: is_earned ? theme.colors.white : theme.colors.darkGray }
+            { color: is_earned ? colors.textLight : colors.textPrimary }
           ]}>
             {achievement.name}
           </Text>
           
           <Text style={[
             styles.description,
-            { color: is_earned ? theme.colors.white : theme.colors.gray }
+            { color: is_earned ? colors.textLight : colors.textSecondary }
           ]}>
             {achievement.description}
           </Text>
@@ -70,7 +70,7 @@ export const AchievementCard: React.FC<AchievementCardProps> = ({
                   styles.progressFill, 
                   { 
                     width: `${progress_percentage}%`,
-                    backgroundColor: is_earned ? theme.colors.white : theme.colors.primary
+                    backgroundColor: is_earned ? colors.textLight : colors.primary
                   }
                 ]} 
               />
@@ -78,7 +78,7 @@ export const AchievementCard: React.FC<AchievementCardProps> = ({
             
             <Text style={[
               styles.progressText,
-              { color: is_earned ? theme.colors.white : theme.colors.darkGray }
+              { color: is_earned ? colors.textLight : colors.textPrimary }
             ]}>
               {current_value}/{target_value}
             </Text>
@@ -88,11 +88,11 @@ export const AchievementCard: React.FC<AchievementCardProps> = ({
             <MaterialIcons 
               name="stars" 
               size={16} 
-              color={is_earned ? theme.colors.white : theme.colors.gray} 
+              color={is_earned ? colors.textLight : colors.textSecondary} 
             />
             <Text style={[
               styles.points,
-              { color: is_earned ? theme.colors.white : theme.colors.gray }
+              { color: is_earned ? colors.textLight : colors.textSecondary }
             ]}>
               {achievement.points} points
             </Text>
@@ -101,7 +101,7 @@ export const AchievementCard: React.FC<AchievementCardProps> = ({
 
         {is_earned && (
           <View style={styles.earnedBadge}>
-            <MaterialIcons name="check-circle" size={20} color={theme.colors.white} />
+            <MaterialIcons name="check-circle" size={20} color={colors.textLight} />
           </View>
         )}
       </LinearGradient>
@@ -173,13 +173,13 @@ export const AchievementSummary: React.FC<AchievementSummaryProps> = ({
   return (
     <View style={styles.summaryContainer}>
       <LinearGradient
-        colors={[theme.colors.primary, theme.colors.secondary]}
+        colors={[colors.primary, colors.secondary]}
         style={styles.summaryCard}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
         <View style={styles.summaryItem}>
-          <MaterialIcons name="emoji-events" size={24} color={theme.colors.white} />
+          <MaterialIcons name="emoji-events" size={24} color={colors.textLight} />
           <Text style={styles.summaryNumber}>{earnedCount}</Text>
           <Text style={styles.summaryLabel}>Achievements</Text>
         </View>
@@ -187,7 +187,7 @@ export const AchievementSummary: React.FC<AchievementSummaryProps> = ({
         <View style={styles.summaryDivider} />
 
         <View style={styles.summaryItem}>
-          <MaterialIcons name="stars" size={24} color={theme.colors.white} />
+          <MaterialIcons name="stars" size={24} color={colors.textLight} />
           <Text style={styles.summaryNumber}>{totalPoints}</Text>
           <Text style={styles.summaryLabel}>Total Points</Text>
         </View>
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: theme.colors.darkGray,
+    color: colors.textPrimary,
     marginBottom: 12,
     paddingHorizontal: 4,
   },
@@ -301,12 +301,12 @@ const styles = StyleSheet.create({
   summaryNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: theme.colors.white,
+    color: colors.textLight,
     marginTop: 4,
   },
   summaryLabel: {
     fontSize: 12,
-    color: theme.colors.white,
+    color: colors.textLight,
     marginTop: 2,
     opacity: 0.9,
   },

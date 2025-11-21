@@ -45,6 +45,7 @@ export const Input: React.FC<InputProps> = ({
           secureTextEntry={secureTextEntry && !isPasswordVisible}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
+          autoComplete={secureTextEntry ? 'password' : 'off'}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
         />
