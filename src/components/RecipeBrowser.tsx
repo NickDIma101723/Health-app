@@ -689,25 +689,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     fontFamily: 'Quicksand_600SemiBold',
   },
-  macrosGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  macroItem: {
-    alignItems: 'center',
-  },
-  macroValue: {
-    fontSize: fontSizes.lg,
-    fontWeight: '600',
-    color: colors.primary,
-    fontFamily: 'Poppins_700Bold',
-  },
-  macroLabel: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    fontFamily: 'Quicksand_500Medium',
-  },
   listItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',

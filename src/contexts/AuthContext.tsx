@@ -497,7 +497,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    console.log('[Auth] signOut called');
+    try {
+      // Sign out from Supabase first
+      console.log('[Auth] Calling supabase.auth.signOut()');
+      await supabase.auth.signOut();
+      console.log('[Auth] Supabase sign out successful');
+    } catch (error) {
+      console.warn('[Auth] Error signing out from Supabase:', error);
+    }
+
     // Clear React state
+    console.log('[Auth] Clearing React state');
     setUser(null);
     setSession(null);
     setIsCoach(false);

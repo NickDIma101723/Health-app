@@ -373,7 +373,7 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
             ].map((benefit, index) => (
               <View key={index} style={styles.benefitWidget}>
                 <View style={styles.benefitIconContainer}>
-                  <MaterialIcons name={benefit.icon} size={18} color={colors.primary} />
+                  <MaterialIcons name={benefit.icon as any} size={18} color={colors.primary} />
                 </View>
                 <Text style={styles.benefitText}>{benefit.text}</Text>
               </View>
@@ -396,7 +396,7 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
             ].map((item, index) => (
               <View key={index} style={styles.responsibilityWidget}>
                 <View style={styles.responsibilityIconContainer}>
-                  <MaterialIcons name={item.icon} size={16} color={colors.warning} />
+                  <MaterialIcons name={item.icon as any} size={16} color={colors.warning} />
                 </View>
                 <Text style={styles.responsibilityText}>{item.text}</Text>
               </View>

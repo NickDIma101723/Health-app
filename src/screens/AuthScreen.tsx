@@ -172,7 +172,7 @@ export default function AuthScreen() {
             {/* Submit Button */}
             <TouchableOpacity
               className={`rounded-lg py-4 ${loading ? 'bg-blue-400' : 'bg-blue-600'}`}
-              onPress={isSignUp ? handleSignUp : handleSignIn}
+              onPress={isSignUp ? handleSignUp : handleResetPassword}
               disabled={loading}
             >
               <Text className="text-white text-center text-lg font-semibold">

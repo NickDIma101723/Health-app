@@ -61,6 +61,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
 
   const [editedProfile, setEditedProfile] = useState<UserProfile>(profile);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showBecomeCoachConfirm, setShowBecomeCoachConfirm] = useState(false);
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -70,6 +73,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
       loadProfile();
     }
   }, [user, coachData]);
+
+  useEffect(() => {
+    if (!user) {
+      onNavigate?.('login');
+    }
+  }, [user, onNavigate]);
 
   const loadProfile = async () => {
     if (!user) return;
@@ -469,37 +478,38 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
     setEditing(false);
   };
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            await signOut();
-          }
-        },
-      ]
-    );
+  const handleLogout = () => {
+    console.log('[ProfileScreen] handleLogout called');
+    setShowLogoutConfirm(true);
   };
 
-  const handleDeleteAccount = async () => {
-    Alert.alert(
-      'Delete Account',
-      'This will permanently delete your account and ALL of your data including:\n\n• Profile information\n• Activity history\n• Health metrics\n• Messages\n• Goals and progress\n\nThis action CANNOT be undone. Are you absolutely sure?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete Forever',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (!user) return;
+  const confirmLogout = async () => {
+    console.log('[ProfileScreen] User confirmed sign out');
+    setShowLogoutConfirm(false);
+    try {
+      await signOut();
+      console.log('[ProfileScreen] Sign out completed');
+    } catch (error) {
+      console.error('[ProfileScreen] Sign out error:', error);
+    }
+  };
 
-              console.log('Starting account deletion for user:', user.id);
+  const handleDeleteAccount = () => {
+    console.log('[ProfileScreen] handleDeleteAccount called');
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteAccount = async () => {
+    console.log('[ProfileScreen] User confirmed account deletion');
+    setShowDeleteConfirm(false);
+    
+    try {
+      if (!user) {
+        console.log('[ProfileScreen] No user found, aborting delete');
+        return;
+      }
+
+      console.log('[ProfileScreen] Starting account deletion for user:', user.id);
 
               // Step 1: Handle coach-related data if user is a coach
               if (isCoach && coachData) {
@@ -635,8 +645,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 console.error('Error clearing storage:', storageError);
               }
 
-              // The user is automatically signed out when their account is deleted
-              // So we don't need to call signOut() here
+              // Sign out to clear local state
+              await signOut();
 
               Alert.alert(
                 'Account Deleted', 
@@ -644,49 +654,25 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 [{ 
                   text: 'OK', 
                   onPress: () => {
-                    // Navigate to auth screen
-                    onNavigate?.('auth');
+                    // Navigation will be handled by useEffect watching user state
                   }
                 }]
               );
-            } catch (error) {
-              console.error('Error deleting account:', error);
-              Alert.alert('Error', 'Failed to delete account. Please contact support.');
-            }
-          }
-        },
-      ]
-    );
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      Alert.alert('Error', 'Failed to delete account. Please contact support.');
+    }
   };
 
   const handleConvertToCoach = () => {
     console.log('[ProfileScreen] handleConvertToCoach called - canBeCoach:', canBeCoach, 'isCoach:', isCoach);
-    // Use browser confirm for web testing
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm("Are you sure you want to become a health coach? This will unlock coach features while keeping your client access.");
-      if (confirmed) {
-        console.log('[ProfileScreen] User confirmed becoming coach, showing qualification modal');
-        setShowPasswordModal(true);
-      }
-    } else {
-      // Enhanced confirmation dialog with detailed information
-      Alert.alert(
-        "Become a Health Coach",
-        "Are you sure you want to become a health coach? This will unlock coach features while keeping your client access.",
-        [
-          { text: 'No', style: 'cancel' },
-          { 
-            text: 'Yes', 
-            style: 'default',
-            onPress: () => {
-              console.log('[ProfileScreen] User confirmed becoming coach, showing qualification modal');
-              setShowPasswordModal(true);
-            }
-          }
-        ],
-        { cancelable: true }
-      );
-    }
+    setShowBecomeCoachConfirm(true);
+  };
+
+  const confirmBecomeCoach = () => {
+    console.log('[ProfileScreen] User confirmed becoming coach, showing qualification modal');
+    setShowBecomeCoachConfirm(false);
+    setShowPasswordModal(true);
   };
 
   const handleCoachQualificationSubmit = async () => {
@@ -1590,6 +1576,107 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        visible={showLogoutConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowLogoutConfirm(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.logoutModalContent}>
+            <Text style={styles.logoutTitle}>Sign Out</Text>
+            <Text style={styles.logoutMessage}>
+              Are you sure you want to sign out?
+            </Text>
+            <View style={styles.logoutButtons}>
+              <TouchableOpacity
+                style={styles.logoutCancelButton}
+                onPress={() => setShowLogoutConfirm(false)}
+              >
+                <Text style={styles.logoutCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.logoutConfirmButton}
+                onPress={confirmLogout}
+              >
+                <Text style={styles.logoutConfirmText}>Sign Out</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Account Confirmation Modal */}
+      <Modal
+        visible={showDeleteConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.logoutModalContent}>
+            <MaterialIcons name="warning" size={48} color={colors.error} />
+            <Text style={styles.logoutTitle}>Delete Account</Text>
+            <Text style={styles.logoutMessage}>
+              This will permanently delete your account and ALL of your data including:{'\n\n'}
+              • Profile information{'\n'}
+              • Activity history{'\n'}
+              • Health metrics{'\n'}
+              • Messages{'\n'}
+              • Goals and progress{'\n\n'}
+              This action CANNOT be undone. Are you absolutely sure?
+            </Text>
+            <View style={styles.logoutButtons}>
+              <TouchableOpacity
+                style={styles.logoutCancelButton}
+                onPress={() => setShowDeleteConfirm(false)}
+              >
+                <Text style={styles.logoutCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.logoutConfirmButton, { backgroundColor: colors.error }]}
+                onPress={confirmDeleteAccount}
+              >
+                <Text style={styles.logoutConfirmText}>Delete Forever</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Become Coach Confirmation Modal */}
+      <Modal
+        visible={showBecomeCoachConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowBecomeCoachConfirm(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.logoutModalContent}>
+            <MaterialIcons name="emoji-events" size={48} color={colors.primary} />
+            <Text style={styles.logoutTitle}>Become a Health Coach</Text>
+            <Text style={styles.logoutMessage}>
+              Are you sure you want to become a health coach? This will unlock coach features while keeping your client access.
+            </Text>
+            <View style={styles.logoutButtons}>
+              <TouchableOpacity
+                style={styles.logoutCancelButton}
+                onPress={() => setShowBecomeCoachConfirm(false)}
+              >
+                <Text style={styles.logoutCancelText}>No</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.logoutConfirmButton, { backgroundColor: colors.primary }]}
+                onPress={confirmBecomeCoach}
+              >
+                <Text style={styles.logoutConfirmText}>Yes, Continue</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -2199,5 +2286,61 @@ const styles = StyleSheet.create({
   modalButtonTextDisabled: {
     color: colors.textLight,
     opacity: 0.7,
+  },
+  logoutModalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xxl,
+    padding: spacing.xl,
+    width: '90%',
+    maxWidth: 400,
+    alignSelf: 'center',
+    alignItems: 'center',
+    ...shadows.lg,
+  },
+  logoutTitle: {
+    fontSize: fontSizes.xxl,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    fontFamily: 'Poppins_700Bold',
+    marginBottom: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  logoutMessage: {
+    fontSize: fontSizes.md,
+    color: colors.textSecondary,
+    fontFamily: 'Quicksand_500Medium',
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+  },
+  logoutButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    width: '100%',
+  },
+  logoutCancelButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.border,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  logoutCancelText: {
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    fontFamily: 'Quicksand_600SemiBold',
+  },
+  logoutConfirmButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.error,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  logoutConfirmText: {
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+    color: colors.textLight,
+    fontFamily: 'Quicksand_600SemiBold',
   },
 });
