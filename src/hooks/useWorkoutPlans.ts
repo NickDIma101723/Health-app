@@ -58,20 +58,20 @@ export const useWorkoutPlans = () => {
         .order('created_at', { ascending: false });
 
       if (coachData) {
-        // If user is a coach, get plans they created
+        
         query = query.eq('coach_id', coachData.id);
         if (clientId) {
           query = query.eq('client_id', clientId);
         }
       } else if (user) {
-        // If user is a client, get plans assigned to them
+        
         query = query.eq('client_id', user.id);
       }
 
       const { data, error } = await query;
 
       if (error) {
-        // If table doesn't exist, just log and return empty array
+        
         if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
           console.log('Workout plans table not found, returning empty array');
           setWorkoutPlans([]);

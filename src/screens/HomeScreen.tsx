@@ -929,7 +929,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         currentSteps={metrics?.steps || 0}
       />
 
-      {/* Logout Confirmation Modal */}
+      {}
       <Modal
         visible={showLogoutConfirm}
         animationType="fade"

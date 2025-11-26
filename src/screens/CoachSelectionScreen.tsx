@@ -100,7 +100,7 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
       return;
     }
     
-    // Show custom confirmation modal
+    
     setConfirmModal({
       visible: true,
       title: 'Request Coach',
@@ -119,9 +119,9 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
               onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
             });
           } else {
-            await loadUserRequests(); // Refresh requests
+            await loadUserRequests(); 
             
-            // Show success modal
+            
             setConfirmModal({
               visible: true,
               title: 'Request Sent!',
@@ -317,13 +317,13 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
                   {requesting === coach.id ? (
                     <ActivityIndicator size="small" color={colors.primary} />
                   ) : hasPendingRequestWith(coach.id) ? (
-                    // Show pending status
+                    
                     <View style={styles.pendingContainer}>
                       <MaterialIcons name="schedule" size={16} color={colors.warning} />
                       <Text style={styles.pendingText}>Pending</Text>
                     </View>
                   ) : (
-                    // Request coach button
+                    
                     <TouchableOpacity
                       style={styles.arrowButton}
                       onPress={() => handleRequestCoach(coach.id, coach.full_name)}
@@ -430,7 +430,7 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
         </View>
       </Modal>
 
-      {/* Custom Confirmation Modal */}
+      {}
       <Modal
         visible={confirmModal.visible}
         transparent
@@ -825,7 +825,7 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     fontFamily: 'Quicksand_600SemiBold',
   },
-  // Custom confirmation modal styles
+  
   confirmModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

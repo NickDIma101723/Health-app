@@ -61,7 +61,7 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
   const handleAcceptRequest = async (requestId: string, clientName: string) => {
     console.log('[CoachRequestsScreen] 🟢 Accept button pressed for:', { requestId, clientName });
     
-    // Show confirmation modal
+    
     setConfirmModal({
       visible: true,
       type: 'accept',
@@ -132,7 +132,7 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
   const handleRejectRequest = async (requestId: string, clientName: string) => {
     console.log('[CoachRequestsScreen] 🔴 Decline button pressed for:', { requestId, clientName });
     
-    // Show confirmation modal
+    
     setConfirmModal({
       visible: true,
       type: 'decline',
@@ -351,7 +351,7 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
           </View>
         ) : (
           <>
-            {/* Pending Requests Section */}
+            {}
             {pendingRequests.length > 0 && (
               <>
                 <View style={styles.sectionHeader}>
@@ -364,7 +364,7 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
               </>
             )}
 
-            {/* Recent Activity Section */}
+            {}
             {processedRequests.length > 0 && (
               <>
                 <View style={[styles.sectionHeader, { marginTop: pendingRequests.length > 0 ? spacing.xl : 0 }]}>
@@ -375,7 +375,7 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
               </>
             )}
 
-            {/* Empty State */}
+            {}
             {requests.length === 0 && !loading && (
               <View style={styles.emptyContainer}>
                 <MaterialIcons name="inbox" size={64} color={colors.textSecondary} />
@@ -389,7 +389,7 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
         )}
       </ScrollView>
 
-      {/* Confirmation Modal */}
+      {}
       {confirmModal.visible && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>

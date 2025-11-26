@@ -43,7 +43,7 @@ interface MealPlan {
   id: string;
   meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   recipe: Recipe;
-  day_of_week: number; // 0-6, Sunday = 0
+  day_of_week: number; 
   portion_size: number;
   notes?: string;
 }
@@ -440,7 +440,7 @@ export const CreateNutritionPlanScreen: React.FC<CreateNutritionPlanScreenProps>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Recipe Selection Modal */}
+      {}
       <Modal
         visible={showRecipeModal}
         animationType="slide"

@@ -84,7 +84,7 @@ export const ClientProgressAnalyticsScreen: React.FC<ClientProgressAnalyticsScre
     try {
       setLoading(true);
 
-      // Get client profile
+      
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -94,7 +94,7 @@ export const ClientProgressAnalyticsScreen: React.FC<ClientProgressAnalyticsScre
       if (profileError) throw profileError;
       setClientProfile(profile);
 
-      // Calculate date range
+      
       const endDate = new Date();
       const startDate = new Date();
       switch (timeRange) {
@@ -112,7 +112,7 @@ export const ClientProgressAnalyticsScreen: React.FC<ClientProgressAnalyticsScre
           break;
       }
 
-      // Get health metrics data
+      
       const { data: healthData, error: healthError } = await supabase
         .from('health_metrics')
         .select('*')
@@ -123,7 +123,7 @@ export const ClientProgressAnalyticsScreen: React.FC<ClientProgressAnalyticsScre
 
       if (healthError) throw healthError;
 
-      // Get activity logs for workout completion
+      
       const { data: activityData, error: activityError } = await supabase
         .from('activity_logs')
         .select('completed_at')
@@ -133,10 +133,10 @@ export const ClientProgressAnalyticsScreen: React.FC<ClientProgressAnalyticsScre
 
       if (activityError) throw activityError;
 
-      // Process and combine data
+      
       const progressDataMap = new Map<string, ProgressData>();
       
-      // Process health metrics
+      
       healthData?.forEach(metric => {
         const dateKey = metric.date;
         progressDataMap.set(dateKey, {
@@ -151,7 +151,7 @@ export const ClientProgressAnalyticsScreen: React.FC<ClientProgressAnalyticsScre
         });
       });
 
-      // Process activity logs (count workouts per day)
+      
       const workoutsByDate = new Map<string, number>();
       activityData?.forEach(log => {
         const date = log.completed_at.split('T')[0];
@@ -181,11 +181,11 @@ export const ClientProgressAnalyticsScreen: React.FC<ClientProgressAnalyticsScre
 
       setProgressData(progressArray);
 
-      // Calculate weekly stats
+      
       const weeklyStatsArray = calculateWeeklyStats(progressArray);
       setWeeklyStats(weeklyStatsArray);
 
-      // Load goal progress (mock data for now)
+      
       setGoalProgress([
         {
           goal_type: 'Weight Loss',
@@ -219,7 +219,7 @@ export const ClientProgressAnalyticsScreen: React.FC<ClientProgressAnalyticsScre
     data.forEach(item => {
       const date = new Date(item.date);
       const weekStart = new Date(date);
-      weekStart.setDate(date.getDate() - date.getDay()); // Get Sunday of that week
+      weekStart.setDate(date.getDate() - date.getDay()); 
       const weekKey = weekStart.toISOString().split('T')[0];
       
       if (!weeklyData.has(weekKey)) {
@@ -348,7 +348,7 @@ export const ClientProgressAnalyticsScreen: React.FC<ClientProgressAnalyticsScre
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        {/* Client Summary */}
+        {}
         {clientProfile && (
           <LinearGradient
             colors={[colors.primary, colors.primaryLight] as [string, string, ...string[]]}
@@ -378,7 +378,7 @@ export const ClientProgressAnalyticsScreen: React.FC<ClientProgressAnalyticsScre
           </LinearGradient>
         )}
 
-        {/* Goal Progress Cards */}
+        {}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Goal Progress</Text>
           {goalProgress.map((goal, index) => (
@@ -407,7 +407,7 @@ export const ClientProgressAnalyticsScreen: React.FC<ClientProgressAnalyticsScre
           ))}
         </View>
 
-        {/* Charts */}
+        {}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Progress Charts</Text>
           
@@ -440,7 +440,7 @@ export const ClientProgressAnalyticsScreen: React.FC<ClientProgressAnalyticsScre
           )}
         </View>
 
-        {/* Weekly Trends */}
+        {}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Weekly Trends</Text>
           {weeklyStats.slice(-4).map((week, index) => (
@@ -472,7 +472,7 @@ export const ClientProgressAnalyticsScreen: React.FC<ClientProgressAnalyticsScre
           ))}
         </View>
 
-        {/* Insights */}
+        {}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Key Insights</Text>
           <View style={styles.insightsCard}>

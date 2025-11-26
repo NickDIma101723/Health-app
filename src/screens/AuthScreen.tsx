@@ -65,7 +65,7 @@ export default function AuthScreen() {
             setLoading(true);
             try {
               const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: 'your-app-scheme://reset-password', // Adjust as needed
+                redirectTo: 'your-app-scheme://reset-password',
               });
 
               if (error) {
@@ -85,13 +85,12 @@ export default function AuthScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className="flex-1 bg-gradient-to-b from-blue-50 to-blue-100"
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View className="flex-1 justify-center px-6 py-12">
-          {/* Header */}
           <View className="items-center mb-10">
             <Text className="text-4xl font-bold text-blue-800 mb-2">
               Health App
@@ -101,13 +100,11 @@ export default function AuthScreen() {
             </Text>
           </View>
 
-          {/* Form */}
           <View className="bg-white rounded-2xl p-6 shadow-lg">
             <Text className="text-2xl font-semibold text-gray-800 mb-6">
               {isSignUp ? 'Sign Up' : 'Sign In'}
             </Text>
 
-            {/* Email Input */}
             <View className="mb-4">
               <Text className="text-sm font-medium text-gray-700 mb-2">
                 Email
@@ -118,7 +115,7 @@ export default function AuthScreen() {
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
-                  if (error) setError(''); // Clear error on typing
+                  if (error) setError('');
                 }}
                 autoCapitalize="none"
                 keyboardType="email-address"
@@ -126,7 +123,6 @@ export default function AuthScreen() {
               />
             </View>
 
-            {/* Password Input */}
             <View className="mb-6">
               <Text className="text-sm font-medium text-gray-700 mb-2">
                 Password
@@ -137,7 +133,7 @@ export default function AuthScreen() {
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
-                  if (error) setError(''); // Clear error on typing
+                  if (error) setError('');
                 }}
                 secureTextEntry
                 editable={!loading}
@@ -154,12 +150,11 @@ export default function AuthScreen() {
               ) : null}
             </View>
 
-            {/* Forgot Password */}
             {!isSignUp && (
               <View className="mb-6">
-                <TouchableOpacity 
-                  className="bg-gray-100 rounded-lg py-3 px-4" 
-                  onPress={handleResetPassword} 
+                <TouchableOpacity
+                  className="bg-gray-100 rounded-lg py-3 px-4"
+                  onPress={handleResetPassword}
                   disabled={loading}
                 >
                   <Text className="text-blue-600 text-sm text-center font-medium">
@@ -169,7 +164,6 @@ export default function AuthScreen() {
               </View>
             )}
 
-            {/* Submit Button */}
             <TouchableOpacity
               className={`rounded-lg py-4 ${loading ? 'bg-blue-400' : 'bg-blue-600'}`}
               onPress={isSignUp ? handleSignUp : handleResetPassword}
@@ -180,7 +174,6 @@ export default function AuthScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* Toggle Sign In/Sign Up */}
             <View className="flex-row justify-center mt-6">
               <Text className="text-gray-600">
                 {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
@@ -196,7 +189,6 @@ export default function AuthScreen() {
             </View>
           </View>
 
-          {/* Test Info */}
           <View className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <Text className="text-sm font-semibold text-yellow-800 mb-1">
               📝 Test Mode

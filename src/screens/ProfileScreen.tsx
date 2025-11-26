@@ -162,7 +162,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
     try {
       console.log('[ProfileScreen] Starting avatar pick...');
       
-      // Check network status
+      
       if (!isOnline) {
         Alert.alert(
           'No Internet Connection',
@@ -171,7 +171,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
         return;
       }
       
-      // Request permission
+      
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       console.log('[ProfileScreen] Permission status:', status);
       
@@ -180,7 +180,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
         return;
       }
 
-      // Pick image
+      
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -204,7 +204,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
             throw new Error('User not authenticated');
           }
 
-          // Upload image to Supabase storage
+          
           console.log('[ProfileScreen] Uploading image to Supabase storage...');
           
           const uploadResult = await uploadMediaToStorage(
@@ -225,14 +225,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
             throw new Error(`Failed to upload image: ${uploadResult.error}`);
           }
 
-          // Update profile with the permanent storage URL
+          
           const { error: updateError } = await supabase
             .from('profiles')
             .update({ avatar_url: uploadResult.url })
             .eq('user_id', user.id);
           
           if (updateError) {
-            // Detect missing column error from Supabase/PostgREST schema cache
+            
             const msg = typeof updateError.message === 'string' ? updateError.message : JSON.stringify(updateError);
             if (msg.includes("Could not find the 'avatar_url' column") || msg.includes('column "avatar_url" does not exist')) {
               console.error('[ProfileScreen] profiles table is missing avatar_url column');
@@ -240,7 +240,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 'Database schema issue',
                 'The `profiles` table is missing the `avatar_url` column required to save profile pictures. Run the migration to add the column (see instructions).'
               );
-              // Provide developer-friendly console guidance
+              
               console.info('[ProfileScreen] Run this SQL in Supabase SQL editor to fix:');
               console.info("ALTER TABLE profiles ADD COLUMN avatar_url text;");
               throw new Error('Missing avatar_url column in profiles table');
@@ -248,112 +248,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
             throw new Error('Failed to update profile: ' + updateError.message);
           }
           
-          // Update local state with permanent URL
+          
           setAvatarUrl(uploadResult.url);
           setProfile(prev => ({ ...prev, avatar_url: uploadResult.url }));
           Alert.alert('Success', 'Profile picture updated and saved to cloud storage!');
           
-          /* Cloud storage upload (uncomment when buckets are configured)
-          console.log('[ProfileScreen] Attempting to upload image to storage...');
-          
-          // Convert URI to blob
-          const response = await fetch(asset.uri);
-          const blob = await response.blob();
-          
-          // Generate a unique filename with proper extension
-          let fileExt = 'jpg'; // default
-          if (asset.fileName) {
-            const parts = asset.fileName.split('.');
-            if (parts.length > 1) {
-              fileExt = parts[parts.length - 1].toLowerCase();
-            }
-          } else if (asset.mimeType) {
-            // Extract extension from mime type
-            const mimeMap: { [key: string]: string } = {
-              'image/jpeg': 'jpg',
-              'image/jpg': 'jpg',
-              'image/png': 'png',
-              'image/gif': 'gif',
-              'image/webp': 'webp',
-            };
-            fileExt = mimeMap[asset.mimeType.toLowerCase()] || 'jpg';
-          }
-          
-          const fileName = `${Date.now()}.${fileExt}`;
-          const filePath = `avatars/${user.id}/${fileName}`;
-          
-          console.log('[ProfileScreen] Uploading to storage path:', filePath);
-          
-          // Try profile-images bucket
-          let bucketName = 'profile-images';
-          let uploadError: any = null;
-          let uploadData: any = null;
-          
-          const uploadResult = await supabase.storage
-            .from(bucketName)
-            .upload(filePath, blob, {
-              contentType: asset.mimeType || 'image/jpeg',
-              cacheControl: '3600',
-              upsert: true,
-            });
-          
-          if (uploadResult.error) {
-            console.log('[ProfileScreen] profile-images bucket failed, trying chat-media bucket...');
-            bucketName = 'chat-media';
-            const fallbackResult = await supabase.storage
-              .from(bucketName)
-              .upload(filePath, blob, {
-                contentType: asset.mimeType || 'image/jpeg',
-                cacheControl: '3600',
-                upsert: true,
-              });
-            
-            uploadError = fallbackResult.error;
-            uploadData = fallbackResult.data;
-          } else {
-            uploadData = uploadResult.data;
-            uploadError = uploadResult.error;
-          }
-          
-          if (uploadError) {
-            console.error('[ProfileScreen] Storage upload failed for both buckets:', uploadError);
-            throw uploadError;
-          }
-          
-          console.log('[ProfileScreen] Upload successful to bucket:', bucketName);
-          
-          // Get the public URL
-          const { data: urlData } = supabase.storage
-            .from(bucketName)
-            .getPublicUrl(filePath);
-            
-          if (urlData && urlData.publicUrl) {
-            console.log('[ProfileScreen] Public URL:', urlData.publicUrl);
-            
-            // Update profile with public URL
-            const { error: updateError } = await supabase
-              .from('profiles')
-              .update({ avatar_url: urlData.publicUrl })
-              .eq('user_id', user.id);
-            
-            if (updateError) {
-              console.error('[ProfileScreen] Profile update error:', updateError);
-              throw new Error('Failed to update profile with image URL');
-            }
-            
-            // Update local state with public URL
-            setAvatarUrl(urlData.publicUrl);
-            setProfile(prev => ({ ...prev, avatar_url: urlData.publicUrl }));
-            Alert.alert('Success', 'Profile picture updated!');
-          } else {
-            throw new Error('Failed to generate public URL');
-          }
-          */
-          
+                    
         } catch (uploadError: any) {
           console.error('[ProfileScreen] Error in avatar upload process:', uploadError);
           
-          // Check if it's a network error
+          
           if (uploadError.message?.includes('Failed to fetch') || 
               uploadError.message?.includes('Network request failed') ||
               uploadError.message?.includes('ERR_INTERNET_DISCONNECTED')) {
@@ -510,7 +414,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
 
       if (unassignError) {
         console.error('[ProfileScreen] Error unassigning clients:', unassignError);
-        // continue even if unassign fails for some rows
+        
       }
 
       const { error: deactivateError } = await supabase
@@ -520,10 +424,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
 
       if (deactivateError) throw deactivateError;
 
-      // Switch to client mode in AuthContext
+      
       await switchToClientMode();
 
-      // Navigate to home screen as client
+      
       Alert.alert(
         '✅ Switched to Client Focus',
         "You've deactivated coach mode and all clients have been unassigned.\n\nYou can reactivate coach mode anytime from your profile.",
@@ -557,51 +461,52 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
 
       console.log('[ProfileScreen] Starting account deletion for user:', user.id);
 
-              // Step 1: Handle coach-related data if user is a coach
+              // Als deze gebruiker een coach is, moet eerst alle coach-spul weg
               if (isCoach && coachData) {
                 console.log('Deleting coach-related data...');
                 
-                // Deactivate all client assignments
+                
                 await supabase
                   .from('coach_client_assignments')
                   .update({ is_active: false })
                   .eq('coach_id', coachData.id);
 
-                // Delete coach notes
+                
                 await supabase
                   .from('coach_notes')
                   .delete()
                   .eq('coach_id', coachData.id);
 
-                // Delete coach record
+                
                 await supabase
                   .from('coaches')
                   .delete()
                   .eq('user_id', user.id);
               }
 
-              // Step 2: Delete data that references other tables first (foreign key dependencies)
+              // Nu alle data die afhankelijk is van andere tabellen
               console.log('Deleting dependent data...');
               
-              // Delete client assignments (user as client)
+              
               await supabase
                 .from('coach_client_assignments')
                 .delete()
                 .eq('client_user_id', user.id);
 
-              // Delete coach notes where user is the client
+              
               await supabase
                 .from('coach_notes')
                 .delete()
                 .eq('client_user_id', user.id);
 
-              // Delete activity logs (depends on activities)
+              
               await supabase
                 .from('activity_logs')
                 .delete()
                 .eq('user_id', user.id);
 
-              // Delete meal ingredients (depends on meals) - do this in two steps
+              
+              // Maalingrediënten moeten weg voordat de maaltijden zelf worden verwijderd
               const { data: userMeals } = await supabase
                 .from('meals')
                 .select('id')
@@ -615,7 +520,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                   .in('meal_id', mealIds);
               }
 
-              // Step 3: Delete main user data tables
+              // En nu alle hoofdtabellen van de gebruiker
               console.log('Deleting main user data...');
               
               const tablesToDelete = [
@@ -636,7 +541,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 'weekly_goals'
               ];
 
-              // Delete from each table
+              
               for (const table of tablesToDelete) {
                 try {
                   const { error } = await supabase
@@ -644,7 +549,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                     .delete()
                     .eq('user_id', user.id);
                   
-                  if (error && error.code !== 'PGRST116') { // Ignore "no rows deleted" error
+                  if (error && error.code !== 'PGRST116') { 
                     console.warn(`Error deleting from ${table}:`, error);
                   }
                 } catch (err) {
@@ -652,13 +557,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 }
               }
 
-              // Handle messages table separately (has sender_id/receiver_id instead of user_id)
+              
               await supabase
                 .from('messages')
                 .delete()
                 .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
 
-              // Delete profile (should be last since it contains user data)
+              
               const { error: profileDeleteError } = await supabase
                 .from('profiles')
                 .delete()
@@ -669,13 +574,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 throw profileDeleteError;
               }
 
-              // Call the RPC function to delete the user from auth.users table
+              
               const { error: deleteUserError } = await supabase.rpc('delete_user_account');
               
               if (deleteUserError) {
                 console.error('Error deleting user account:', deleteUserError);
-                // Even if the RPC fails, we've deleted all the app data
-                // So just sign out and notify the user
+                
+                
                 await signOut();
                 Alert.alert(
                   'Partial Deletion',
@@ -684,14 +589,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 return;
               }
 
-              // Clear any local storage
+              
               try {
                 await AsyncStorage.clear();
               } catch (storageError) {
                 console.error('Error clearing storage:', storageError);
               }
 
-              // Sign out to clear local state
+              
               await signOut();
 
               Alert.alert(
@@ -700,7 +605,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 [{ 
                   text: 'OK', 
                   onPress: () => {
-                    // Navigation will be handled by useEffect watching user state
+                    
                   }
                 }]
               );
@@ -780,7 +685,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
               {
                 text: 'Go to Coach Dashboard',
                 onPress: () => {
-                  // You can add navigation here if you have it
+                  
                   console.log('Navigate to coach dashboard');
                 }
               }
@@ -795,7 +700,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
   };
 
   const handleCoachQualificationSubmit = async () => {
-    // Check if user has completed their profile enough to be a coach
+    
     if (!profile.full_name || !profile.bio || !profile.fitness_level) {
       Alert.alert(
         'Complete Your Profile First',
@@ -805,7 +710,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
       return;
     }
 
-    // Show confirmation modal
+    
     setShowPasswordModal(false);
     setShowBecomeCoachConfirm(true);
   };  const handleClearInvalidAvatar = async () => {
@@ -818,7 +723,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
         .update({ avatar_url: null })
         .eq('user_id', user.id);
       
-      // Update local state
+      
       setAvatarUrl(null);
       setProfile(prev => ({ ...prev, avatar_url: null }));
     } catch (error) {
@@ -899,7 +804,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
             disabled={uploadingAvatar}
           >
             {avatarUrl || profile.avatar_url ? (
-              // Check if the URL is a blob URL (invalid after restart)
+              
               (avatarUrl || profile.avatar_url)?.startsWith('blob:') ? (
                 <LinearGradient
                   colors={[colors.primary, colors.primaryDark]}
@@ -918,7 +823,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                     defaultSource={require('../../assets/default-avatar.png')}
                     onError={(e) => {
                       console.error('[ProfileScreen] Error loading avatar image:', e.nativeEvent.error);
-                      // Clear the invalid URL from database
+                      
                       handleClearInvalidAvatar();
                     }}
                   />
@@ -1391,7 +1296,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
         </View>
       </Modal>
 
-      {/* Logout Confirmation Modal */}
+      {}
       <Modal
         visible={showLogoutConfirm}
         transparent={true}
@@ -1422,7 +1327,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
         </View>
       </Modal>
 
-      {/* Convert to Client Confirmation Modal */}
+      {}
       <Modal
         visible={showConvertConfirm}
         transparent={true}
@@ -1454,7 +1359,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
         </View>
       </Modal>
 
-      {/* Delete Account Confirmation Modal */}
+      {}
       <Modal
         visible={showDeleteConfirm}
         transparent={true}
@@ -1492,7 +1397,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
         </View>
       </Modal>
 
-      {/* Become Coach Confirmation Modal */}
+      {}
       <Modal
         visible={showBecomeCoachConfirm}
         transparent={true}

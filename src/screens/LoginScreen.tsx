@@ -71,7 +71,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
 
     console.log('[LoginScreen] Attempting login...');
     setLoading(true);
-    setErrors({}); // Clear previous errors
+    setErrors({});
     
     try {
       const { error } = await signIn(email.trim(), password.trim());
@@ -117,7 +117,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
     setResetLoading(false);
 
     if (error) {
-      // Keep modal open but show error would require state, for now just close
       setShowResetModal(false);
     } else {
       setShowResetModal(false);

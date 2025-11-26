@@ -386,26 +386,26 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
   };
 
   const renderSuggestedRecipes = () => {
-    // Get suggested recipes based on remaining calories and current time
+    
     const remainingCalories = goals.calories - dailyNutrition.calories;
     const currentHour = new Date().getHours();
     
-    // Determine meal type based on time
+    
     let suggestedType: 'breakfast' | 'lunch' | 'dinner' | 'snack' = 'dinner';
     if (currentHour < 11) suggestedType = 'breakfast';
     else if (currentHour < 15) suggestedType = 'lunch';
     else if (currentHour < 18) suggestedType = 'snack';
 
-    // Get recipes from database
+    
     const { RECIPE_DATABASE, filterRecipesByType, filterRecipesByCalories } = require('../data/recipes');
     let suggestions = filterRecipesByType(RECIPE_DATABASE, suggestedType);
     
-    // Filter by remaining calories if significant calories left
+    
     if (remainingCalories > 200) {
       suggestions = filterRecipesByCalories(suggestions, remainingCalories / 2, remainingCalories);
     }
     
-    // Take top 3 suggestions
+    
     suggestions = suggestions.slice(0, 3);
 
     if (suggestions.length === 0) return null;

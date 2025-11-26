@@ -81,7 +81,6 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
       return;
     }
 
-    // Add confirmation popup before proceeding
     setShowConfirmModal(true);
   };
 
@@ -91,7 +90,6 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
     setSubmitting(true);
 
     try {
-      // Check if already a coach
       console.log('[BecomeCoach] Checking existing coach status...');
       const { data: existingCoach, error: checkError } = await supabase
         .from('coaches')
@@ -115,7 +113,6 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
             onNavigate: !!onNavigate
           });
           
-          // Refresh coach status to update AuthContext
           if (refreshCoachStatus) {
             console.log('[BecomeCoach] Calling refreshCoachStatus...');
             await refreshCoachStatus();
@@ -124,7 +121,6 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
             console.log('[BecomeCoach] WARNING: refreshCoachStatus not available!');
           }
           
-          // Switch to coach mode if available
           if (switchToCoachMode) {
             console.log('[BecomeCoach] Calling switchToCoachMode...');
             await switchToCoachMode();
@@ -136,7 +132,6 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
           console.log('[BecomeCoach] Showing alert...');
           if (typeof window !== 'undefined' && window.alert) {
             window.alert('✅ You\'re Already a Coach! Great news! You\'re already certified as a health coach. Navigating to your coach dashboard now...');
-            // Force navigate to coach dashboard
             if (onNavigate) {
               onNavigate('coach-dashboard');
             }
@@ -151,7 +146,6 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
                     console.log('[BecomeCoach] Alert button pressed, navigating to coach dashboard...');
                     console.log('[BecomeCoach] Current auth state:', { isCoach: canBeCoach, currentMode: 'should be coach' });
                     
-                    // Force navigate to coach dashboard
                     if (onNavigate) {
                       onNavigate('coach-dashboard');
                     } else {
@@ -164,7 +158,6 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
           }
           return;
         }
-        // Reactivate existing coach
         console.log('[BecomeCoach] Reactivating existing coach...');
         const { error: updateError } = await supabase
           .from('coaches')
@@ -177,7 +170,6 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
         }
         console.log('[BecomeCoach] ✅ Coach reactivated successfully');
       } else {
-        // Create new coach
         console.log('[BecomeCoach] Creating new coach with data:', {
           user_id: user!.id,
           full_name: profile.full_name,
@@ -204,16 +196,15 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
         console.log('[BecomeCoach] ✅ New coach created successfully');
       }
 
-      // Enhanced success experience with direct navigation
       console.log('[BecomeCoach] New coach - activating coach mode and navigating...');
       
-      // Switch to coach mode (it will refresh internally)
+      
       if (switchToCoachMode) {
         console.log('[BecomeCoach] Switching to coach mode...');
         await switchToCoachMode();
       }
       
-      // Navigate directly to coach dashboard
+      
       console.log('[BecomeCoach] Navigating to coach dashboard...');
       onNavigate?.('coach-dashboard');
     } catch (error) {
@@ -262,7 +253,7 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
           </Text>
         </View>
 
-        {/* Profile Status Card */}
+        {}
         <View style={styles.statusCard}>
           <View style={styles.statusHeader}>
             <MaterialIcons 
@@ -275,7 +266,7 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
             </Text>
           </View>
           
-          {/* Requirements List */}
+          {}
           <View style={styles.requirementsList}>
             <View style={styles.requirementItem}>
               <MaterialIcons 
@@ -322,7 +313,7 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
           )}
         </View>
 
-        {/* Coach Benefits */}
+        {}
         <View style={styles.benefitsCard}>
           <View style={styles.cardHeader}>
             <MaterialIcons name="stars" size={24} color={colors.primary} />
@@ -402,7 +393,7 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Become Coach Confirmation Modal */}
+      {}
       <Modal
         visible={showConfirmModal}
         transparent={true}

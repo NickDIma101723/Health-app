@@ -10,10 +10,10 @@ export const useAchievements = () => {
   const [achievementProgress, setAchievementProgress] = useState<AchievementProgress[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Initialize default achievements if they don't exist
+  
   const initializeAchievements = async () => {
     try {
-      // Check if achievements exist
+      
       const { data: existingAchievements, error } = await supabase
         .from('achievements')
         .select('*');
@@ -23,7 +23,7 @@ export const useAchievements = () => {
         return;
       }
 
-      // If no achievements exist, create default ones
+      
       if (existingAchievements.length === 0) {
         const { error: insertError } = await supabase
           .from('achievements')
@@ -34,7 +34,7 @@ export const useAchievements = () => {
         }
       }
 
-      // Fetch all achievements
+      
       const { data: allAchievements } = await supabase
         .from('achievements')
         .select('*')
@@ -48,7 +48,7 @@ export const useAchievements = () => {
     }
   };
 
-  // Fetch user's earned achievements
+  
   const fetchUserAchievements = async () => {
     if (!user) return;
 
@@ -73,7 +73,7 @@ export const useAchievements = () => {
     }
   };
 
-  // Check if user has earned an achievement
+  
   const checkAchievement = async (achievementId: string): Promise<boolean> => {
     if (!user) return false;
 
@@ -91,16 +91,16 @@ export const useAchievements = () => {
     }
   };
 
-  // Award achievement to user
+  
   const awardAchievement = async (achievementId: string): Promise<boolean> => {
     if (!user) return false;
 
     try {
-      // Check if already earned
+      
       const alreadyEarned = await checkAchievement(achievementId);
       if (alreadyEarned) return false;
 
-      // Award the achievement
+      
       const { error } = await supabase
         .from('user_achievements')
         .insert({
@@ -113,7 +113,7 @@ export const useAchievements = () => {
         return false;
       }
 
-      // Refresh user achievements
+      
       await fetchUserAchievements();
       return true;
     } catch (error) {
@@ -122,12 +122,12 @@ export const useAchievements = () => {
     }
   };
 
-  // Calculate progress for all achievements
+  
   const calculateProgress = async () => {
     if (!user || achievements.length === 0) return;
 
     try {
-      // Get user's activity data
+      
       const { data: activities } = await supabase
         .from('activities')
         .select('*')
@@ -149,9 +149,10 @@ export const useAchievements = () => {
         
         let currentValue = 0;
         
-        // Calculate current value based on achievement criteria
+        
         switch (achievement.criteria.type) {
           case 'activity_count':
+            // Tel het aantal activiteiten van een bepaald type, of alle activiteiten als geen type is opgegeven
             if (achievement.criteria.activity_type) {
               currentValue = (activities || []).filter(a => 
                 a.type === achievement.criteria.activity_type
@@ -162,10 +163,12 @@ export const useAchievements = () => {
             break;
             
           case 'meal_log':
+            // Gewoon tellen hoeveel maaltijden er zijn gelogd
             currentValue = (meals || []).length;
             break;
             
           case 'water_intake':
+            // Bereken totale waterinname voor vandaag, of alles bij elkaar als het niet dagelijks is
             if (achievement.criteria.timeframe === 'daily') {
               const today = new Date().toISOString().split('T')[0];
               currentValue = (waterIntakes || [])
@@ -195,13 +198,13 @@ export const useAchievements = () => {
 
       setAchievementProgress(progress);
 
-      // Check for newly earned achievements
+      
       for (const prog of progress) {
         if (!prog.is_earned && prog.current_value >= prog.target_value) {
           const awarded = await awardAchievement(prog.achievement.id);
           if (awarded) {
-            // Show achievement notification
-            // You can implement a notification system here
+            
+            
             console.log(`🎉 Achievement Unlocked: ${prog.achievement.name}!`);
           }
         }
@@ -211,7 +214,7 @@ export const useAchievements = () => {
     }
   };
 
-  // Initialize on mount
+  
   useEffect(() => {
     const initialize = async () => {
       setLoading(true);
@@ -225,7 +228,7 @@ export const useAchievements = () => {
     initialize();
   }, [user]);
 
-  // Calculate progress when data changes
+  
   useEffect(() => {
     if (achievements.length > 0) {
       calculateProgress();

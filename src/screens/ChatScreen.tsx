@@ -91,14 +91,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId, cl
   
   const { myCoach, loading: coachLoading, fetchMyCoach } = useCoaches();
   
-  // Force refresh when navigating to chat
   useEffect(() => {
     if (!isCoach && user) {
       fetchMyCoach(true);
     }
   }, [user, isCoach]);
   
-  // Prefer navigation param `clientId` if available, otherwise fall back to the selectedClient/myCoach
   const chatPartnerId = clientId || (isCoach ? selectedClient?.user_id : myCoach?.user_id);
   
   const { 
@@ -132,8 +130,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId, cl
   const scrollViewRef = useRef<ScrollView>(null);
   const typingDots = useRef(new Animated.Value(0)).current;
   const inputRef = useRef<TextInput>(null);
-
-  // NOTE: Coach refresh moved to earlier useEffect with proper dependencies
 
   useEffect(() => {
     const loadClients = async () => {
@@ -232,7 +228,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId, cl
     }
   }, [dbMessages, myCoach, selectedClient, isCoach, user]);
 
-  // Clear messages while switching chat partner to avoid showing previous conversation content
   useEffect(() => {
     setMessages([]);
   }, [chatPartnerId]);
@@ -285,8 +280,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId, cl
 
     const messageText = inputText.trim() || null;
     setInputText('');
-
-    // const receiverId = chatPartner.user_id; // replaced by variable above
     
     if (!receiverId) {
       Alert.alert('Error', 'Receiver user ID not configured. Please contact support.');

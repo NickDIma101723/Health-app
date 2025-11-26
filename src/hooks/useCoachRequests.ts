@@ -14,7 +14,7 @@ type CoachRequest = {
   responded_by: string | null;
   created_at: string;
   updated_at: string;
-  // Joined data
+  
   client_profile?: {
     full_name: string | null;
     bio: string | null;
@@ -35,11 +35,11 @@ export const useCoachRequests = () => {
   const [processingRequests, setProcessingRequests] = useState<Set<string>>(new Set());
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
   const lastFetchTime = useRef<number>(0);
-  const CACHE_DURATION = 5000; // 5 seconds cache
+  const CACHE_DURATION = 5000; 
 
-  // Retry configuration
+  
   const MAX_RETRIES = 3;
-  const RETRY_DELAY = 1000; // 1 second
+  const RETRY_DELAY = 1000; 
 
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -48,29 +48,30 @@ export const useCoachRequests = () => {
     operationName: string,
     retries = MAX_RETRIES
   ): Promise<T> => {
+    // Probeer de operatie een paar keer opnieuw als het mislukt, met steeds langere pauzes ertussen
     for (let i = 0; i <= retries; i++) {
       try {
         return await operation();
       } catch (error: any) {
-        console.warn(`[${operationName}] Attempt ${i + 1} failed:`, error.message);
+        console.warn(`[${operationName}] Poging ${i + 1} mislukt:`, error.message);
         
         if (i === retries) {
           throw error;
         }
         
-        // Wait before retrying (exponential backoff)
+        
         await sleep(RETRY_DELAY * Math.pow(2, i));
       }
     }
-    throw new Error(`${operationName} failed after ${retries + 1} attempts`);
+    throw new Error(`${operationName} is ${retries + 1} keer mislukt`);
   };
 
-  // Load requests for current coach
+  
   const loadCoachRequests = async () => {
     if (!coachData?.id) return;
-    if (loading) return; // Prevent duplicate requests
+    if (loading) return; 
     
-    // Check cache - don't refetch if data is fresh
+    
     const now = Date.now();
     if (now - lastFetchTime.current < CACHE_DURATION && requests.length > 0) {
       console.log('[useCoachRequests] Using cached data');
@@ -82,7 +83,7 @@ export const useCoachRequests = () => {
     try {
       console.log('[useCoachRequests] Loading requests for coach:', coachData.id);
       
-      // First get coach requests
+      
       const { data: requestsData, error: fetchError } = await supabase
         .from('coach_requests')
         .select('*')
@@ -103,11 +104,11 @@ export const useCoachRequests = () => {
         return;
       }
 
-      // Then get client profiles for each request
+      
       const enrichedRequests: CoachRequest[] = await Promise.all(
         requestsData.map(async (request) => {
           try {
-            // Get client profile
+            
             const { data: profile, error: profileError } = await supabase
               .from('profiles')
               .select('full_name, bio, fitness_level, goals')
@@ -118,7 +119,7 @@ export const useCoachRequests = () => {
               console.warn('[useCoachRequests] Profile error for user:', request.client_user_id, profileError);
             }
 
-            // Get coach profile
+            
             const { data: coach, error: coachError } = await supabase
               .from('coaches')
               .select('full_name, specialization')
@@ -157,12 +158,12 @@ export const useCoachRequests = () => {
     }
   };
 
-  // Load requests sent by current user (client perspective)
+  
   const loadUserRequests = async () => {
     if (!user) return;
-    if (loading) return; // Prevent duplicate requests
+    if (loading) return; 
     
-    // Check cache
+    
     const now = Date.now();
     if (now - lastFetchTime.current < CACHE_DURATION && requests.length > 0) {
       console.log('[useCoachRequests] Using cached user requests');
@@ -174,7 +175,7 @@ export const useCoachRequests = () => {
     try {
       console.log('[useCoachRequests] Loading user requests for:', user.id);
       
-      // Get user's coach requests
+      
       const { data: requestsData, error: fetchError } = await supabase
         .from('coach_requests')
         .select('*')
@@ -195,11 +196,11 @@ export const useCoachRequests = () => {
         return;
       }
 
-      // Enrich with coach profiles
+      
       const enrichedRequests: CoachRequest[] = await Promise.all(
         requestsData.map(async (request) => {
           try {
-            // Get coach profile
+            
             const { data: coach, error: coachError } = await supabase
               .from('coaches')
               .select('full_name, specialization')
@@ -236,7 +237,7 @@ export const useCoachRequests = () => {
     }
   };
 
-  // Send a coach request from client with better validation
+  
   const sendCoachRequest = async (coachId: string, message?: string) => {
     if (!user) {
       return { error: 'You must be logged in to send a request' };
@@ -246,7 +247,7 @@ export const useCoachRequests = () => {
       return { error: 'Coach ID is required' };
     }
 
-    // Validate message length if provided
+    
     if (message && message.length > 500) {
       return { error: 'Message must be less than 500 characters' };
     }
@@ -254,7 +255,7 @@ export const useCoachRequests = () => {
     try {
       console.log('Sending coach request:', { client_user_id: user.id, coach_id: coachId, message });
 
-      // Check if any request already exists with this coach (pending, accepted, or recent rejected)
+      
       const { data: existingRequests, error: checkError } = await supabase
         .from('coach_requests')
         .select('*')
@@ -276,7 +277,7 @@ export const useCoachRequests = () => {
           return { error: 'This coach has already accepted your request' };
         }
         
-        // If only rejected requests exist, delete them before creating new one
+        
         const rejectedIds = existingRequests.filter(r => r.status === 'rejected').map(r => r.id);
         if (rejectedIds.length > 0) {
           await supabase
@@ -286,7 +287,7 @@ export const useCoachRequests = () => {
         }
       }
 
-      // Send the request
+      
       const { data: requestData, error: insertError } = await supabase
         .from('coach_requests')
         .insert({
@@ -312,7 +313,7 @@ export const useCoachRequests = () => {
     } catch (err: any) {
       console.error('Error sending coach request:', err);
       
-      // Provide more specific error messages
+      
       let errorMessage = 'Failed to send request. Please try again.';
       if (err.message?.includes('duplicate key')) {
         errorMessage = 'You already have a pending request with this coach';
@@ -324,7 +325,7 @@ export const useCoachRequests = () => {
     }
   };
 
-  // Accept a coach request with optimistic updates
+  
   const acceptRequest = async (requestId: string) => {
     console.log('[useCoachRequests] 🟢 acceptRequest called:', { requestId, user: !!user, coachData: !!coachData });
     
@@ -333,7 +334,7 @@ export const useCoachRequests = () => {
       return { error: 'Invalid coach data' };
     }
 
-    // Prevent multiple simultaneous operations on the same request
+    
     if (processingRequests.has(requestId)) {
       console.log('[useCoachRequests] 🟢 Request already processing:', requestId);
       return { error: 'Request is already being processed' };
@@ -341,7 +342,7 @@ export const useCoachRequests = () => {
 
     setProcessingRequests(prev => new Set(prev).add(requestId));
 
-    // Optimistic update - immediately update UI
+    
     const originalRequests = [...requests];
     setRequests(prev => prev.map(req => 
       req.id === requestId 
@@ -352,7 +353,7 @@ export const useCoachRequests = () => {
     try {
       console.log('[useCoachRequests] 🟢 Updating request status to accepted...');
       
-      // First check if request is still pending
+      
       const { data: currentRequest, error: checkError } = await supabase
         .from('coach_requests')
         .select('status, client_user_id')
@@ -369,7 +370,7 @@ export const useCoachRequests = () => {
         throw new Error(`Request has already been ${currentRequest.status}`);
       }
 
-      // Update the status
+      
       const { error: updateError } = await supabase
         .from('coach_requests')
         .update({
@@ -387,10 +388,10 @@ export const useCoachRequests = () => {
 
       console.log('[useCoachRequests] 🟢 Request status updated successfully');
 
-      // Get the request details (use the one we already fetched)
+      
       console.log('[useCoachRequests] 🟢 Using request details:', currentRequest);
 
-      // Create coach-client assignment
+      
       console.log('[useCoachRequests] 🟢 Creating coach-client assignment...');
       const { error: assignmentError } = await supabase
         .from('coach_client_assignments')
@@ -409,17 +410,17 @@ export const useCoachRequests = () => {
 
       console.log('[useCoachRequests] 🟢 Assignment created successfully');
 
-      // Notification removed due to RLS policy restrictions
+      
 
-      // Don't reload here - let real-time subscriptions handle it
-      // This prevents infinite loops
+      
+      
       console.log('[useCoachRequests] 🟢 Accept request completed successfully');
       console.log('[useCoachRequests] 🟢 Client should now appear in chat list and manage clients');
       return { error: null, success: true };
     } catch (err: any) {
       console.error('[useCoachRequests] 🟢 Error accepting request:', err);
       
-      // Revert optimistic update on failure
+      
       setRequests(originalRequests);
       
       return { error: err.message || 'Failed to accept request. Please try again.' };
@@ -432,7 +433,7 @@ export const useCoachRequests = () => {
     }
   };
 
-  // Reject a coach request with optimistic updates
+  
   const rejectRequest = async (requestId: string) => {
     console.log('[useCoachRequests] 🔴 rejectRequest called:', { requestId, user: !!user });
     
@@ -441,7 +442,7 @@ export const useCoachRequests = () => {
       return { error: 'No user logged in' };
     }
 
-    // Prevent multiple simultaneous operations on the same request
+    
     if (processingRequests.has(requestId)) {
       console.log('[useCoachRequests] 🔴 Request already processing:', requestId);
       return { error: 'Request is already being processed' };
@@ -449,7 +450,7 @@ export const useCoachRequests = () => {
 
     setProcessingRequests(prev => new Set(prev).add(requestId));
 
-    // Optimistic update - immediately update UI
+    
     const originalRequests = [...requests];
     setRequests(prev => prev.map(req => 
       req.id === requestId 
@@ -460,7 +461,7 @@ export const useCoachRequests = () => {
     try {
       console.log('[useCoachRequests] 🔴 Updating request status to rejected...');
       
-      // Update without retry to avoid constraint issues
+      
       const { error } = await supabase
         .from('coach_requests')
         .update({
@@ -469,7 +470,7 @@ export const useCoachRequests = () => {
           responded_by: user.id,
         })
         .eq('id', requestId)
-        .eq('status', 'pending'); // Only update if still pending
+        .eq('status', 'pending'); 
 
       if (error) {
         console.error('[useCoachRequests] 🔴 Update error:', error);
@@ -478,16 +479,16 @@ export const useCoachRequests = () => {
 
       console.log('[useCoachRequests] 🔴 Request status updated to rejected');
 
-      // Notification removed due to RLS policy restrictions
+      
 
-      // Don't reload here - let real-time subscriptions handle it
-      // This prevents infinite loops
+      
+      
       console.log('[useCoachRequests] 🔴 Reject request completed successfully');
       return { error: null };
     } catch (err: any) {
       console.error('[useCoachRequests] 🔴 Error rejecting request:', err);
       
-      // Revert optimistic update on failure
+      
       setRequests(originalRequests);
       
       return { error: err.message || 'Failed to reject request. Please try again.' };
@@ -500,12 +501,12 @@ export const useCoachRequests = () => {
     }
   };
 
-  // Get pending requests count for badges
+  
   const getPendingRequestsCount = () => {
     return requests.filter(req => req.status === 'pending').length;
   };
 
-  // Check if user has pending request with specific coach
+  
   const hasPendingRequestWith = (coachId: string) => {
     return requests.some(req => 
       req.coach_id === coachId && 
@@ -513,7 +514,7 @@ export const useCoachRequests = () => {
     );
   };
 
-  // Set up real-time subscription for coach requests
+  
   useEffect(() => {
     if (!user) return;
 
@@ -531,7 +532,7 @@ export const useCoachRequests = () => {
         },
         (payload) => {
           console.log('[useCoachRequests] Real-time update received:', payload);
-          // Reload requests when there's a change
+          
           loadUserRequests();
         }
       )
@@ -543,7 +544,7 @@ export const useCoachRequests = () => {
     };
   }, [user]);
 
-  // Set up real-time subscription for coach requests (coach perspective)
+  
   useEffect(() => {
     if (!coachData?.id) return;
 
@@ -561,7 +562,7 @@ export const useCoachRequests = () => {
         },
         (payload) => {
           console.log('[useCoachRequests] Real-time update received for coach:', payload);
-          // Reload requests when there's a change
+          
           loadCoachRequests();
         }
       )

@@ -21,12 +21,12 @@ interface NutritionCalculatorScreenProps {
 
 type Gender = 'male' | 'female' | null;
 type ActivityLevel = 
-  | 'sedentary'      // 1.2
-  | 'lightly'        // 1.375
-  | 'somewhat'       // 1.465
-  | 'moderately'     // 1.55
-  | 'very'           // 1.725
-  | 'extremely'      // 1.9
+  | 'sedentary'      
+  | 'lightly'        
+  | 'somewhat'       
+  | 'moderately'     
+  | 'very'           
+  | 'extremely'      
   | null;
 
 interface CalculationResults {
@@ -90,7 +90,7 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
   ];
 
   const calculateNutrition = () => {
-    // Validation
+    
     if (!gender) {
       showError('Missing Information', 'Please select your gender');
       return;
@@ -112,20 +112,20 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
       return;
     }
 
-    // Convert to metric
-    const weightKg = weightUnit === 'kg' ? parseFloat(weight) : parseFloat(weight) * 0.453592; // lbs to kg
-    const heightM = heightUnit === 'm' ? parseFloat(height) : parseFloat(height) * 0.3048; // ft to m
+    
+    const weightKg = weightUnit === 'kg' ? parseFloat(weight) : parseFloat(weight) * 0.453592; 
+    const heightM = heightUnit === 'm' ? parseFloat(height) : parseFloat(height) * 0.3048; 
     const heightCm = heightM * 100;
     const ageYears = parseInt(age);
 
-    // Sanity checks - realistic human ranges
+    
     if (weightUnit === 'kg') {
       if (weightKg < 20 || weightKg > 300) {
         showError('Invalid Input', 'Please enter a realistic weight between 20-300 kg');
         return;
       }
     } else {
-      if (weightKg < 44 || weightKg > 661) { // 20-300 kg converted to lbs
+      if (weightKg < 44 || weightKg > 661) { 
         showError('Invalid Input', 'Please enter a realistic weight between 44-661 lbs');
         return;
       }
@@ -137,7 +137,7 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
         return;
       }
     } else {
-      if (heightM < 1.64 || heightM > 9.84) { // 0.5-3.0m converted to ft
+      if (heightM < 1.64 || heightM > 9.84) { 
         showError('Invalid Input', 'Please enter height in feet (e.g., 5.75 for 5\'9").\nValid range: 1.6-9.8 ft');
         return;
       }
@@ -148,45 +148,50 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
       return;
     }
 
-    // BMI Calculation
-    // BMI = weight (kg) / (height in m * height in m)
+    
+    
     const bmi = weightKg / (heightM * heightM);
 
-    // BMR Calculation
-    // Men: 10 * weight + 6.25 * height(cm) - 5 * age + 5
-    // Women: 10 * weight + 6.25 * height(cm) - 5 * age - 161
+    
+    
+    
     let bmr: number;
+    // Bereken de BMR met de Mifflin-St Jeor formule - dat is de energie die je lichaam verbrandt als je niks doet
     if (gender === 'male') {
       bmr = 10 * weightKg + 6.25 * heightCm - 5 * ageYears + 5;
     } else {
       bmr = 10 * weightKg + 6.25 * heightCm - 5 * ageYears - 161;
     }
 
-    // Daily Calorie Calculation
+    
     const activityMultiplier = activityLevels.find(a => a.key === activityLevel)?.multiplier || 1.2;
     const dailyCalories = Math.round(bmr * activityMultiplier);
 
-    // Protein Calculation (1.8-2.2g per kg bodyweight for active individuals)
+    
+    // Eiwitten: 1.8 tot 2.2 gram per kilo lichaamsgewicht
     const proteinMin = weightKg * 1.8;
     const proteinMax = weightKg * 2.2;
     const proteinAvg = (proteinMin + proteinMax) / 2;
 
-    // Fat Calculation (25-30% of daily calories, fat has 9 cal/g)
+    
+    // Vet: 25-30% van je dagelijkse calorieën
     const fatMin = (dailyCalories * 0.25) / 9;
     const fatMax = (dailyCalories * 0.30) / 9;
     const fatAvg = (fatMin + fatMax) / 2;
 
-    // Carbs Calculation (remaining calories after protein and fat)
-    // Using average protein and fat to calculate remaining calories
-    const proteinCalories = proteinAvg * 4; // protein has 4 cal/g
-    const fatCalories = fatAvg * 9; // fat has 9 cal/g
+    
+    
+    const proteinCalories = proteinAvg * 4; 
+    const fatCalories = fatAvg * 9; 
     const remainingCalories = dailyCalories - proteinCalories - fatCalories;
     
-    // Carbs have 4 calories per gram
-    const carbsMin = (remainingCalories * 0.95) / 4; // 95% of remaining
-    const carbsMax = (remainingCalories * 1.05) / 4; // 105% of remaining
+    
+    // Koolhydraten: wat er overblijft na eiwitten en vet, met een beetje speling
+    const carbsMin = (remainingCalories * 0.95) / 4; 
+    const carbsMax = (remainingCalories * 1.05) / 4; 
 
-    // Water Calculation (weight * 35ml per kg, converted to liters)
+    
+    // Water: 35ml per kilo lichaamsgewicht per dag
     const water = (weightKg * 35) / 1000;
 
     setResults({
@@ -229,9 +234,9 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
-        {/* Form Section */}
+        {}
         <View style={styles.formSection}>
-          {/* Gender Widget */}
+          {}
           <View style={styles.widget}>
             <Text style={styles.widgetTitle}>Gender</Text>
             <View style={styles.genderContainer}>
@@ -264,7 +269,7 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
             </View>
           </View>
 
-          {/* Body Metrics Widget */}
+          {}
           <View style={styles.widget}>
             <Text style={styles.widgetTitle}>Body Metrics</Text>
             
@@ -350,7 +355,7 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
             <Text style={styles.helperText}>Enter your age in years (10-120)</Text>
           </View>
 
-          {/* Activity Level Widget */}
+          {}
           <View style={styles.widget}>
             <Text style={styles.widgetTitle}>Activity Level</Text>
             <View style={styles.activityContainer}>
@@ -376,7 +381,7 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
             </View>
           </View>
 
-          {/* Calculate Button */}
+          {}
           <TouchableOpacity style={styles.calculateButton} onPress={calculateNutrition}>
             <LinearGradient
               colors={[colors.primary, colors.primaryLight] as [string, string, ...string[]]}
@@ -390,12 +395,12 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
           </TouchableOpacity>
         </View>
 
-        {/* Results Section */}
+        {}
         {results && (
           <View style={styles.resultsSection}>
             <Text style={styles.sectionTitle}>Your Results</Text>
 
-            {/* BMI Card */}
+            {}
             <View style={styles.resultCard}>
               <View style={styles.resultHeader}>
                 <MaterialIcons name="monitor-weight" size={28} color={colors.primary} />
@@ -416,7 +421,7 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
               </View>
             </View>
 
-            {/* BMR Card */}
+            {}
             <View style={styles.resultCard}>
               <View style={styles.resultHeader}>
                 <MaterialIcons name="local-fire-department" size={28} color={colors.error} />
@@ -428,7 +433,7 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
               </Text>
             </View>
 
-            {/* Daily Calories Card */}
+            {}
             <View style={styles.resultCard}>
               <View style={styles.resultHeader}>
                 <MaterialIcons name="restaurant" size={28} color={colors.success} />
@@ -440,10 +445,10 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
               </Text>
             </View>
 
-            {/* Macronutrients Section */}
+            {}
             <Text style={styles.subsectionTitle}>Daily Macronutrients</Text>
 
-            {/* Carbs Card */}
+            {}
             <View style={styles.macroCard}>
               <View style={styles.macroHeader}>
                 <MaterialIcons name="bakery-dining" size={24} color="#f59e0b" />
@@ -455,7 +460,7 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
               <Text style={styles.macroPercentage}>Remaining calories after protein & fat</Text>
             </View>
 
-            {/* Protein Card */}
+            {}
             <View style={styles.macroCard}>
               <View style={styles.macroHeader}>
                 <MaterialIcons name="egg" size={24} color="#ef4444" />
@@ -467,7 +472,7 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
               <Text style={styles.macroPercentage}>1.8-2.2g per kg body weight</Text>
             </View>
 
-            {/* Fat Card */}
+            {}
             <View style={styles.macroCard}>
               <View style={styles.macroHeader}>
                 <MaterialIcons name="water-drop" size={24} color="#8b5cf6" />
@@ -479,7 +484,7 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
               <Text style={styles.macroPercentage}>25-30% of daily calories</Text>
             </View>
 
-            {/* Water Card */}
+            {}
             <View style={styles.resultCard}>
               <View style={styles.resultHeader}>
                 <MaterialIcons name="opacity" size={28} color={colors.info} />
@@ -497,7 +502,7 @@ export const NutritionCalculatorScreen: React.FC<NutritionCalculatorScreenProps>
         </Animated.View>
       </ScrollView>
 
-      {/* Error Modal */}
+      {}
       <Modal
         visible={errorModal.visible}
         transparent={true}
