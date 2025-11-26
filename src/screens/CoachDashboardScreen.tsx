@@ -215,8 +215,7 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
           <Text style={styles.headerTitle}>{coachData?.full_name || 'Coach'}</Text>
         </View>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <MaterialIcons name="logout" size={18} color={colors.error} />
-          <Text style={styles.logoutButtonText}>Sign Out</Text>
+          <MaterialIcons name="logout" size={22} color={colors.error} />
         </TouchableOpacity>
       </View>
 
@@ -452,22 +451,15 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   logoutButton: {
-    flexDirection: 'row',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: colors.error + '30',
     ...shadows.sm,
   },
-  logoutButtonText: {
-    fontSize: fontSizes.sm,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.error,
-  },
+
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

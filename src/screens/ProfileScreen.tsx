@@ -64,6 +64,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showBecomeCoachConfirm, setShowBecomeCoachConfirm] = useState(false);
+  const [showConvertConfirm, setShowConvertConfirm] = useState(false);
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -494,6 +495,51 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
     }
   };
 
+  const confirmConvertToClient = async () => {
+    setShowConvertConfirm(false);
+    try {
+      if (!user || !coachData) return;
+
+      console.log('[ProfileScreen] Converting to client - unassigning clients for coach:', coachData.id);
+
+      const { error: unassignError } = await supabase
+        .from('coach_client_assignments')
+        .update({ is_active: false })
+        .eq('coach_id', coachData.id)
+        .eq('is_active', true);
+
+      if (unassignError) {
+        console.error('[ProfileScreen] Error unassigning clients:', unassignError);
+        // continue even if unassign fails for some rows
+      }
+
+      const { error: deactivateError } = await supabase
+        .from('coaches')
+        .update({ is_active: false })
+        .eq('user_id', user.id);
+
+      if (deactivateError) throw deactivateError;
+
+      // Switch to client mode in AuthContext
+      await switchToClientMode();
+
+      // Navigate to home screen as client
+      Alert.alert(
+        '✅ Switched to Client Focus',
+        "You've deactivated coach mode and all clients have been unassigned.\n\nYou can reactivate coach mode anytime from your profile.",
+        [
+          {
+            text: 'Continue as Client',
+            onPress: () => onNavigate?.('home'),
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error('[ProfileScreen] Error converting to client:', error);
+      Alert.alert('Error', error?.message || 'Failed to convert to client. Please try again.');
+    }
+  };
+
   const handleDeleteAccount = () => {
     console.log('[ProfileScreen] handleDeleteAccount called');
     setShowDeleteConfirm(true);
@@ -669,10 +715,83 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
     setShowBecomeCoachConfirm(true);
   };
 
-  const confirmBecomeCoach = () => {
-    console.log('[ProfileScreen] User confirmed becoming coach, showing qualification modal');
+  const confirmBecomeCoach = async () => {
     setShowBecomeCoachConfirm(false);
-    setShowPasswordModal(true);
+    try {
+      if (!user) {
+        Alert.alert('Error', 'No user found. Please log in again.');
+        return;
+      }
+
+      const { data: existingCoach, error: checkError } = await supabase
+        .from('coaches')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+
+      if (existingCoach) {
+        if (existingCoach.is_active) {
+          Alert.alert('Info', 'You are already a coach.');
+          return;
+        }
+
+        const { error: updateError } = await supabase
+          .from('coaches')
+          .update({ is_active: true })
+          .eq('user_id', user.id);
+
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('coaches')
+          .insert({
+            user_id: user.id,
+            full_name: profile.full_name,
+            email: user.email || '',
+            specialization: profile.fitness_level,
+            bio: profile.bio,
+            is_active: true,
+          });
+
+        if (insertError) throw insertError;
+      }
+
+      // Enhanced success experience with creative mode switching
+      // Refresh the coach status first
+      if (refreshCoachStatus) {
+        await refreshCoachStatus();
+      }
+      
+      // Add a small delay for the status to update
+      setTimeout(() => {
+        // Creative coach mode activation
+        if (switchToCoachMode) {
+          switchToCoachMode();
+                  
+          // Show celebration and navigation
+          Alert.alert(
+            '🌟 Coach Mode Activated!',
+            'You\'re now in Coach Mode! Navigate to your Coach Dashboard to start managing clients.',
+            [
+              {
+                text: 'Go to Coach Dashboard',
+                onPress: () => {
+                  // You can add navigation here if you have it
+                  console.log('Navigate to coach dashboard');
+                }
+              }
+            ]
+          );
+        }
+      }, 1000);
+    } catch (error) {
+      console.error('Error converting to coach:', error);
+      Alert.alert('Error', 'Failed to convert to coach. Please try again.');
+    }
   };
 
   const handleCoachQualificationSubmit = async () => {
@@ -686,254 +805,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
       return;
     }
 
-    // Add confirmation before proceeding
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm('Are you sure you want to become a health coach? This action cannot be undone easily.');
-      if (confirmed) {
-        // Proceed with coach creation
-        setShowPasswordModal(false);
-        // ... rest of the function
-        try {
-          if (!user) {
-            if (typeof window !== 'undefined' && window.alert) {
-              window.alert('No user found. Please log in again.');
-            } else {
-              Alert.alert('Error', 'No user found. Please log in again.');
-            }
-            return;
-          }
-
-          const { data: existingCoach, error: checkError } = await supabase
-            .from('coaches')
-            .select('*')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (checkError && checkError.code !== 'PGRST116') {
-            throw checkError;
-          }
-
-          if (existingCoach) {
-            if (existingCoach.is_active) {
-              if (typeof window !== 'undefined' && window.alert) {
-                window.alert('You are already a coach.');
-              } else {
-                Alert.alert('Info', 'You are already a coach.');
-              }
-              return;
-            }
-
-            const { error: updateError } = await supabase
-              .from('coaches')
-              .update({ is_active: true })
-              .eq('user_id', user.id);
-
-            if (updateError) throw updateError;
-          } else {
-            const { error: insertError } = await supabase
-              .from('coaches')
-              .insert({
-                user_id: user.id,
-                full_name: profile.full_name,
-                email: user.email || '',
-                specialization: profile.fitness_level,
-                bio: profile.bio,
-                is_active: true,
-              });
-
-            if (insertError) throw insertError;
-          }
-
-          // Enhanced success experience with creative mode switching
-          if (Platform.OS === 'web') {
-            window.alert('🎉 Welcome, Coach! Congratulations! You\'re now a certified health coach. Your coach dashboard is ready.');
-            // Refresh the coach status first
-            if (refreshCoachStatus) {
-              await refreshCoachStatus();
-            }
-            
-            // Add a small delay for the status to update
-            setTimeout(() => {
-              // Creative coach mode activation
-              if (switchToCoachMode) {
-                switchToCoachMode();
-                
-                // Show celebration and navigation
-                setTimeout(() => {
-                  if (Platform.OS === 'web') {
-                    window.alert('🌟 Coach Mode Activated! You\'re now in Coach Mode! Navigate to your Coach Dashboard to start managing clients.');
-                  } else {
-                    Alert.alert(
-                      '🌟 Coach Mode Activated!',
-                      'You\'re now in Coach Mode! Navigate to your Coach Dashboard to start managing clients.',
-                      [
-                        {
-                          text: 'Go to Coach Dashboard',
-                          onPress: () => {
-                            console.log('Navigate to coach dashboard');
-                          }
-                        }
-                      ]
-                    );
-                  }
-                }, 1000);
-              }
-            }, 1000);
-          } else {
-            Alert.alert(
-              '🎉 Welcome, Coach!', 
-              'Congratulations! You\'re now a certified health coach.\n\nYour coach dashboard is ready. Let\'s switch to coach mode and start helping others!',
-              [
-                {
-                  text: '🚀 Enter Coach Mode',
-                  onPress: async () => {
-                    // Refresh the coach status first
-                    if (refreshCoachStatus) {
-                      await refreshCoachStatus();
-                    }
-                    
-                    // Add a small delay for the status to update
-                    setTimeout(() => {
-                      // Creative coach mode activation
-                      if (switchToCoachMode) {
-                        switchToCoachMode();
-                                
-                        // Show celebration and navigation
-                        Alert.alert(
-                          '🌟 Coach Mode Activated!',
-                          'You\'re now in Coach Mode! Navigate to your Coach Dashboard to start managing clients.',
-                          [
-                            {
-                              text: 'Go to Coach Dashboard',
-                              onPress: () => {
-                                // You can add navigation here if you have it
-                                console.log('Navigate to coach dashboard');
-                              }
-                            }
-                          ]
-                        );
-                      }
-                    }, 1000);
-                  }
-                }
-              ],
-              { cancelable: false }
-            );
-          }
-        } catch (error) {
-          console.error('Error converting to coach:', error);
-          if (Platform.OS === 'web') {
-            window.alert('Failed to convert to coach. Please try again.');
-          } else {
-            Alert.alert('Error', 'Failed to convert to coach. Please try again.');
-          }
-        }
-      }
-    } else {
-      Alert.alert(
-        'Confirm Becoming a Coach',
-        'Are you sure you want to become a health coach? This action cannot be undone easily.',
-        [
-          { text: 'No', style: 'cancel' },
-          { 
-            text: 'Yes, Become Coach', 
-            style: 'default',
-            onPress: async () => {
-              setShowPasswordModal(false);
-
-              try {
-                if (!user) {
-                  Alert.alert('Error', 'No user found. Please log in again.');
-                  return;
-                }
-
-                const { data: existingCoach, error: checkError } = await supabase
-                  .from('coaches')
-                  .select('*')
-                  .eq('user_id', user.id)
-                  .maybeSingle();
-
-                if (checkError && checkError.code !== 'PGRST116') {
-                  throw checkError;
-                }
-
-                if (existingCoach) {
-                  if (existingCoach.is_active) {
-                    Alert.alert('Info', 'You are already a coach.');
-                    return;
-                  }
-
-                  const { error: updateError } = await supabase
-                    .from('coaches')
-                    .update({ is_active: true })
-                    .eq('user_id', user.id);
-
-                  if (updateError) throw updateError;
-                } else {
-                  const { error: insertError } = await supabase
-                    .from('coaches')
-                    .insert({
-                      user_id: user.id,
-                      full_name: profile.full_name,
-                      email: user.email || '',
-                      specialization: profile.fitness_level,
-                      bio: profile.bio,
-                      is_active: true,
-                    });
-
-                  if (insertError) throw insertError;
-                }
-
-                // Enhanced success experience with creative mode switching
-                Alert.alert(
-                  '🎉 Welcome, Coach!', 
-                  'Congratulations! You\'re now a certified health coach.\n\nYour coach dashboard is ready. Let\'s switch to coach mode and start helping others!',
-                  [
-                    {
-                      text: '🚀 Enter Coach Mode',
-                      onPress: async () => {
-                        // Refresh the coach status first
-                        if (refreshCoachStatus) {
-                          await refreshCoachStatus();
-                        }
-                        
-                        // Add a small delay for the status to update
-                        setTimeout(() => {
-                          // Creative coach mode activation
-                          if (switchToCoachMode) {
-                            switchToCoachMode();
-                                    
-                            // Show celebration and navigation
-                            Alert.alert(
-                              '🌟 Coach Mode Activated!',
-                              'You\'re now in Coach Mode! Navigate to your Coach Dashboard to start managing clients.',
-                              [
-                                {
-                                  text: 'Go to Coach Dashboard',
-                                  onPress: () => {
-                                    // You can add navigation here if you have it
-                                    console.log('Navigate to coach dashboard');
-                                  }
-                                }
-                              ]
-                            );
-                          }
-                        }, 1000);
-                      }
-                    }
-                  ],
-                  { cancelable: false }
-                );
-              } catch (error) {
-                console.error('Error converting to coach:', error);
-                Alert.alert('Error', 'Failed to convert to coach. Please try again.');
-              }
-            }
-          }
-        ],
-        { cancelable: true }
-      );
-    }
+    // Show confirmation modal
+    setShowPasswordModal(false);
+    setShowBecomeCoachConfirm(true);
   };  const handleClearInvalidAvatar = async () => {
     if (!user) return;
     
@@ -953,67 +827,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
   };
 
   const handleConvertToClient = async () => {
-    // Platform-aware confirmation: window.confirm on web, Alert on native
-    const prompt = 'This will remove your coach privileges and unassign all your clients. Are you sure?';
-
-    const runConversion = async () => {
-      try {
-        if (!user || !coachData) return;
-
-        console.log('[ProfileScreen] Converting to client - unassigning clients for coach:', coachData.id);
-
-        const { error: unassignError } = await supabase
-          .from('coach_client_assignments')
-          .update({ is_active: false })
-          .eq('coach_id', coachData.id)
-          .eq('is_active', true);
-
-        if (unassignError) {
-          console.error('[ProfileScreen] Error unassigning clients:', unassignError);
-          // continue even if unassign fails for some rows
-        }
-
-        const { error: deactivateError } = await supabase
-          .from('coaches')
-          .update({ is_active: false })
-          .eq('user_id', user.id);
-
-        if (deactivateError) throw deactivateError;
-
-        // Switch to client mode in AuthContext
-        await switchToClientMode();
-
-        // Navigate to home screen as client
-        Alert.alert(
-          '✅ Switched to Client Focus',
-          "You've deactivated coach mode and all clients have been unassigned.\n\nYou can reactivate coach mode anytime from your profile.",
-          [
-            {
-              text: 'Continue as Client',
-              onPress: () => onNavigate?.('home'),
-            },
-          ]
-        );
-      } catch (error: any) {
-        console.error('[ProfileScreen] Error converting to client:', error);
-        Alert.alert('Error', error?.message || 'Failed to convert to client. Please try again.');
-      }
-    };
-
-    if (Platform.OS === 'web') {
-      const ok = window.confirm(prompt);
-      if (ok) await runConversion();
-    } else {
-      Alert.alert(
-        'Convert to Client',
-        prompt,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Convert', style: 'destructive', onPress: () => runConversion() },
-        ],
-        { cancelable: true }
-      );
-    }
+    setShowConvertConfirm(true);
   };
 
   const calculateBMI = () => {
@@ -1602,6 +1416,38 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 onPress={confirmLogout}
               >
                 <Text style={styles.logoutConfirmText}>Sign Out</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Convert to Client Confirmation Modal */}
+      <Modal
+        visible={showConvertConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowConvertConfirm(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.logoutModalContent}>
+            <MaterialIcons name="person" size={48} color={colors.primary} />
+            <Text style={styles.logoutTitle}>Convert to Client</Text>
+            <Text style={styles.logoutMessage}>
+              This will remove your coach privileges and unassign all your clients. Are you sure?
+            </Text>
+            <View style={styles.logoutButtons}>
+              <TouchableOpacity
+                style={styles.logoutCancelButton}
+                onPress={() => setShowConvertConfirm(false)}
+              >
+                <Text style={styles.logoutCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.logoutConfirmButton}
+                onPress={confirmConvertToClient}
+              >
+                <Text style={styles.logoutConfirmText}>Convert</Text>
               </TouchableOpacity>
             </View>
           </View>

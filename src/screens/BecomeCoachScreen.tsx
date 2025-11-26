@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,6 +26,7 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
   const [profile, setProfile] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -80,24 +82,12 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
     }
 
     // Add confirmation popup before proceeding
-    if (typeof window !== 'undefined' && window.confirm) {
-      const confirmed = window.confirm('Are you sure you want to become a health coach? This will unlock coach features and allow you to help others with their fitness goals.');
-      if (!confirmed) return;
-    } else {
-      await new Promise((resolve) => {
-        Alert.alert(
-          'Confirm Becoming a Coach',
-          'Are you sure you want to become a health coach? This will unlock coach features and allow you to help others with their fitness goals.',
-          [
-            { text: 'No', style: 'cancel', onPress: () => resolve(false) },
-            { text: 'Yes, Become Coach', style: 'default', onPress: () => resolve(true) }
-          ],
-          { cancelable: true }
-        );
-      });
-    }
+    setShowConfirmModal(true);
+  };
 
-    console.log('[BecomeCoach] Starting coach creation for user:', user.id);
+  const confirmBecomeCoach = async () => {
+    setShowConfirmModal(false);
+    console.log('[BecomeCoach] Starting coach creation for user:', user!.id);
     setSubmitting(true);
 
     try {
@@ -106,7 +96,7 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
       const { data: existingCoach, error: checkError } = await supabase
         .from('coaches')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user!.id)
         .maybeSingle();
 
       console.log('[BecomeCoach] Existing coach check result:', { existingCoach, checkError });
@@ -179,7 +169,7 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
         const { error: updateError } = await supabase
           .from('coaches')
           .update({ is_active: true })
-          .eq('user_id', user.id);
+          .eq('user_id', user!.id);
 
         if (updateError) {
           console.log('[BecomeCoach] Error reactivating coach:', updateError);
@@ -189,9 +179,9 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
       } else {
         // Create new coach
         console.log('[BecomeCoach] Creating new coach with data:', {
-          user_id: user.id,
+          user_id: user!.id,
           full_name: profile.full_name,
-          email: user.email || '',
+          email: user!.email || '',
           specialization: profile.fitness_level,
           bio: profile.bio,
         });
@@ -199,9 +189,9 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
         const { error: insertError } = await supabase
           .from('coaches')
           .insert({
-            user_id: user.id,
+            user_id: user!.id,
             full_name: profile.full_name,
-            email: user.email || '',
+            email: user!.email || '',
             specialization: profile.fitness_level,
             bio: profile.bio,
             is_active: true,
@@ -215,42 +205,17 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
       }
 
       // Enhanced success experience with direct navigation
-      if (typeof window !== 'undefined' && window.alert) {
-        window.alert('🎉 Welcome, Coach! Congratulations! You\'re now a certified health coach. Your coach dashboard is ready!');
-        // Switch to coach mode (it will refresh internally)
-        if (switchToCoachMode) {
-          console.log('[BecomeCoach] Switching to coach mode...');
-          await switchToCoachMode();
-        }
-        
-        // Navigate directly to coach dashboard
-        console.log('[BecomeCoach] Navigating to coach dashboard...');
-        onNavigate?.('coach-dashboard');
-      } else {
-        Alert.alert(
-          '🎉 Welcome, Coach!', 
-          'Congratulations! You\'re now a certified health coach. Your coach dashboard is ready!',
-          [
-            {
-              text: '🚀 Go to Coach Dashboard',
-              onPress: async () => {
-                console.log('[BecomeCoach] New coach - activating coach mode and navigating...');
-                
-                // Switch to coach mode (it will refresh internally)
-                if (switchToCoachMode) {
-                  console.log('[BecomeCoach] Switching to coach mode...');
-                  await switchToCoachMode();
-                }
-                
-                // Navigate directly to coach dashboard
-                console.log('[BecomeCoach] Navigating to coach dashboard...');
-                onNavigate?.('coach-dashboard');
-              }
-            }
-          ],
-          { cancelable: false }
-        );
+      console.log('[BecomeCoach] New coach - activating coach mode and navigating...');
+      
+      // Switch to coach mode (it will refresh internally)
+      if (switchToCoachMode) {
+        console.log('[BecomeCoach] Switching to coach mode...');
+        await switchToCoachMode();
       }
+      
+      // Navigate directly to coach dashboard
+      console.log('[BecomeCoach] Navigating to coach dashboard...');
+      onNavigate?.('coach-dashboard');
     } catch (error) {
       console.error('Error becoming coach:', error);
       if (typeof window !== 'undefined' && window.alert) {
@@ -436,6 +401,38 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Become Coach Confirmation Modal */}
+      <Modal
+        visible={showConfirmModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowConfirmModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <MaterialIcons name="emoji-events" size={48} color={colors.primary} />
+            <Text style={styles.modalTitle}>Become a Health Coach</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to become a health coach? This will unlock coach features and allow you to help others with their fitness goals.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowConfirmModal(false)}
+              >
+                <Text style={styles.modalCancelText}>No</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmButton}
+                onPress={confirmBecomeCoach}
+              >
+                <Text style={styles.modalConfirmText}>Yes</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -666,6 +663,70 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     gap: spacing.xs,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xxl,
+    padding: spacing.xl,
+    width: '90%',
+    maxWidth: 400,
+    alignSelf: 'center',
+    alignItems: 'center',
+    ...shadows.lg,
+  },
+  modalTitle: {
+    fontSize: fontSizes.xxl,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: fontSizes.md,
+    color: colors.textSecondary,
+    fontFamily: 'Quicksand_500Medium',
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    width: '100%',
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.border,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    fontFamily: 'Quicksand_600SemiBold',
+    textAlign: 'center',
+  },
+  modalConfirmButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  modalConfirmText: {
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+    color: colors.textLight,
+    fontFamily: 'Quicksand_600SemiBold',
+    textAlign: 'center',
   },
 });
 
