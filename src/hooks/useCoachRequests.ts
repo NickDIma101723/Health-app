@@ -513,6 +513,66 @@ export const useCoachRequests = () => {
     );
   };
 
+  // Set up real-time subscription for coach requests
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('[useCoachRequests] Setting up real-time subscription for user:', user.id);
+
+    const channel = supabase
+      .channel('coach_requests_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'coach_requests',
+          filter: `client_user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('[useCoachRequests] Real-time update received:', payload);
+          // Reload requests when there's a change
+          loadUserRequests();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('[useCoachRequests] Cleaning up real-time subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  // Set up real-time subscription for coach requests (coach perspective)
+  useEffect(() => {
+    if (!coachData?.id) return;
+
+    console.log('[useCoachRequests] Setting up real-time subscription for coach:', coachData.id);
+
+    const channel = supabase
+      .channel('coach_requests_coach_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'coach_requests',
+          filter: `coach_id=eq.${coachData.id}`,
+        },
+        (payload) => {
+          console.log('[useCoachRequests] Real-time update received for coach:', payload);
+          // Reload requests when there's a change
+          loadCoachRequests();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('[useCoachRequests] Cleaning up coach real-time subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [coachData?.id]);
+
   return {
     requests,
     loading,
