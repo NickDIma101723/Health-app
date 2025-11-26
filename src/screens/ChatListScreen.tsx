@@ -52,7 +52,6 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Debounce search query
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
@@ -60,21 +59,19 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Load coach clients if in coach mode
   const loadCoachClients = async () => {
     if (!coachData || currentMode !== 'coach') {
       setIsLoading(false);
       return;
     }
 
-    if (isLoadingClients) return; // Prevent duplicate requests
+    if (isLoadingClients) return;
 
     try {
       setIsLoadingClients(true);
       setIsLoading(true);
       console.log('[ChatList] Loading clients for coach:', coachData.id);
-      
-      // Get client assignments
+
       const { data: assignments, error: assignError } = await supabase
         .from('coach_client_assignments')
         .select('client_user_id, assigned_at')
@@ -92,7 +89,6 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
         return;
       }
 
-      // Get client profiles
       const clientIds = assignments.map(a => a.client_user_id);
       const { data: profiles, error: profileError } = await supabase
         .from('profiles')
@@ -120,7 +116,6 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
     } catch (error) {
       console.error('[ChatList] Error in loadCoachClients:', error);
     } finally {
-      // Add a small delay to prevent flash
       setTimeout(() => {
         setIsLoading(false);
         setIsLoadingClients(false);
@@ -140,16 +135,14 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
       console.log('[ChatList] Loading coach clients...');
       loadCoachClients();
     } else if (currentMode !== 'coach') {
-      // Client mode - create chat previews from messages and coaches
       const previews: ChatPreview[] = [];
 
-      // Add coach chat if user has one (ONLY show current coach)
       if (myCoach) {
-        const coachMessages = messages.filter(msg => 
+        const coachMessages = messages.filter(msg =>
           msg.sender_id === myCoach.user_id || msg.receiver_id === myCoach.user_id
         );
         const lastMessage = coachMessages[coachMessages.length - 1];
-        
+
         previews.push({
           id: myCoach.user_id,
           name: myCoach.full_name || 'Health Coach',
@@ -162,10 +155,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
         });
       }
 
-      // Removed previous coaches from chat list - only show current coach
-
       setChatPreviews(previews);
-      // Add a small delay to prevent flash
       setTimeout(() => {
         setIsLoading(false);
         setInitialLoadComplete(true);
@@ -176,23 +166,22 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
         }).start();
       }, 100);
     }
-  }, [currentMode, coachData?.id, messages.length, myCoach?.user_id]); // Re-run when mode, coach, or messages change
+  }, [currentMode, coachData?.id, messages.length, myCoach?.user_id]);
 
-  // Create coach chat previews from clients (memoized to prevent excessive updates)
   useEffect(() => {
-    console.log('[ChatList] Coach clients effect:', { 
-      currentMode, 
+    console.log('[ChatList] Coach clients effect:', {
+      currentMode,
       coachClientsCount: coachClients.length,
       coachClients: coachClients.map(c => ({ name: c.full_name, id: c.user_id }))
     });
-    
+
     if (currentMode === 'coach' && coachClients.length > 0 && messages) {
       const previews: ChatPreview[] = coachClients.map(client => {
-        const clientMessages = messages.filter(msg => 
+        const clientMessages = messages.filter(msg =>
           msg.sender_id === client.user_id || msg.receiver_id === client.user_id
         );
         const lastMessage = clientMessages[clientMessages.length - 1];
-        
+
         return {
           id: client.user_id,
           name: client.full_name,
@@ -200,19 +189,19 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
           timestamp: lastMessage ? formatTimestamp(new Date(lastMessage.created_at)) : 'New',
           avatar: client.full_name?.charAt(0)?.toUpperCase() || '�',
           avatar_url: client.avatar_url,
-          isOnline: true, // Assume clients are available
+          isOnline: true,
           unreadCount: clientMessages.filter(msg => msg.sender_id === client.user_id && !msg.is_read).length,
-          isCoach: false, // These are clients, not coaches
+          isCoach: false,
         };
       });
-      
+
       console.log('[ChatList] ✅ Created coach chat previews:', previews.length, previews);
       setChatPreviews(previews);
     } else if (currentMode === 'coach' && coachClients.length === 0) {
       console.log('[ChatList] 📝 No coach clients found, clearing chat previews');
       setChatPreviews([]);
     }
-  }, [coachClients.length, messages.length, currentMode]); // Only when counts change
+  }, [coachClients.length, messages.length, currentMode]);
 
   const formatTimestamp = (timestamp: Date): string => {
     const now = new Date();
@@ -229,13 +218,10 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
     chat.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
   );
 
-  console.log('[ChatList] Rendering - filteredChats count:', filteredChats.length);
-  console.log('[ChatList] filteredChats data:', filteredChats.map(c => ({ id: c.id, name: c.name })));
+  
 
   const handleChatPress = (chatId: string, chatName?: string) => {
-    console.log('[ChatList] 🚀 handleChatPress called with:', { chatId, chatName });
-    console.log('[ChatList] 🚀 onNavigate function exists:', !!onNavigate);
-    console.log('[ChatList] 🚀 About to call onNavigate with:', 'individual-chat', { clientId: chatId, clientName: chatName });
+    
     
     const result = onNavigate?.('individual-chat', { clientId: chatId, clientName: chatName, from: 'chat-list' });
     console.log('[ChatList] 🚀 onNavigate returned:', result);

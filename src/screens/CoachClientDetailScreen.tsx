@@ -124,6 +124,7 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
     try {
       setLoading(true);
 
+      // Haal eerst de profielinfo van de cliënt op
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -133,6 +134,7 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
       if (profileError) throw profileError;
       setProfile(profileData);
 
+      // Check wanneer deze cliënt aan deze coach is toegewezen
       const { data: assignmentData, error: assignmentError } = await supabase
         .from('coach_client_assignments')
         .select('assigned_at, notes')
@@ -144,6 +146,7 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
       if (assignmentError && assignmentError.code !== 'PGRST116') throw assignmentError;
       setAssignment(assignmentData);
 
+      // Haal alle activiteiten van deze cliënt op
       const { data: activitiesData, error: activitiesError } = await supabase
         .from('activities')
         .select('id, title, activity_type, status, date, duration')
@@ -220,7 +223,7 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
 
   const handleReassignClient = async () => {
     
-    // Use platform-specific confirmation
+    
     const confirmed = Platform.OS === 'web' 
       ? window.confirm('This will unassign the client from their current coach and make them available for reassignment. Continue?')
       : await new Promise<boolean>((resolve) => {
@@ -276,7 +279,7 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
                 return;
               }
               
-              // Platform-specific success message
+              
               if (Platform.OS === 'web') {
                 alert('Client has been unassigned and is now available for reassignment.');
               } else {

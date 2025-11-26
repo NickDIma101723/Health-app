@@ -79,7 +79,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
       const todayStr = today.toISOString().split('T')[0];
       
       const current = new Date(today);
-      current.setDate(current.getDate() + (currentWeekOffset * 7)); // Add offset for different weeks
+      current.setDate(current.getDate() + (currentWeekOffset * 7)); 
       const dayOfWeek = current.getDay();
       const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
       current.setDate(current.getDate() + diff);

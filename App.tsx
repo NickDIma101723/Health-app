@@ -5,6 +5,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { Quicksand_500Medium, Quicksand_600SemiBold } from '@expo-google-fonts/quicksand';
 import './global.css';
+// Initialize logger early so console.log is silenced in non-dev
+import './src/lib/logger';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { ScheduleProvider } from './src/contexts/ScheduleContext';
 import { NutritionProvider } from './src/contexts/NutritionContext';

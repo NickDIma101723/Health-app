@@ -52,7 +52,7 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
   useEffect(() => {
     if (coachData) {
       loadClients();
-      loadCoachRequests(); // Load pending requests
+      loadCoachRequests(); 
     }
   }, [coachData]);
 
@@ -383,7 +383,7 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
         onTabChange={(tab) => onNavigate?.(tab)} 
       />
 
-      {/* Logout Confirmation Modal */}
+      {}
       <Modal
         visible={showLogoutConfirm}
         animationType="fade"

@@ -7,11 +7,11 @@ type MoodLog = Database['public']['Tables']['mood_logs']['Row'];
 type MoodLogInsert = Database['public']['Tables']['mood_logs']['Insert'];
 type MoodLogUpdate = Database['public']['Tables']['mood_logs']['Update'];
 
-// Cache for mood logs to prevent duplicate requests
+
 const moodLogCache = new Map<string, { data: MoodLog | null; timestamp: number }>();
 const recentMoodsCache = new Map<string, { data: MoodLog[]; timestamp: number }>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-const REQUEST_COOLDOWN = 1000; // 1 second between requests
+const CACHE_DURATION = 5 * 60 * 1000; 
+const REQUEST_COOLDOWN = 1000; 
 
 export const useMoodLogs = (date?: string) => {
   const { user } = useAuth();
@@ -26,7 +26,7 @@ export const useMoodLogs = (date?: string) => {
 
   const targetDate = date || new Date().toISOString().split('T')[0];
 
-  // Debounce function to prevent rapid successive calls
+  
   const debounce = useCallback((func: Function, delay: number) => {
     let timeoutId: ReturnType<typeof setTimeout>;
     return (...args: any[]) => {
@@ -35,7 +35,7 @@ export const useMoodLogs = (date?: string) => {
     };
   }, []);
 
-  // Check if we can use cached data
+  
   const getCachedMoodLog = (userId: string, date: string) => {
     const cacheKey = `${userId}-${date}`;
     const cached = moodLogCache.get(cacheKey);
@@ -45,7 +45,7 @@ export const useMoodLogs = (date?: string) => {
     return null;
   };
 
-  // Cache mood log data
+  
   const setCachedMoodLog = (userId: string, date: string, data: MoodLog | null) => {
     const cacheKey = `${userId}-${date}`;
     moodLogCache.set(cacheKey, { data, timestamp: Date.now() });
@@ -65,21 +65,21 @@ export const useMoodLogs = (date?: string) => {
       return;
     }
 
-    // Rate limiting - prevent too many requests
+    
     const now = Date.now();
     if (!forceRefresh && now - lastFetchTime.current < REQUEST_COOLDOWN) {
       setLoading(false);
       return;
     }
 
-    // Check for pending requests to avoid duplicates
+    
     const requestKey = `${user.id}-${targetDate}`;
     if (pendingRequests.current.has(requestKey)) {
       console.log('[useMoodLogs] Request already pending, skipping');
       return;
     }
 
-    // Check cache first
+    
     if (!forceRefresh) {
       const cachedData = getCachedMoodLog(user.id, targetDate);
       if (cachedData !== null) {
@@ -105,12 +105,12 @@ export const useMoodLogs = (date?: string) => {
 
       let data = null;
       
-      // Handle duplicates in fetch as well
+      
       if (fetchResults && fetchResults.length > 1) {
         console.log('[useMoodLogs] Found duplicate mood logs in fetch, cleaning up...');
-        data = fetchResults[0]; // Use the most recent one
+        data = fetchResults[0]; 
         
-        // Delete the duplicate records
+        
         const duplicateIds = fetchResults.slice(1).map(log => log.id);
         if (duplicateIds.length > 0) {
           await supabase
@@ -126,7 +126,7 @@ export const useMoodLogs = (date?: string) => {
       if (fetchError) {
         console.error('[useMoodLogs] Database error:', fetchError);
         
-        // Handle specific error codes with backoff
+        
         if (fetchError.code === 'PGRST301' || fetchError.code === '406') {
           retryCount.current++;
           if (retryCount.current < 3) {
@@ -140,7 +140,7 @@ export const useMoodLogs = (date?: string) => {
             retryCount.current = 0;
           }
         } else if (fetchError.code === 'PGRST116') {
-          // No rows found - this is normal, cache the null result
+          
           setMoodLog(null);
           setCachedMoodLog(user.id, targetDate, null);
           setError(null);
@@ -150,7 +150,7 @@ export const useMoodLogs = (date?: string) => {
         return;
       }
 
-      // Reset retry count on success
+      
       retryCount.current = 0;
 
       if (data && typeof data === 'object') {
@@ -187,7 +187,7 @@ export const useMoodLogs = (date?: string) => {
       limit = 7;
     }
 
-    // Check cache for recent moods
+    
     const cacheKey = `${user.id}-recent-${limit}`;
     if (!forceRefresh) {
       const cached = recentMoodsCache.get(cacheKey);
@@ -198,7 +198,7 @@ export const useMoodLogs = (date?: string) => {
       }
     }
 
-    // Prevent duplicate requests
+    
     if (pendingRequests.current.has(cacheKey)) {
       console.log('[useMoodLogs] Recent moods request already pending');
       return;
@@ -226,7 +226,7 @@ export const useMoodLogs = (date?: string) => {
 
       if (Array.isArray(data)) {
         setRecentMoods(data);
-        // Cache the result
+        
         recentMoodsCache.set(cacheKey, { data, timestamp: Date.now() });
       } else {
         console.warn('[useMoodLogs] Received non-array data for recent moods');
@@ -238,7 +238,7 @@ export const useMoodLogs = (date?: string) => {
       if (err.name === 'NetworkError') {
         console.error('Network error while fetching recent moods');
       }
-      // Don't set error state for recent moods as it's not critical
+      
       setRecentMoods([]);
     } finally {
       pendingRequests.current.delete(cacheKey);
@@ -289,8 +289,8 @@ export const useMoodLogs = (date?: string) => {
 
 
 
-      // Simple approach: delete any existing records for this date and create fresh
-      // This avoids all the complexity with duplicates and 406 errors
+      
+      
       const { error: deleteError } = await supabase
         .from('mood_logs')
         .delete()
@@ -299,10 +299,10 @@ export const useMoodLogs = (date?: string) => {
       
       if (deleteError) {
         console.error('[useMoodLogs] Error clearing existing mood log:', deleteError);
-        // Don't fail here - maybe there was nothing to delete
+        
       }
 
-      // Now create a fresh mood log
+      
       const { data, error } = await supabase
         .from('mood_logs')
         .insert(newLog)
@@ -328,12 +328,12 @@ export const useMoodLogs = (date?: string) => {
 
       setMoodLog(data);
       
-      // Try to fetch recent moods, but don't fail if it doesn't work
+      
       try {
-        await fetchRecentMoods(7, true); // Force refresh after logging
+        await fetchRecentMoods(7, true); 
       } catch (recentError) {
         console.warn('[useMoodLogs] Failed to refresh recent moods:', recentError);
-        // Don't return error for this - mood was saved successfully
+        
       }
       
       return { data, error: null };
@@ -372,7 +372,7 @@ export const useMoodLogs = (date?: string) => {
     }
   };
 
-  // Create debounced versions of fetch functions
+  
   const debouncedFetchTodayMood = useCallback(
     debounce(() => fetchTodayMood(), 300),
     [user, targetDate]
@@ -385,11 +385,11 @@ export const useMoodLogs = (date?: string) => {
 
   useEffect(() => {
     if (user) {
-      // Use debounced functions to prevent rapid successive calls
+      
       debouncedFetchTodayMood();
       debouncedFetchRecentMoods();
 
-      // Set up real-time subscriptions with debouncing
+      
       const channel = supabase
         .channel(`mood_logs_changes_${user.id}`)
         .on(
@@ -402,7 +402,7 @@ export const useMoodLogs = (date?: string) => {
           },
           debounce(() => {
             console.log('[useMoodLogs] Real-time update received');
-            fetchTodayMood(true); // Force refresh on real-time updates
+            fetchTodayMood(true); 
             fetchRecentMoods(7, true);
           }, 500)
         )
@@ -412,10 +412,10 @@ export const useMoodLogs = (date?: string) => {
         console.log('[useMoodLogs] Cleaning up subscriptions and cache');
         supabase.removeChannel(channel);
         
-        // Clear any pending requests
+        
         pendingRequests.current.clear();
         
-        // Clear old cache entries (older than cache duration)
+        
         const now = Date.now();
         for (const [key, value] of moodLogCache.entries()) {
           if (now - value.timestamp > CACHE_DURATION) {

@@ -12,10 +12,10 @@ interface CoachWithStatus extends Coach {
   assignedAt?: string;
 }
 
-// Storage key for coach assignments
+
 const COACH_ASSIGNMENT_KEY = '@coach_assignments';
 
-// Sample coaches that are always available
+
 const SAMPLE_COACHES: Coach[] = [
   {
     id: '10000000-0000-0000-0000-000000000001',
@@ -98,7 +98,7 @@ export const useCoaches = () => {
     setIsFetching(true);
     setLoading(true);
     try {
-      // Try to fetch from database, fallback to samples
+      
       const { data, error: fetchError } = await supabase
         .from('coaches')
         .select('*')
@@ -129,15 +129,15 @@ export const useCoaches = () => {
     setLoading(true);
     
     try {
-      // First check AsyncStorage (persists across reloads)
+      
       const storedData = await AsyncStorage.getItem(COACH_ASSIGNMENT_KEY);
       const storedAssignments = storedData ? JSON.parse(storedData) : {};
       const storedCoachId = storedAssignments[user.id];
       
       if (storedCoachId) {
-        // First check in loaded coaches
+        
         let coach = coaches.find(c => c.id === storedCoachId);
-        // Then check in SAMPLE_COACHES
+        
         if (!coach) {
           coach = SAMPLE_COACHES.find(c => c.id === storedCoachId);
         }
@@ -153,7 +153,7 @@ export const useCoaches = () => {
         }
       }
 
-      // Then check database - get most recent assignment
+      
       const { data: assignment } = await supabase
         .from('coach_client_assignments')
         .select('coach_id, assigned_at')
@@ -181,12 +181,12 @@ export const useCoaches = () => {
         }
       }
 
-      // No coach found
+      
       setMyCoach(null);
     } catch (err) {
       console.error('[useCoaches] Error:', err);
       
-      // Fallback to AsyncStorage on error
+      
       try {
         const storedData = await AsyncStorage.getItem(COACH_ASSIGNMENT_KEY);
         const storedAssignments = storedData ? JSON.parse(storedData) : {};
@@ -223,7 +223,7 @@ export const useCoaches = () => {
     try {
       console.log('🔍 [useCoaches] Fetching all coaches for user:', user.id);
       
-      // Get all active assignments for this client
+      
       const { data: assignments, error } = await supabase
         .from('coach_client_assignments')
         .select('coach_id, assigned_at')
@@ -238,7 +238,7 @@ export const useCoaches = () => {
         return [];
       }
 
-      // Get coach details for each assignment
+      
       const coachIds = assignments.map(a => a.coach_id);
       console.log('🔍 [useCoaches] Coach IDs to fetch:', coachIds);
       
@@ -255,7 +255,7 @@ export const useCoaches = () => {
         return [];
       }
 
-      // Combine with assignment info
+      
       const result = coachesData.map(coach => {
         const assignment = assignments.find(a => a.coach_id === coach.id);
         return {
@@ -277,7 +277,7 @@ export const useCoaches = () => {
     if (!user) return { error: 'No user logged in' };
 
     try {
-      // Deactivate the specific assignment
+      
       const { error } = await supabase
         .from('coach_client_assignments')
         .update({ is_active: false })
@@ -287,7 +287,7 @@ export const useCoaches = () => {
 
       if (error) throw error;
 
-      // If this was the current "myCoach", update to the next most recent one
+      
       if (myCoach && myCoach.id === coachId) {
         await fetchMyCoach();
       }
@@ -310,9 +310,9 @@ export const useCoaches = () => {
         return { error: 'Coach not found' };
       }
 
-      // Try database assignment first
+      
       try {
-        // Check if assignment already exists
+        
         const { data: existingAssignment } = await supabase
           .from('coach_client_assignments')
           .select('*')
@@ -322,10 +322,10 @@ export const useCoaches = () => {
           .single();
 
         if (existingAssignment) {
-          // Assignment already exists and is active - no need to do anything
+          
           console.log('🔍 [assignCoach] Coach already assigned to this client');
         } else {
-          // Create new assignment (keeping all existing coaches)
+          
           console.log('🔍 [assignCoach] Creating new assignment:', {
             client_user_id: user.id,
             coach_id: coachId
@@ -350,7 +350,7 @@ export const useCoaches = () => {
         console.log('[useCoaches] Database assignment failed, using local storage');
       }
 
-      // Always store in AsyncStorage (persists across reloads)
+      
       try {
         const storedData = await AsyncStorage.getItem(COACH_ASSIGNMENT_KEY);
         const storedAssignments = storedData ? JSON.parse(storedData) : {};
@@ -360,7 +360,7 @@ export const useCoaches = () => {
         console.error('[useCoaches] AsyncStorage save failed:', storageError);
       }
 
-      // Set immediately
+      
       setMyCoach({
         ...coach,
         isAssigned: true,

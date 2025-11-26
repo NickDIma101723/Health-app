@@ -243,7 +243,7 @@ export const useNutritionData = () => {
 
     try {
       console.log('💾 Removing meal from UI...');
-      // Immediately remove from UI
+      
       setMeals(prev => {
         const filtered = prev.filter(meal => meal.id !== id);
         console.log('💾 Meals after filter:', filtered.length);
@@ -251,7 +251,7 @@ export const useNutritionData = () => {
       });
       
       console.log('💾 Calling Supabase delete...');
-      // Then delete from database
+      
       const { error: deleteError } = await supabase
         .from('meals')
         .delete()
@@ -260,7 +260,7 @@ export const useNutritionData = () => {
 
       if (deleteError) {
         console.error('❌ Delete error:', deleteError);
-        // Refetch to restore if delete failed
+        
         await fetchMeals();
         return { error: deleteError.message };
       }
@@ -269,7 +269,7 @@ export const useNutritionData = () => {
       return { error: null };
     } catch (err: any) {
       console.error('❌ Error deleting meal:', err);
-      // Refetch to restore if delete failed
+      
       await fetchMeals();
       return { error: err.message || 'Failed to delete meal' };
     }

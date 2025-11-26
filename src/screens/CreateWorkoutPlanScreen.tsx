@@ -505,7 +505,7 @@ export const CreateWorkoutPlanScreen: React.FC<CreateWorkoutPlanScreenProps> = (
         </View>
       </Modal>
 
-      {/* Template Selection Modal */}
+      {}
       <Modal
         visible={showTemplateModal}
         animationType="slide"

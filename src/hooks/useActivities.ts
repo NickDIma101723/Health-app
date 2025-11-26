@@ -126,7 +126,7 @@ export const useActivities = () => {
 
       if (insertError) throw insertError;
       
-      // Don't manually update state here - the real-time subscription will handle it
+      
       return { data, error: null };
     } catch (err: any) {
       console.error('Failed to add activity:', err);
@@ -148,7 +148,7 @@ export const useActivities = () => {
 
       if (updateError) throw updateError;
       
-      // Don't manually update state here - the real-time subscription will handle it
+      
       return { data, error: null };
     } catch (err: any) {
       console.error('Failed to update activity:', err);
@@ -168,7 +168,7 @@ export const useActivities = () => {
 
       if (deleteError) throw deleteError;
       
-      // Don't manually update state here - the real-time subscription will handle it
+      
       return { error: null };
     } catch (err: any) {
       console.error('Failed to delete activity:', err);
@@ -255,6 +255,7 @@ export const useActivities = () => {
   useEffect(() => {
     if (!user) return;
 
+    // Luister naar live updates van activiteiten in de database
     const subscription = supabase
       .channel('activities_changes')
       .on(
@@ -266,13 +267,15 @@ export const useActivities = () => {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
+          // Update de lijst meteen als er iets verandert
           if (payload.eventType === 'INSERT') {
             setActivities(prev => {
-              // Check if activity already exists to prevent duplicates
+              
               const newActivity = payload.new as Activity;
               const exists = prev.some(a => a.id === newActivity.id);
               if (exists) return prev;
               
+              // Voeg toe en sorteer op datum en tijd
               return [...prev, newActivity].sort((a, b) => {
                 const dateCompare = a.date.localeCompare(b.date);
                 if (dateCompare !== 0) return dateCompare;
@@ -280,14 +283,17 @@ export const useActivities = () => {
               });
             });
           } else if (payload.eventType === 'UPDATE') {
+            // Vervang de oude activiteit met de nieuwe
             setActivities(prev => prev.map(a => a.id === payload.new.id ? payload.new as Activity : a));
           } else if (payload.eventType === 'DELETE') {
+            // Haal de verwijderde activiteit uit de lijst
             setActivities(prev => prev.filter(a => a.id !== payload.old.id));
           }
         }
       )
       .subscribe();
 
+    // Stop met luisteren als dit component weg gaat
     return () => {
       subscription.unsubscribe();
     };

@@ -52,7 +52,7 @@ export const AssignClientScreen: React.FC<ManageClientsScreenProps> = ({ onNavig
         return;
       }
 
-      // Get only clients that are actively assigned to this coach
+      
       console.log('[ManageClients] � Fetching assigned clients for coach:', coachData.id);
       const { data: assignments, error: assignmentsError } = await supabase
         .from('coach_client_assignments')
@@ -74,7 +74,7 @@ export const AssignClientScreen: React.FC<ManageClientsScreenProps> = ({ onNavig
         return;
       }
 
-      // Now get the profiles for these clients
+      
       const clientIds = assignments.map(a => a.client_user_id);
       const { data: profiles, error: profileError } = await supabase
         .from('profiles')
@@ -86,7 +86,7 @@ export const AssignClientScreen: React.FC<ManageClientsScreenProps> = ({ onNavig
         throw profileError;
       }
 
-      // Transform the data to match our interface  
+      
       const clientsData = (assignments || [])
         .map(assignment => {
           const profile = profiles?.find(p => p.user_id === assignment.client_user_id);
@@ -98,7 +98,7 @@ export const AssignClientScreen: React.FC<ManageClientsScreenProps> = ({ onNavig
             fitness_level: profile?.fitness_level || null,
             goals: profile?.goals || null,
             created_at: profile?.created_at || assignment.assigned_at,
-            isAssigned: true, // All clients here are assigned
+            isAssigned: true, 
           };
         })
         .filter(client => client !== null) as ClientUser[];
