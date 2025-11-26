@@ -228,6 +228,8 @@ function AppContent() {
           <ChatScreen 
             onNavigate={(screen: string, params?: any) => navigateWithTransition(screen as Screen, params)} 
             clientId={chatParams?.clientId}
+            clientName={chatParams?.clientName}
+            returnTo={chatParams?.from}
           />
         )}
         {displayScreen === 'schedule' && (

@@ -237,7 +237,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
     console.log('[ChatList] 🚀 onNavigate function exists:', !!onNavigate);
     console.log('[ChatList] 🚀 About to call onNavigate with:', 'individual-chat', { clientId: chatId, clientName: chatName });
     
-    const result = onNavigate?.('individual-chat', { clientId: chatId, clientName: chatName });
+    const result = onNavigate?.('individual-chat', { clientId: chatId, clientName: chatName, from: 'chat-list' });
     console.log('[ChatList] 🚀 onNavigate returned:', result);
   };
 
