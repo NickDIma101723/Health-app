@@ -219,7 +219,7 @@ function AppContent() {
             openStats={displayScreen === 'mindfulness-insights'}
           />
         )}
-        {displayScreen === 'chat' && (
+        {((displayScreen === 'chat') || (displayScreen === 'chat-list')) && (
           <ChatListScreen 
             onNavigate={(screen: string, params?: any) => navigateWithTransition(screen as Screen, params)} 
           />
