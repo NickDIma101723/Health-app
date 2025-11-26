@@ -79,9 +79,10 @@ const mockMessages: Message[] = [];
 interface ChatScreenProps {
   onNavigate?: (screen: string, params?: any) => void;
   clientId?: string;
+  clientName?: string;
 }
 
-export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) => {
+export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId, clientName }) => {
   const { user, isCoach, coachData } = useAuth();
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [clientsList, setClientsList] = useState<any[]>([]);
@@ -96,7 +97,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) 
     }
   }, [user, isCoach]);
   
-  const chatPartnerId = isCoach ? selectedClient?.user_id : myCoach?.user_id;
+  // Prefer navigation param `clientId` if available, otherwise fall back to the selectedClient/myCoach
+  const chatPartnerId = clientId || (isCoach ? selectedClient?.user_id : myCoach?.user_id);
   
   const { 
     messages: dbMessages, 
@@ -206,7 +208,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) 
   }, []);
 
   useEffect(() => {
-    const chatPartner = isCoach ? selectedClient : myCoach;
+    const chatPartner = isCoach ? selectedClient : (clientId ? { user_id: clientId, full_name: (clientName || myCoach?.full_name) } as any : myCoach);
     if (dbMessages && chatPartner) {
       const transformedMessages: Message[] = dbMessages.map(msg => ({
         id: msg.id,
@@ -228,6 +230,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) 
       }
     }
   }, [dbMessages, myCoach, selectedClient, isCoach, user]);
+
+  // Clear messages while switching chat partner to avoid showing previous conversation content
+  useEffect(() => {
+    setMessages([]);
+  }, [chatPartnerId]);
 
   useEffect(() => {
     Animated.parallel([
@@ -271,13 +278,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) 
   }, [isCoachTyping]);
 
   const sendMessage = async () => {
-    const chatPartner = isCoach ? selectedClient : myCoach;
-    if ((!inputText.trim() && !selectedMedia) || !chatPartner || !user) return;
+    const chatPartner = isCoach ? selectedClient : (clientId ? { user_id: clientId, full_name: (clientName || myCoach?.full_name) } as any : myCoach);
+    const receiverId = chatPartner?.user_id || chatPartnerId;
+    if ((!inputText.trim() && !selectedMedia) || !receiverId || !user) return;
 
     const messageText = inputText.trim() || null;
     setInputText('');
 
-    const receiverId = chatPartner.user_id;
+    // const receiverId = chatPartner.user_id; // replaced by variable above
     
     if (!receiverId) {
       Alert.alert('Error', 'Receiver user ID not configured. Please contact support.');
@@ -864,7 +872,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) 
           <View style={styles.header}>
             <TouchableOpacity 
               style={styles.backButton}
-              onPress={() => onNavigate?.('home')}
+              onPress={() => onNavigate?.('chat-list')}
             >
               <MaterialIcons name="arrow-back" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
