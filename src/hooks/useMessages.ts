@@ -18,8 +18,8 @@ export const useMessages = (coachId?: string) => {
   const fetchMessages = async () => {
     console.log('[useMessages] fetchMessages called - user:', user?.id, 'coachId:', coachId);
     
-    if (!user || !coachId) {
-      console.log('[useMessages] Missing user or coachId, setting loading to false');
+    if (!user) {
+      console.log('[useMessages] Missing user, setting loading to false');
       setLoading(false);
       return;
     }
@@ -34,11 +34,19 @@ export const useMessages = (coachId?: string) => {
       setIsFetching(true);
       setLoading(true);
       
-      const { data, error: fetchError } = await supabase
-        .from('messages')
-        .select('*')
-        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${coachId}),and(sender_id.eq.${coachId},receiver_id.eq.${user.id})`)
-        .order('created_at', { ascending: true });
+      const query = coachId
+        ? supabase
+            .from('messages')
+            .select('*')
+            .or(`and(sender_id.eq.${user.id},receiver_id.eq.${coachId}),and(sender_id.eq.${coachId},receiver_id.eq.${user.id})`)
+            .order('created_at', { ascending: true })
+        : supabase
+            .from('messages')
+            .select('*')
+            .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+            .order('created_at', { ascending: true });
+
+      const { data, error: fetchError } = await query;
 
       if (fetchError) throw fetchError;
       
@@ -47,7 +55,7 @@ export const useMessages = (coachId?: string) => {
       
       const unread = data?.filter(msg => 
         msg.receiver_id === user.id && 
-        msg.sender_id === coachId && 
+        (!coachId || msg.sender_id === coachId) && 
         !msg.is_read
       ).length || 0;
       
@@ -198,10 +206,9 @@ export const useMessages = (coachId?: string) => {
   useEffect(() => {
     console.log('[useMessages] useEffect triggered - user:', user?.id, 'coachId:', coachId);
     
-    if (user && coachId) {
+    if (user) {
       console.log('[useMessages] Both user and coachId present, fetching messages');
       fetchMessages();
-
       const channel = supabase
         .channel('messages_changes')
         .on(
@@ -210,7 +217,9 @@ export const useMessages = (coachId?: string) => {
             event: '*',
             schema: 'public',
             table: 'messages',
-            filter: `or(and(sender_id.eq.${user.id},receiver_id.eq.${coachId}),and(sender_id.eq.${coachId},receiver_id.eq.${user.id}))`,
+            filter: coachId
+              ? `or(and(sender_id.eq.${user.id},receiver_id.eq.${coachId}),and(sender_id.eq.${coachId},receiver_id.eq.${user.id}))`
+              : `or(sender_id.eq.${user.id},receiver_id.eq.${user.id})`,
           },
           (payload) => {
             if (payload.eventType === 'INSERT') {
@@ -220,9 +229,8 @@ export const useMessages = (coachId?: string) => {
                 return [...prev, newMessage];
               });
               
-              if (newMessage.sender_id === coachId && newMessage.receiver_id === user.id && !newMessage.is_read) {
+              if (newMessage.receiver_id === user.id && !newMessage.is_read && (!coachId || newMessage.sender_id === coachId)) {
                 setUnreadCount(prev => prev + 1);
-                // Notification removed due to RLS policy restrictions
               }
             } else if (payload.eventType === 'UPDATE') {
               const updatedMessage = payload.new as Message;
