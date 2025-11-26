@@ -176,7 +176,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
         }).start();
       }, 100);
     }
-  }, [currentMode, coachData?.id]); // Only re-run when mode or coach changes
+  }, [currentMode, coachData?.id, messages.length, myCoach?.user_id]); // Re-run when mode, coach, or messages change
 
   // Create coach chat previews from clients (memoized to prevent excessive updates)
   useEffect(() => {
