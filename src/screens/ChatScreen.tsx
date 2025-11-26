@@ -685,7 +685,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) 
               </Animated.View>
             </ScrollView>
 
-            <View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? 0 : spacing.lg }]}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+            >
+            <View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? 0 : spacing.lg }]}> 
               {selectedMedia && (
                 <View style={styles.mediaPreview}>
                   <Image 
@@ -739,6 +743,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId }) 
                 </TouchableOpacity>
               </View>
             </View>
+            </KeyboardAvoidingView>
 
             <CoachBottomNavigation
               activeTab="chat"
