@@ -80,9 +80,10 @@ interface ChatScreenProps {
   onNavigate?: (screen: string, params?: any) => void;
   clientId?: string;
   clientName?: string;
+  returnTo?: string;
 }
 
-export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId, clientName }) => {
+export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId, clientName, returnTo }) => {
   const { user, isCoach, coachData } = useAuth();
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [clientsList, setClientsList] = useState<any[]>([]);
@@ -872,7 +873,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId, cl
           <View style={styles.header}>
             <TouchableOpacity 
               style={styles.backButton}
-              onPress={() => onNavigate?.('chat-list')}
+              onPress={() => onNavigate?.((returnTo as any) || 'chat-list')}
             >
               <MaterialIcons name="arrow-back" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
