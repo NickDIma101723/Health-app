@@ -111,7 +111,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
         };
       });
 
-      console.log('[ChatList] ✅ Loaded coach clients:', clients.length);
+      console.log('[ChatList] Loaded coach clients:', clients.length);
       setCoachClients(clients);
     } catch (error) {
       console.error('[ChatList] Error in loadCoachClients:', error);
@@ -195,7 +195,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
         };
       });
 
-      console.log('[ChatList] ✅ Created coach chat previews:', previews.length, previews);
+      console.log('[ChatList] Created coach chat previews:', previews.length, previews);
       setChatPreviews(previews);
     } else if (currentMode === 'coach' && coachClients.length === 0) {
       console.log('[ChatList] 📝 No coach clients found, clearing chat previews');
@@ -224,7 +224,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
     
     
     const result = onNavigate?.('individual-chat', { clientId: chatId, clientName: chatName, from: 'chat-list' });
-    console.log('[ChatList] 🚀 onNavigate returned:', result);
+    console.log('[ChatList] onNavigate returned:', result);
   };
 
   const renderChatItem = (chat: ChatPreview) => {

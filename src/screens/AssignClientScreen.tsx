@@ -44,10 +44,10 @@ export const AssignClientScreen: React.FC<ManageClientsScreenProps> = ({ onNavig
   const loadAcceptedClients = async () => {
     try {
       setLoading(true);
-      console.log('[ManageClients] 🔍 Loading accepted clients...');
+      console.log('[ManageClients] Loading accepted clients...');
 
       if (!coachData?.id) {
-        console.log('[ManageClients] ⚠️ No coach data available');
+        console.log('[ManageClients] No coach data available');
         setClients([]);
         return;
       }
@@ -66,10 +66,10 @@ export const AssignClientScreen: React.FC<ManageClientsScreenProps> = ({ onNavig
         throw assignmentsError;
       }
 
-      console.log('[ManageClients] ✅ Found', assignments?.length || 0, 'assigned clients');
+      console.log('[ManageClients] Found', assignments?.length || 0, 'assigned clients');
       
       if (!assignments || assignments.length === 0) {
-        console.log('[ManageClients] ℹ️ No clients assigned to this coach');
+        console.log('[ManageClients] No clients assigned to this coach');
         setClients([]);
         return;
       }
@@ -103,7 +103,7 @@ export const AssignClientScreen: React.FC<ManageClientsScreenProps> = ({ onNavig
         })
         .filter(client => client !== null) as ClientUser[];
 
-      console.log('[ManageClients] ✅ Processed client data:', clientsData.length, 'clients');
+      console.log('[ManageClients] Processed client data:', clientsData.length, 'clients');
       clientsData.forEach((client, index) => {
         console.log(`[ManageClients] Client ${index + 1}: ${client.full_name || 'No Name'} (Level: ${client.fitness_level || 'Not set'})`);
       });

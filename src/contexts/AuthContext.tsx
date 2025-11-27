@@ -112,7 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .maybeSingle();
 
         if (!error && data) {
-          console.log('[checkIsCoach] ✅ User CAN be a coach:', data);
+          console.log('[checkIsCoach] User CAN be a coach:', data);
           setCanBeCoach(true);
           setCoachData(data);
 
@@ -125,7 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Save the default coach mode
             try {
               await AsyncStorage.setItem('user_mode', 'coach');
-              console.log('[checkIsCoach] ✅ Saved default coach mode to AsyncStorage');
+              console.log('[checkIsCoach] Saved default coach mode to AsyncStorage');
             } catch (error) {
               console.error('[checkIsCoach] Failed to save default coach mode:', error);
             }
@@ -136,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setCurrentMode(persistedMode ? 'coach' : 'client');
           }
         } else {
-          console.log('[checkIsCoach] ❌ User CANNOT be a coach - error:', error?.message);
+          console.log('[checkIsCoach] User CANNOT be a coach - error:', error?.message);
           setCanBeCoach(false);
           setCoachData(null);
 
@@ -184,14 +184,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loadPersistedMode = async () => {
       try {
         const savedMode = await AsyncStorage.getItem('user_mode');
-        console.log('[AuthContext] 🔄 Loading persisted mode from AsyncStorage:', savedMode);
+        console.log('[AuthContext] Loading persisted mode from AsyncStorage:', savedMode);
         if (savedMode && (savedMode === 'coach' || savedMode === 'client')) {
-          console.log('[AuthContext] ✅ Setting initial mode to:', savedMode);
+          console.log('[AuthContext] Setting initial mode to:', savedMode);
           setCurrentMode(savedMode as 'coach' | 'client');
           // Note: isCoach will be set during coach verification based on this mode
         }
       } catch (error) {
-        console.error('[AuthContext] ❌ Failed to load persisted mode:', error);
+        console.error('[AuthContext] Failed to load persisted mode:', error);
       }
     };
 
@@ -481,7 +481,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error };
       }
 
-      console.log('[Auth] ✅ Sign in successful');
+      console.log('[Auth] Sign in successful');
       return { error: null };
       
     } catch (err: any) {
@@ -535,7 +535,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
       await Promise.all(supabaseKeys.map(key => AsyncStorage.removeItem(key)));
       
-      console.log('[Auth] ✅ Successfully signed out and cleared storage');
+      console.log('[Auth] Successfully signed out and cleared storage');
     } catch (storageError) {
       console.warn('[Auth] Error clearing AsyncStorage:', storageError);
     }
@@ -548,11 +548,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const switchToCoachMode = async () => {
-    console.log('[AuthContext] 🔄 switchToCoachMode called - canBeCoach:', canBeCoach, 'coachData:', !!coachData);
+    console.log('[AuthContext] switchToCoachMode called - canBeCoach:', canBeCoach, 'coachData:', !!coachData);
     
     // If not already a coach, force refresh first
     if (!canBeCoach || !coachData) {
-      console.log('[AuthContext] ❌ Cannot switch to coach mode yet - refreshing coach status...');
+      console.log('[AuthContext] Cannot switch to coach mode yet - refreshing coach status...');
       await refreshCoachStatus();
       
       // Wait for state to update after refresh
@@ -572,12 +572,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .maybeSingle();
     
     if (error || !freshCoachData) {
-      console.log('[AuthContext] ❌ Database check failed - user is not a coach');
+      console.log('[AuthContext] Database check failed - user is not a coach');
       throw new Error('You are not registered as a coach. Please complete the coach registration process first.');
     }
     
     // Update local state with fresh data
-    console.log('[AuthContext] ✅ Fresh coach data confirmed, switching to coach mode');
+    console.log('[AuthContext] Fresh coach data confirmed, switching to coach mode');
     setCanBeCoach(true);
     setCoachData(freshCoachData);
     setCurrentMode('coach');
@@ -585,16 +585,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       await AsyncStorage.setItem('user_mode', 'coach');
-      console.log('[AuthContext] ✅ Coach mode persisted to AsyncStorage');
+      console.log('[AuthContext] Coach mode persisted to AsyncStorage');
     } catch (error) {
-      console.error('[AuthContext] ❌ Failed to persist coach mode:', error);
+      console.error('[AuthContext] Failed to persist coach mode:', error);
     }
 
-    console.log('[AuthContext] ✅ Coach mode switch completed - isCoach:', true, 'currentMode: coach');
+    console.log('[AuthContext] Coach mode switch completed - isCoach:', true, 'currentMode: coach');
   };
 
   const switchToClientMode = async () => {
-    console.log('[AuthContext] 🔄 switchToClientMode called - switching to CLIENT mode');
+    console.log('[AuthContext] switchToClientMode called - switching to CLIENT mode');
     console.log('[AuthContext] Current state before switch:', { currentMode, isCoach, canBeCoach });
     setCurrentMode('client');
     setIsCoach(false);
@@ -602,12 +602,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Persist client mode to AsyncStorage
     try {
       await AsyncStorage.setItem('user_mode', 'client');
-      console.log('[AuthContext] ✅ Client mode persisted to AsyncStorage');
+      console.log('[AuthContext] Client mode persisted to AsyncStorage');
     } catch (error) {
-      console.error('[AuthContext] ❌ Failed to persist client mode:', error);
+      console.error('[AuthContext] Failed to persist client mode:', error);
     }
     
-    console.log('[AuthContext] ✅ Client mode switch completed - isCoach:', false, 'currentMode: client');
+    console.log('[AuthContext] Client mode switch completed - isCoach:', false, 'currentMode: client');
   };
 
   const resetPassword = async (email: string) => {

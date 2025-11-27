@@ -369,7 +369,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
         await checkIsCoach();
       }
       
-      console.log('[ProfileScreen] ✅ Profile saved successfully');
+      console.log('[ProfileScreen] Profile saved successfully');
       Alert.alert('Success', 'Profile updated successfully');
     } catch (error) {
       console.error('[ProfileScreen] ❌ Error saving profile:', error);
