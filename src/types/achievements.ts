@@ -65,7 +65,7 @@ export const DEFAULT_ACHIEVEMENTS: Omit<Achievement, 'id' | 'created_at'>[] = [
     badge_color: "#64C8FF",
     criteria: {
       type: 'water_intake',
-      target_value: 2000, // 8 glasses = 2000ml
+      target_value: 2000,
       timeframe: 'daily'
     },
     points: 15
