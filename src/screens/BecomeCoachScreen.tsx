@@ -168,7 +168,7 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
           console.log('[BecomeCoach] Error reactivating coach:', updateError);
           throw updateError;
         }
-        console.log('[BecomeCoach] ✅ Coach reactivated successfully');
+        console.log('[BecomeCoach] Coach reactivated successfully');
       } else {
         console.log('[BecomeCoach] Creating new coach with data:', {
           user_id: user!.id,
@@ -193,7 +193,7 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
           console.log('[BecomeCoach] Error creating coach:', insertError);
           throw insertError;
         }
-        console.log('[BecomeCoach] ✅ New coach created successfully');
+        console.log('[BecomeCoach] New coach created successfully');
       }
 
       console.log('[BecomeCoach] New coach - activating coach mode and navigating...');

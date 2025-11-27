@@ -93,7 +93,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
         
         setErrors(newErrors);
       } else {
-        console.log('[LoginScreen] ✅ Login successful');
+        console.log('[LoginScreen] Login successful');
       }
     } catch (err) {
       console.error('[LoginScreen] Unexpected error:', err);

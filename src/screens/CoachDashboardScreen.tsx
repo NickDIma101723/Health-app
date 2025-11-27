@@ -58,7 +58,7 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
 
   const loadClients = async () => {
     if (!coachData) {
-      console.log('[CoachDashboard] ⚠️ No coach data available');
+      console.log('[CoachDashboard] No coach data available');
       return;
     }
 
@@ -137,7 +137,7 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
         };
       });
 
-      console.log('[CoachDashboard] ✅ Loaded clients:', {
+      console.log('[CoachDashboard] Loaded clients:', {
         count: clientsData.length,
         clients: clientsData.map(c => ({ id: c.user_id, name: c.full_name }))
       });
