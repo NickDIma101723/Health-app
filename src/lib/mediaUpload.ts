@@ -169,7 +169,13 @@ export const uploadMediaToStorage = async (
   try {
     const timestamp = Date.now();
     const fileExtension = file.filename.split('.').pop() || 'bin';
-    const storagePath = `${userId}/${timestamp}_${file.filename}`;
+    // Sanitize filename: remove spaces, special characters, and non-ASCII chars
+    const sanitizedFilename = file.filename
+      .replace(/\s+/g, '_')           // Replace spaces with underscores
+      .replace(/[^\w\-\.]/g, '')      // Remove special characters except dash, underscore, and dot
+      .replace(/_{2,}/g, '_')         // Replace multiple underscores with single
+      .toLowerCase();                  // Convert to lowercase
+    const storagePath = `${userId}/${timestamp}_${sanitizedFilename}`;
 
     if (onProgress) {
       onProgress({ loaded: 0, total: file.size, percentage: 0 });

@@ -132,8 +132,15 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
   const totalCount = dayActivities.length;
   const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
-  const handleAddFromTemplate = (template: ActivityTemplate) => {
-    addActivity({
+  const handleAddFromTemplate = async (template: ActivityTemplate) => {
+    const existingActivity = activities.find(
+      (activity) => activity.title === template.title && activity.date === selectedDate
+    );
+    if (existingActivity) {
+      Alert.alert('Duplicate Activity', 'An activity with this title already exists for this date.');
+      return;
+    }
+    await addActivity({
       title: template.title,
       description: template.description,
       time: template.defaultTime || '12:00',
@@ -147,13 +154,20 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
     setShowQuickAdd(false);
   };
 
-  const handleAddCustomActivity = () => {
+  const handleAddCustomActivity = async () => {
     if (!customTitle.trim() || !customTime.trim()) {
       Alert.alert('Missing Information', 'Please enter a title and time for the activity.');
       return;
     }
+    const existingActivity = activities.find(
+      (activity) => activity.title === customTitle.trim() && activity.date === selectedDate
+    );
+    if (existingActivity) {
+      Alert.alert('Duplicate Activity', 'An activity with this title already exists for this date.');
+      return;
+    }
 
-    addActivity({
+    await addActivity({
       title: customTitle,
       time: customTime,
       duration: parseInt(customDuration) || 30,
@@ -280,7 +294,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
           <View style={styles.activityHeader}>
             <View style={[
               styles.activityIconContainer,
-              { backgroundColor: (activity.status === 'failed' ? colors.error : activity.color) + '20' }
+              { backgroundColor: `${(activity.status === 'failed' ? colors.error : activity.color)}20` }
             ]}>
               <MaterialIcons
                 name={activity.icon as any}
@@ -425,7 +439,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
             
             <View style={styles.goalsGrid}>
               <View style={styles.goalCard}>
-                <View style={[styles.goalIcon, { backgroundColor: colors.primary + '20' }]}>
+                <View style={[styles.goalIcon, { backgroundColor: `${colors.primary}20` }]}>
                   <MaterialIcons name="fitness-center" size={24} color={colors.primary} />
                 </View>
                 <Text style={styles.goalValue}>{weeklyGoals.workouts.current}/{weeklyGoals.workouts.target}</Text>
@@ -433,7 +447,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
               </View>
 
               <View style={styles.goalCard}>
-                <View style={[styles.goalIcon, { backgroundColor: colors.accent + '20' }]}>
+                <View style={[styles.goalIcon, { backgroundColor: `${colors.accent}20` }]}>
                   <MaterialIcons name="restaurant" size={24} color={colors.accent} />
                 </View>
                 <Text style={styles.goalValue}>{weeklyGoals.meals.current}/{weeklyGoals.meals.target}</Text>
@@ -441,7 +455,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
               </View>
 
               <View style={styles.goalCard}>
-                <View style={[styles.goalIcon, { backgroundColor: colors.purple + '20' }]}>
+                <View style={[styles.goalIcon, { backgroundColor: `${colors.purple}20` }]}>
                   <MaterialIcons name="spa" size={24} color={colors.purple} />
                 </View>
                 <Text style={styles.goalValue}>{weeklyGoals.meditation.current}/{weeklyGoals.meditation.target}</Text>
@@ -471,7 +485,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
 
             <ScrollView style={styles.templatesScroll}>
               <View style={styles.quickAddGrid}>
-                {templates.map((template) => (
+                {templates.slice(0, 6).map((template) => (
                   <TouchableOpacity
                     key={template.id}
                     style={styles.quickAddOption}
@@ -479,12 +493,12 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
                     activeOpacity={0.7}
                   >
                     <LinearGradient
-                      colors={[template.color + '20', template.color + '10']}
+                      colors={[`${template.color}20`, `${template.color}10`]}
                       style={styles.quickAddIconContainer}
                     >
                       <MaterialIcons name={template.icon as any} size={32} color={template.color} />
                     </LinearGradient>
-                    <Text style={styles.quickAddLabel}>{template.title}</Text>
+                    <Text style={styles.quickAddLabel} numberOfLines={2} ellipsizeMode="tail">{template.title}</Text>
                     <Text style={styles.quickAddDuration}>{template.duration} min</Text>
                   </TouchableOpacity>
                 ))}
@@ -584,7 +598,7 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
               <>
                 <View style={[
                   styles.detailHeader,
-                  { backgroundColor: selectedActivity.color + '20' }
+                  { backgroundColor: `${selectedActivity.color}20` }
                 ]}>
                   <MaterialIcons
                     name={selectedActivity.icon as any}
@@ -965,6 +979,9 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: borderRadius.xxl,
     borderTopRightRadius: borderRadius.xxl,
     maxHeight: '80%',
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -980,20 +997,25 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   templatesScroll: {
-    maxHeight: 500,
+    maxHeight: '60%',
   },
   quickAddGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    padding: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: 0,
+    justifyContent: 'space-around',
     gap: spacing.md,
   },
   quickAddOption: {
-    width: (width - spacing.lg * 2 - spacing.md) / 2,
+    flexBasis: '30%',
+    minHeight: 110,
     alignItems: 'center',
     padding: spacing.md,
     backgroundColor: colors.background,
     borderRadius: borderRadius.xl,
+    marginBottom: spacing.md,
   },
   quickAddIconContainer: {
     width: 60,
@@ -1019,7 +1041,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    margin: spacing.lg,
+    alignSelf: 'stretch',
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
     padding: spacing.md,
     backgroundColor: colors.primaryPale,
     borderRadius: borderRadius.lg,
@@ -1031,7 +1055,8 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   customForm: {
-    padding: spacing.lg,
+    paddingHorizontal: 0,
+    paddingBottom: spacing.lg,
   },
   formGroup: {
     marginBottom: spacing.md,
@@ -1059,9 +1084,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
+    alignSelf: 'stretch',
   },
   addButtonGradient: {
     padding: spacing.md,
+    width: '100%',
     alignItems: 'center',
   },
   addButtonText: {
@@ -1113,7 +1140,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   deleteButton: {
-    backgroundColor: colors.error + '10',
+    backgroundColor: `${colors.error}10`,
   },
   detailActionText: {
     fontSize: fontSizes.sm,
