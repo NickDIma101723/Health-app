@@ -2,8 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Animated, Dimensions } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useFonts, Poppins_700Bold } from '@expo-google-fonts/poppins';
-import { Quicksand_500Medium, Quicksand_600SemiBold } from '@expo-google-fonts/quicksand';
+import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
+import { Quicksand_500Medium as QS500, Quicksand_600SemiBold as QS600 } from '@expo-google-fonts/quicksand';
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import { DotGothic16_400Regular } from '@expo-google-fonts/dotgothic16';
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+} from '@expo-google-fonts/plus-jakarta-sans';
 import './global.css';
 // Initialize logger early so console.log is silenced in non-dev
 import './src/lib/logger';
@@ -32,11 +40,14 @@ import { CreateWorkoutPlanScreen } from './src/screens/CreateWorkoutPlanScreen';
 import { ClientWorkoutPlansScreen } from './src/screens/ClientWorkoutPlansScreen';
 import { CreateNutritionPlanScreen } from './src/screens/CreateNutritionPlanScreen';
 import { ClientProgressAnalyticsScreen } from './src/screens/ClientProgressAnalyticsScreen';
+import { ActivityMapScreen } from './src/screens/ActivityMapScreen';
 import { colors } from './src/constants/theme';
+import { TamaguiProvider } from 'tamagui';
+import tamaguiConfig from './src/tamagui.config';
 
 const { width } = Dimensions.get('window');
 
-type Screen = 'splash' | 'login' | 'register' | 'home' | 'mindfulness' | 'mindfulness-insights' | 'chat' | 'chat-list' | 'individual-chat' | 'schedule' | 'nutrition' | 'nutrition-calculator' | 'profile' | 'coach-dashboard' | 'coach-client-detail' | 'coach-notes' | 'assign-client' | 'coach-requests' | 'coach-selection' | 'become-coach' | 'create-workout-plan' | 'client-workout-plans' | 'create-nutrition-plan' | 'client-progress-analytics';
+type Screen = 'splash' | 'login' | 'register' | 'home' | 'mindfulness' | 'mindfulness-insights' | 'chat' | 'chat-list' | 'individual-chat' | 'schedule' | 'nutrition' | 'nutrition-calculator' | 'profile' | 'coach-dashboard' | 'coach-client-detail' | 'coach-notes' | 'assign-client' | 'coach-requests' | 'coach-selection' | 'become-coach' | 'create-workout-plan' | 'client-workout-plans' | 'create-nutrition-plan' | 'client-progress-analytics' | 'activity-map';
 
 function AppContent() {
   const { user, loading: authLoading, isCoach, coachStatusLoaded, canBeCoach, currentMode } = useAuth();
@@ -46,7 +57,6 @@ function AppContent() {
   const safeCurrentMode = currentMode ?? null;
   const [currentScreen, setCurrentScreen] = useState<Screen>('splash');
   const [displayScreen, setDisplayScreen] = useState<Screen>('splash');
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const [splashFinished, setSplashFinished] = useState(false);
   const [clientDetailParams, setClientDetailParams] = useState<any>(null);
   const [notesParams, setNotesParams] = useState<any>(null);
@@ -55,18 +65,25 @@ function AppContent() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   const [fontsLoaded] = useFonts({
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
     Poppins_700Bold,
-    Quicksand_500Medium,
-    Quicksand_600SemiBold,
+    Quicksand_500Medium: QS500,
+    Quicksand_600SemiBold: QS600,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    DotGothic16_400Regular,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
   });
 
   const navigateWithTransition = (targetScreen: Screen, params?: any) => {
     console.log('[App] Navigation requested:', targetScreen, params);
-    
-    if (isTransitioning) {
-      console.log('[App] Navigation blocked - transition in progress');
-      return;
-    }
     
     if (targetScreen === 'coach-client-detail') {
       setClientDetailParams(params);
@@ -76,16 +93,11 @@ function AppContent() {
       setChatParams(params);
     }
     
-    setIsTransitioning(true);
-    
+    // Switch immediately to keep the navigation bar fluid and snappy
     requestAnimationFrame(() => {
       console.log('[App] Navigating to:', targetScreen);
       setCurrentScreen(targetScreen);
       setDisplayScreen(targetScreen);
-      
-      setTimeout(() => {
-        setIsTransitioning(false);
-      }, 150);
     });
   };
 
@@ -198,13 +210,8 @@ function AppContent() {
 
   return (
     <View style={styles.screenContainer}>
-      {isTransitioning && (
-        <View style={[styles.transitionOverlay, { pointerEvents: 'none' }]} />
-      )}
-      
       <View 
         style={styles.screenContent}
-        removeClippedSubviews={isTransitioning}
       >
         {displayScreen === 'login' && (
           <LoginScreen onNavigateToRegister={() => navigateWithTransition('register')} />
@@ -312,6 +319,9 @@ function AppContent() {
             onBack={() => navigateWithTransition('coach-client-detail', clientDetailParams)}
           />
         )}
+        {displayScreen === 'activity-map' && (
+          <ActivityMapScreen onNavigate={(screen) => navigateWithTransition(screen as Screen)} />
+        )}
       </View>
     </View>
   );
@@ -319,16 +329,18 @@ function AppContent() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <ScheduleProvider>
-          <NutritionProvider>
-            <AppContent />
-            <StatusBar style="auto" />
-          </NutritionProvider>
-        </ScheduleProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <TamaguiProvider config={tamaguiConfig} defaultTheme="light">
+      <SafeAreaProvider>
+        <AuthProvider>
+          <ScheduleProvider>
+            <NutritionProvider>
+              <AppContent />
+              <StatusBar style="auto" />
+            </NutritionProvider>
+          </ScheduleProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </TamaguiProvider>
   );
 }
 

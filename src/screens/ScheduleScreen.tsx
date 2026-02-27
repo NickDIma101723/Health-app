@@ -66,8 +66,8 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
   const [customTime, setCustomTime] = useState('');
   const [customDuration, setCustomDuration] = useState('30');
   
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
 
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);

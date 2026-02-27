@@ -1,231 +1,155 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, Animated, Platform } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, borderRadius, shadows, fontSizes, animations, gradients } from '../constants/theme';
+import React, { useCallback } from 'react';
+import { View, StyleSheet, Dimensions, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  FadeInUp,
+} from 'react-native-reanimated';
+import { PlatformPressable } from './AnimatedPressable';
 
-type CoachTabType = 'coach-dashboard' | 'chat' | 'profile';
+const { width } = Dimensions.get('window');
 
-interface TabItem {
-  key: CoachTabType;
-  label: string;
-  icon: keyof typeof MaterialIcons.glyphMap;
-  color: string;
-  gradient: string[];
-}
-
-const coachTabs: TabItem[] = [
-  { key: 'coach-dashboard', label: 'Clients', icon: 'people', color: colors.primary, gradient: gradients.primary },
-  { key: 'chat', label: 'Chat', icon: 'chat', color: colors.teal, gradient: gradients.ocean },
-  { key: 'profile', label: 'Profile', icon: 'person', color: colors.purple, gradient: gradients.purple },
-];
+type CoachTabType = 'dashboard' | 'schedule' | 'chat' | 'requests' | 'profile';
 
 interface CoachBottomNavigationProps {
   activeTab?: CoachTabType;
   onTabChange?: (tab: CoachTabType) => void;
 }
 
-export const CoachBottomNavigation: React.FC<CoachBottomNavigationProps> = ({ 
-  activeTab = 'coach-dashboard',
-  onTabChange 
-}) => {
-  const [active, setActive] = useState<CoachTabType>(activeTab);
-  const [containerWidth, setContainerWidth] = useState(0);
-  const scaleAnims = useRef(coachTabs.map(() => new Animated.Value(1))).current;
-  const rotateAnims = useRef(coachTabs.map(() => new Animated.Value(0))).current;
-  const slideAnim = useRef(new Animated.Value(coachTabs.findIndex(t => t.key === activeTab))).current;
+const TABS: Array<{ key: CoachTabType; icon: keyof typeof Ionicons.glyphMap }> = [
+  { key: 'dashboard', icon: 'grid' },
+  { key: 'schedule', icon: 'calendar' },
+  { key: 'requests', icon: 'people' },
+  { key: 'chat', icon: 'chatbubbles' },
+  { key: 'profile', icon: 'person' },
+];
 
-  // Sync with external activeTab changes
-  useEffect(() => {
-    if (activeTab !== active) {
-      const newIndex = coachTabs.findIndex(tab => tab.key === activeTab);
-      if (newIndex !== -1) {
-        setActive(activeTab);
-        Animated.spring(slideAnim, {
-          toValue: newIndex,
-          tension: 50,
-          friction: 7,
-          useNativeDriver: false,
-        }).start();
-      }
-    }
-  }, [activeTab]);
+/** Animated tab icon with reanimated spring scale */
+const CoachTabIcon: React.FC<{
+  icon: keyof typeof Ionicons.glyphMap;
+  isActive: boolean;
+  onPress: () => void;
+}> = ({ icon, isActive, onPress }) => {
+  const scale = useSharedValue(isActive ? 1.1 : 1);
 
-  const handleTabPress = (tab: CoachTabType, index: number) => {
-    // Bounce and rotate animation
-    Animated.parallel([
-      Animated.sequence([
-        Animated.spring(scaleAnims[index], {
-          toValue: 1.2,
-          tension: 100,
-          friction: 3,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnims[index], {
-          toValue: 1,
-          tension: 100,
-          friction: 5,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.sequence([
-        Animated.timing(rotateAnims[index], {
-          toValue: 1,
-          duration: animations.medium,
-          useNativeDriver: true,
-        }),
-        Animated.timing(rotateAnims[index], {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
+  React.useEffect(() => {
+    scale.value = withSpring(isActive ? 1.1 : 1, { damping: 14, stiffness: 300 });
+  }, [isActive]);
 
-    // Slide indicator animation
-    Animated.spring(slideAnim, {
-      toValue: index,
-      tension: 50,
-      friction: 7,
-      useNativeDriver: false,
-    }).start();
-
-    setActive(tab);
-    onTabChange?.(tab);
-  };
-
-  const tabWidth = containerWidth / coachTabs.length;
-  const indicatorTranslateX = slideAnim.interpolate({
-    inputRange: coachTabs.map((_, i) => i),
-    outputRange: coachTabs.map((_, i) => i * tabWidth),
-  });
+  const iconAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   return (
-    <View 
-      style={[styles.container, shadows.lg]}
-      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+    <PlatformPressable
+      onPress={onPress}
+      style={styles.tabItem}
+      pressScale={0.85}
+      rippleColor="rgba(204, 255, 0, 0.2)"
     >
-      {containerWidth > 0 && (
-        <Animated.View
-          style={[
-            styles.slidingIndicator,
-            {
-              width: tabWidth,
-              transform: [{ translateX: indicatorTranslateX }],
-            },
-          ]}
+      <Animated.View style={[styles.iconBox, isActive && styles.activeIconBox, iconAnimStyle]}>
+        <Ionicons 
+          name={icon} 
+          size={24} 
+          color={isActive ? '#121212' : '#A1A1AA'} 
         />
+      </Animated.View>
+    </PlatformPressable>
+  );
+};
+
+export const CoachBottomNavigation: React.FC<CoachBottomNavigationProps> = ({ 
+  activeTab = 'dashboard', 
+  onTabChange 
+}) => {
+  const insets = useSafeAreaInsets();
+
+  const handleTabChange = useCallback(
+    (tab: CoachTabType) => onTabChange?.(tab),
+    [onTabChange],
+  );
+
+  const tabContent = (
+    <>
+      {TABS.map((tab) => (
+        <CoachTabIcon
+          key={tab.key}
+          icon={tab.icon}
+          isActive={activeTab === tab.key}
+          onPress={() => handleTabChange(tab.key)}
+        />
+      ))}
+    </>
+  );
+
+  return (
+    <Animated.View
+      entering={FadeInUp.delay(400).duration(600).springify()}
+      style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 24) }]}
+    >
+      {Platform.OS === 'ios' ? (
+        <BlurView intensity={60} tint="dark" style={styles.container}>
+          {tabContent}
+        </BlurView>
+      ) : (
+        <View style={[styles.container, styles.androidContainer]}>
+          {tabContent}
+        </View>
       )}
-      <View style={styles.innerContainer}>
-        {coachTabs.map((tab, index) => {
-          const isActive = active === tab.key;
-          const rotate = rotateAnims[index].interpolate({
-            inputRange: [0, 1],
-            outputRange: ['0deg', '360deg'],
-          });
-          
-          return (
-            <Animated.View
-              key={tab.key}
-              style={[styles.tabWrapper, { transform: [{ scale: scaleAnims[index] }] }]}
-            >
-              <TouchableOpacity
-                style={styles.tab}
-                onPress={() => handleTabPress(tab.key, index)}
-                activeOpacity={0.9}
-              >
-                <Animated.View style={[styles.iconContainer, { transform: [{ rotate }] }]}>
-                  {isActive ? (
-                    <LinearGradient
-                      colors={tab.gradient as any}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.gradientBackground}
-                    >
-                      <MaterialIcons
-                        name={tab.icon}
-                        size={26}
-                        color={colors.surface}
-                      />
-                    </LinearGradient>
-                  ) : (
-                    <MaterialIcons
-                      name={tab.icon}
-                      size={24}
-                      color={colors.textSecondary}
-                    />
-                  )}
-                </Animated.View>
-                <Text style={[styles.label, isActive && { color: tab.color }]}>
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
-          );
-        })}
-      </View>
-    </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    bottom: spacing.md,
-    left: spacing.md,
-    right: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  innerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  wrapper: {
+    width: '100%',
     alignItems: 'center',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.xs,
-  },
-  tabWrapper: {
-    flex: 1,
-  },
-  tab: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
-    position: 'relative',
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 2,
     backgroundColor: 'transparent',
   },
-  gradientBackground: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.md,
+  container: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(18, 18, 18, 0.7)',
+    width: width * 0.9,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.35,
+    shadowRadius: 25,
+    elevation: 15,
+  },
+  androidContainer: {
+    backgroundColor: '#121212',
+  },
+  tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
+    height: '100%',
+    borderRadius: 26,
+    overflow: 'hidden',
   },
-  label: {
-    fontSize: fontSizes.xs,
-    color: colors.textSecondary,
-    fontWeight: '600',
-    fontFamily: 'Quicksand_500Medium',
-    marginTop: 2,
+  iconBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
-  slidingIndicator: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    height: 3,
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.full,
-  },
+  activeIconBox: {
+    backgroundColor: '#CCFF00',
+    shadowColor: '#CCFF00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  }
 });

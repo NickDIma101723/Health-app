@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "HealthApp",
-    "slug": "HealthApp",
+    "slug": "aria-syc6pt",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,7 +13,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.healthapp.wellness",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -29,12 +33,20 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "8ca3b1bf-2ae9-417b-bc70-1a5e3479b4f6"
+        "projectId": "7853133b-6b47-4dc1-aa34-fc6a2d04f577"
       }
     },
     "plugins": [
-      "expo-router"
-    ]
+      "expo-router",
+      [
+        "@rnmapbox/maps",
+        {
+          "RNMapboxMapsDownloadToken": "MAPBOX_TOKEN_REMOVED"
+        }
+      ]
+    ],
+    "owner": "niko-studios"
   }
 }

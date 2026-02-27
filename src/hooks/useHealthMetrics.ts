@@ -32,31 +32,31 @@ export const useHealthMetrics = (date?: string) => {
         .select('*')
         .eq('user_id', user.id)
         .eq('date', targetDate)
-        .single();
+        .maybeSingle();
 
       if (fetchError) {
-        if (fetchError.code === 'PGRST116') {
-          const newMetrics: HealthMetricsInsert = {
-            user_id: user.id,
-            date: targetDate,
-            steps: 0,
-            calories_burned: 0,
-            water_intake: 0,
-            sleep_hours: 0,
-            exercise_minutes: 0,
-          };
+        throw fetchError;
+      }
 
-          const { data: inserted, error: insertError } = await supabase
-            .from('health_metrics')
-            .insert(newMetrics)
-            .select()
-            .single();
+      if (!data) {
+        const newMetrics: HealthMetricsInsert = {
+          user_id: user.id,
+          date: targetDate,
+          steps: 0,
+          calories_burned: 0,
+          water_intake: 0,
+          sleep_hours: 0,
+          exercise_minutes: 0,
+        };
 
-          if (insertError) throw insertError;
-          setMetrics(inserted);
-        } else {
-          throw fetchError;
-        }
+        const { data: inserted, error: insertError } = await supabase
+          .from('health_metrics')
+          .insert(newMetrics)
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        setMetrics(inserted);
       } else {
         setMetrics(data);
       }

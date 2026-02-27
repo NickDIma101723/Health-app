@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { TouchableOpacity, Text, StyleSheet, Animated } from 'react-native';
+import React from 'react';
+import { Text, StyleSheet, View } from 'react-native';
 import { colors, spacing, borderRadius, shadows, fontSizes } from '../constants/theme';
+import { PlatformPressable } from './AnimatedPressable';
 
 interface QuickActionButtonProps {
   title: string;
@@ -17,38 +18,16 @@ export const QuickActionButton: React.FC<QuickActionButtonProps> = ({
   backgroundColor = colors.primary,
   icon,
 }) => {
-  const [scaleAnim] = useState(new Animated.Value(1));
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.95,
-      useNativeDriver: false,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      friction: 3,
-      tension: 40,
-      useNativeDriver: false,
-    }).start();
-  };
-
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor }, shadows.md]}
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={0.9}
-      >
-        {icon && <Animated.View style={styles.iconContainer}>{icon}</Animated.View>}
-        <Text style={styles.title}>{title}</Text>
-        {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-      </TouchableOpacity>
-    </Animated.View>
+    <PlatformPressable
+      onPress={onPress}
+      pressScale={0.95}
+      style={[styles.button, { backgroundColor }, shadows.md]}
+    >
+      {icon && <View style={styles.iconContainer}>{icon}</View>}
+      <Text style={styles.title}>{title}</Text>
+      {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+    </PlatformPressable>
   );
 };
 

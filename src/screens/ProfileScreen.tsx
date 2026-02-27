@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   TextInput,
@@ -13,17 +12,32 @@ import {
   Platform,
   Modal,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BottomNavigation, BackgroundDecorations, CoachBottomNavigation } from '../components';
+
 import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { pickImageFromGallery, uploadMediaToStorage } from '../lib/mediaUpload';
 import { useNetworkStatus } from '../hooks';
+
+const PC = {
+  bg: '#F4F6FB',
+  card: '#FFFFFF',
+  accent: '#FF477E',
+  accentSecondary: '#7C3AED',
+  accentSoft: 'rgba(124, 58, 237, 0.12)',
+  text: '#1A1A24',
+  textLight: '#FFFFFF',
+  textDim: '#8A8A9D',
+  border: '#EAEDF4',
+  surfaceMuted: '#F0F1FA',
+  danger: '#FF4757',
+};
 
 interface ProfileScreenProps {
   onNavigate?: (screen: string) => void;
@@ -746,381 +760,430 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
 
   const bmi = calculateBMI();
 
+  const fitnessLevelMap: Record<string, { label: string; color: string }> = {
+    beginner: { label: 'Beginner', color: '#00B86B' },
+    intermediate: { label: 'Intermediate', color: '#FF8A00' },
+    advanced: { label: 'Advanced', color: PC.accentSecondary },
+  };
+  const fitnessInfo = fitnessLevelMap[profile.fitness_level] || { label: profile.fitness_level, color: PC.accentSecondary };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <BackgroundDecorations />
+    <View style={pStyles.root}>
+      <StatusBar barStyle="dark-content" />
 
       {!isOnline && (
-        <View style={styles.offlineBanner}>
-          <MaterialIcons name="wifi-off" size={20} color={colors.textLight} />
-          <Text style={styles.offlineBannerText}>
-            You're offline. Some features may not work properly.
-          </Text>
+        <View style={pStyles.offlineBanner}>
+          <MaterialIcons name="wifi-off" size={18} color="#FFF" />
+          <Text style={pStyles.offlineBannerText}>You're offline.</Text>
         </View>
       )}
 
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => onNavigate?.(isCoach ? 'coach-dashboard' : 'home')}
-        >
-          <MaterialIcons name="arrow-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
-        {!editing ? (
-          <TouchableOpacity 
-            style={styles.editButton}
-            onPress={() => setEditing(true)}
-          >
-            <MaterialIcons name="edit" size={24} color={colors.primary} />
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.headerActions}>
-            <TouchableOpacity onPress={handleCancel} style={styles.cancelButton}>
-              <MaterialIcons name="close" size={24} color={colors.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
-              <MaterialIcons name="check" size={24} color={colors.success} />
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoid}
+        style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <ScrollView 
-          style={styles.scrollView} 
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
+        <ScrollView
+          style={pStyles.scroll}
+          contentContainerStyle={pStyles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-        <View style={styles.avatarSection}>
-          <TouchableOpacity 
-            onPress={handlePickAvatar}
-            style={styles.avatarContainer}
-            disabled={uploadingAvatar}
-          >
-            {avatarUrl || profile.avatar_url ? (
-              
-              (avatarUrl || profile.avatar_url)?.startsWith('blob:') ? (
-                <LinearGradient
-                  colors={[colors.primary, colors.primaryDark]}
-                  style={styles.avatar}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <MaterialIcons name="person" size={32} color={colors.surface} />
-                </LinearGradient>
-              ) : (
-                <>
-                  <Image 
-                    source={{ uri: avatarUrl || profile.avatar_url || '' }}
-                    style={styles.avatarImage}
-                    key={avatarUrl || profile.avatar_url}
-                    defaultSource={require('../../assets/default-avatar.png')}
-                    onError={(e) => {
-                      console.error('[ProfileScreen] Error loading avatar image:', e.nativeEvent.error);
-                      
-                      handleClearInvalidAvatar();
-                    }}
-                  />
-                  {uploadingAvatar && (
-                    <View style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      backgroundColor: 'rgba(0,0,0,0.4)',
-                      borderRadius: 50,
-                    }}>
-                      <ActivityIndicator size="large" color={colors.textLight} />
-                    </View>
-                  )}
-                </>
-              )
-            ) : (
-              <LinearGradient
-                colors={[colors.primary, colors.primaryLight] as [string, string, ...string[]]}
-                style={styles.avatar}
-              >
-                <Text style={styles.avatarText}>
-                  {profile.full_name ? profile.full_name.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || 'U'}
-                </Text>
-              </LinearGradient>
-            )}
-            <View style={styles.avatarEditBadge}>
-              {uploadingAvatar ? (
-                <MaterialIcons name="hourglass-empty" size={16} color={colors.textLight} />
-              ) : (
-                <MaterialIcons name="camera-alt" size={16} color={colors.textLight} />
-              )}
-            </View>
-          </TouchableOpacity>
-          <Text style={styles.email}>{user?.email}</Text>
-          <Text style={styles.avatarHint}>Tap to change photo</Text>
-        </View>
-
-        {!editing && (
-          <View style={styles.statsSection}>
-            <LinearGradient
-              colors={[colors.primary + '15', colors.primaryLight + '10']}
-              style={styles.statsCard}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+          <View style={pStyles.topBar}>
+            <TouchableOpacity
+              onPress={() => onNavigate?.(isCoach ? 'coach-dashboard' : 'home')}
+              style={pStyles.topBarButton}
             >
-              <View style={styles.statsHeader}>
-                <MaterialIcons name="assessment" size={20} color={colors.primary} />
-                <Text style={styles.statsTitle}>Physical Stats</Text>
-              </View>
-              <View style={styles.statsGrid}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statItemLabel}>Age</Text>
-                  <Text style={styles.statItemValue}>{profile.age || '--'}</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Text style={styles.statItemLabel}>Height</Text>
-                  <Text style={styles.statItemValue}>{profile.height ? `${profile.height} cm` : '--'}</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Text style={styles.statItemLabel}>Weight</Text>
-                  <Text style={styles.statItemValue}>{profile.weight ? `${profile.weight} kg` : '--'}</Text>
-                </View>
-                {bmi && (
-                  <>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statItem}>
-                      <Text style={styles.statItemLabel}>BMI</Text>
-                      <Text style={styles.statItemValue}>{bmi}</Text>
-                    </View>
-                  </>
-                )}
-              </View>
-            </LinearGradient>
-          </View>
-        )}
+              <MaterialIcons name="arrow-back-ios-new" size={18} color={PC.text} />
+            </TouchableOpacity>
 
-        <View style={styles.formSection}>
-          <View style={styles.formGroup}>
-            <Text style={styles.formLabel}>Full Name</Text>
+            <Text style={pStyles.topBarTitle}>Profile</Text>
+
             {editing ? (
-              <TextInput
-                style={styles.input}
-                value={editedProfile.full_name}
-                onChangeText={(text) => setEditedProfile({ ...editedProfile, full_name: text })}
-                placeholder="Enter your name"
-                selectionColor={colors.primary}
-                underlineColorAndroid="transparent"
-              />
-            ) : (
-              <Text style={styles.formValue}>{profile.full_name || 'Not set'}</Text>
-            )}
-          </View>
-
-          <View style={styles.formRow}>
-            <View style={[styles.formGroup, { flex: 1, marginRight: spacing.sm }]}>
-              <Text style={styles.formLabel}>Age</Text>
-              {editing ? (
-                <TextInput
-                  style={styles.input}
-                  value={editedProfile.age?.toString() || ''}
-                  onChangeText={(text) => setEditedProfile({ ...editedProfile, age: parseInt(text) || null })}
-                  placeholder="Age"
-                  keyboardType="numeric"
-                  selectionColor={colors.primary}
-                  underlineColorAndroid="transparent"
-                />
-              ) : (
-                <Text style={styles.formValue}>{profile.age || 'Not set'}</Text>
-              )}
-            </View>
-
-            <View style={[styles.formGroup, { flex: 1 }]}>
-              <Text style={styles.formLabel}>Gender</Text>
-              {editing ? (
-                <View style={styles.genderButtons}>
-                  {['male', 'female', 'prefer-not-to-say'].map((g) => (
-                    <TouchableOpacity
-                      key={g}
-                      style={[
-                        styles.genderButton,
-                        editedProfile.gender === g && styles.genderButtonActive
-                      ]}
-                      onPress={() => setEditedProfile({ ...editedProfile, gender: g })}
-                    >
-                      <Text style={[
-                        styles.genderButtonText,
-                        editedProfile.gender === g && styles.genderButtonTextActive
-                      ]}>
-                        {g === 'male' ? 'M' : g === 'female' ? 'F' : 'N/A'}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ) : (
-                <Text style={styles.formValue}>
-                  {profile.gender === 'male' ? 'Male' : profile.gender === 'female' ? 'Female' : 'Prefer not to say'}
-                </Text>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.formRow}>
-            <View style={[styles.formGroup, { flex: 1, marginRight: spacing.sm }]}>
-              <Text style={styles.formLabel}>Height (cm)</Text>
-              {editing ? (
-                <TextInput
-                  style={styles.input}
-                  value={editedProfile.height?.toString() || ''}
-                  onChangeText={(text) => setEditedProfile({ ...editedProfile, height: parseInt(text) || null })}
-                  placeholder="Height"
-                  keyboardType="numeric"
-                  selectionColor={colors.primary}
-                  underlineColorAndroid="transparent"
-                />
-              ) : (
-                <Text style={styles.formValue}>{profile.height || 'Not set'}</Text>
-              )}
-            </View>
-
-            <View style={[styles.formGroup, { flex: 1 }]}>
-              <Text style={styles.formLabel}>Weight (kg)</Text>
-              {editing ? (
-                <TextInput
-                  style={styles.input}
-                  value={editedProfile.weight?.toString() || ''}
-                  onChangeText={(text) => setEditedProfile({ ...editedProfile, weight: parseInt(text) || null })}
-                  placeholder="Weight"
-                  keyboardType="numeric"
-                  selectionColor={colors.primary}
-                  underlineColorAndroid="transparent"
-                />
-              ) : (
-                <Text style={styles.formValue}>{profile.weight || 'Not set'}</Text>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.formLabel}>Phone</Text>
-            {editing ? (
-              <TextInput
-                style={styles.input}
-                value={editedProfile.phone}
-                onChangeText={(text) => setEditedProfile({ ...editedProfile, phone: text })}
-                placeholder="Phone number"
-                keyboardType="phone-pad"
-                selectionColor={colors.primary}
-                underlineColorAndroid="transparent"
-              />
-            ) : (
-              <Text style={styles.formValue}>{profile.phone || 'Not set'}</Text>
-            )}
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.formLabel}>Fitness Level</Text>
-            {editing ? (
-              <View style={styles.fitnessLevelButtons}>
-                {['beginner', 'intermediate', 'advanced'].map((level) => (
-                  <TouchableOpacity
-                    key={level}
-                    style={[
-                      styles.fitnessLevelButton,
-                      editedProfile.fitness_level === level && styles.fitnessLevelButtonActive
-                    ]}
-                    onPress={() => setEditedProfile({ ...editedProfile, fitness_level: level })}
-                  >
-                    <Text style={[
-                      styles.fitnessLevelButtonText,
-                      editedProfile.fitness_level === level && styles.fitnessLevelButtonTextActive
-                    ]}>
-                      {level.charAt(0).toUpperCase() + level.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={pStyles.topBarActions}>
+                <TouchableOpacity onPress={handleCancel} style={pStyles.topBarButton}>
+                  <MaterialIcons name="close" size={18} color={PC.textDim} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleSave} style={[pStyles.topBarButton, pStyles.topBarButtonAccent]}>
+                  <MaterialIcons name="check" size={18} color={PC.textLight} />
+                </TouchableOpacity>
               </View>
             ) : (
-              <Text style={styles.formValue}>
-                {profile.fitness_level.charAt(0).toUpperCase() + profile.fitness_level.slice(1)}
-              </Text>
-            )}
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.formLabel}>Bio</Text>
-            {editing ? (
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={editedProfile.bio}
-                onChangeText={(text) => setEditedProfile({ ...editedProfile, bio: text })}
-                placeholder="Tell us about yourself"
-                multiline
-                numberOfLines={3}
-                selectionColor={colors.primary}
-                underlineColorAndroid="transparent"
-              />
-            ) : (
-              <Text style={styles.formValue}>{profile.bio || 'Not set'}</Text>
-            )}
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.formLabel}>Fitness Goals</Text>
-            {editing ? (
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={editedProfile.goals}
-                onChangeText={(text) => setEditedProfile({ ...editedProfile, goals: text })}
-                placeholder="What are your fitness goals?"
-                multiline
-                numberOfLines={3}
-                selectionColor={colors.primary}
-                underlineColorAndroid="transparent"
-              />
-            ) : (
-              <Text style={styles.formValue}>{profile.goals || 'Not set'}</Text>
-            )}
-          </View>
-        </View>
-
-        {!editing && (
-          <View style={styles.dangerZone}>
-            <Text style={styles.dangerZoneTitle}>Account Management</Text>
-            
-            {isCoach && (
-              <TouchableOpacity style={styles.convertButton} onPress={handleConvertToClient}>
-                <MaterialIcons name="person" size={20} color={colors.warning} />
-                <Text style={styles.convertButtonText}>Convert to Client Account</Text>
+              <TouchableOpacity onPress={() => setEditing(true)} style={pStyles.topBarButton}>
+                <MaterialIcons name="edit" size={18} color={PC.text} />
               </TouchableOpacity>
             )}
-
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <MaterialIcons name="logout" size={20} color={colors.error} />
-              <Text style={styles.logoutButtonText}>Sign Out</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
-              <MaterialIcons name="delete-forever" size={20} color={colors.textLight} />
-              <Text style={styles.deleteButtonText}>Delete Account</Text>
-            </TouchableOpacity>
           </View>
-        )}
-      </ScrollView>
-      </KeyboardAvoidingView>
 
-      {isCoach ? (
-        <CoachBottomNavigation activeTab="profile" onTabChange={onNavigate} />
-      ) : (
-        <BottomNavigation activeTab="home" onTabChange={onNavigate} />
-      )}
+          <View style={pStyles.profileCard}>
+            <View style={pStyles.profileHeaderRow}>
+              <TouchableOpacity onPress={handlePickAvatar} disabled={uploadingAvatar} style={pStyles.avatarShell}>
+                {(avatarUrl || profile.avatar_url) && !(avatarUrl || profile.avatar_url)?.startsWith('blob:') ? (
+                  <Image
+                    source={{ uri: avatarUrl || profile.avatar_url || '' }}
+                    style={pStyles.avatarImg}
+                    defaultSource={require('../../assets/default-avatar.png')}
+                    onError={handleClearInvalidAvatar}
+                  />
+                ) : (
+                  <View style={pStyles.avatarPlaceholder}>
+                    <Text style={pStyles.avatarInitial}>
+                      {profile.full_name ? profile.full_name.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || 'U'}
+                    </Text>
+                  </View>
+                )}
+                {uploadingAvatar && (
+                  <View style={pStyles.avatarOverlay}>
+                    <ActivityIndicator color="#FFF" size="small" />
+                  </View>
+                )}
+                <View style={pStyles.cameraChip}>
+                  <MaterialIcons name="photo-camera" size={12} color="#FFF" />
+                </View>
+              </TouchableOpacity>
+
+              <View style={pStyles.profileMeta}>
+                <Text style={pStyles.profileName}>{profile.full_name || 'Your name'}</Text>
+                <Text style={pStyles.profileEmail}>{user?.email}</Text>
+                <Text style={pStyles.profileHint}>Tap photo to update</Text>
+              </View>
+            </View>
+
+            <View style={pStyles.badgeRow}>
+              <View style={pStyles.badgeNeutral}>
+                <Text style={pStyles.badgeNeutralText}>{fitnessInfo.label}</Text>
+              </View>
+              {isCoach && (
+                <View style={pStyles.badgeAccent}>
+                  <MaterialIcons name="verified" size={14} color={PC.accent} />
+                  <Text style={pStyles.badgeAccentText}>Coach</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          <View style={pStyles.statsGrid}>
+            {[
+              { label: 'Age', value: profile.age ? `${profile.age}` : '--', unit: 'yrs', icon: 'cake', color: '#FF477E' },
+              { label: 'Height', value: profile.height ? `${profile.height}` : '--', unit: 'cm', icon: 'height', color: '#7C3AED' },
+              { label: 'Weight', value: profile.weight ? `${profile.weight}` : '--', unit: 'kg', icon: 'monitor-weight', color: '#00B86B' },
+              ...(bmi ? [{ label: 'BMI', value: bmi, unit: '', icon: 'analytics', color: '#FF8A00' }] : []),
+            ].map((s) => (
+              <View key={s.label} style={pStyles.statCard}>
+                <View style={[pStyles.statIcon, { backgroundColor: s.color + '14' }]}> 
+                  <MaterialIcons name={s.icon as any} size={18} color={s.color} />
+                </View>
+                <Text style={pStyles.statValue}>{s.value}<Text style={pStyles.statUnit}> {s.unit}</Text></Text>
+                <Text style={pStyles.statLabel}>{s.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={pStyles.sectionCard}>
+            <Text style={pStyles.sectionTitle}>Personal</Text>
+
+            {/* Full Name */}
+            <View style={pStyles.fieldRow}>
+              <View style={[pStyles.fieldIcon, { backgroundColor: '#7C3AED14' }]}>
+                <MaterialIcons name="person" size={18} color={PC.accentSecondary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={pStyles.fieldLabel}>Full Name</Text>
+                {editing ? (
+                  <TextInput
+                    style={pStyles.fieldInput}
+                    value={editedProfile.full_name}
+                    onChangeText={(t) => setEditedProfile({ ...editedProfile, full_name: t })}
+                    placeholder="Enter your name"
+                    placeholderTextColor={PC.textDim}
+                    selectionColor={PC.accentSecondary}
+                    underlineColorAndroid="transparent"
+                  />
+                ) : (
+                  <Text style={pStyles.fieldValue}>{profile.full_name || 'Not set'}</Text>
+                )}
+              </View>
+            </View>
+
+            <View style={pStyles.divider} />
+
+            {/* Age + Gender row */}
+            <View style={{ flexDirection: 'row', gap: 0 }}>
+              <View style={[pStyles.fieldRow, { flex: 1 }]}>
+                <View style={[pStyles.fieldIcon, { backgroundColor: '#FF477E14' }]}>
+                  <MaterialIcons name="event" size={18} color={PC.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={pStyles.fieldLabel}>Age</Text>
+                  {editing ? (
+                    <TextInput
+                      style={pStyles.fieldInput}
+                      value={editedProfile.age?.toString() || ''}
+                      onChangeText={(t) => setEditedProfile({ ...editedProfile, age: parseInt(t) || null })}
+                      placeholder="Age"
+                      placeholderTextColor={PC.textDim}
+                      keyboardType="numeric"
+                      selectionColor={PC.accentSecondary}
+                      underlineColorAndroid="transparent"
+                    />
+                  ) : (
+                    <Text style={pStyles.fieldValue}>{profile.age || 'Not set'}</Text>
+                  )}
+                </View>
+              </View>
+              <View style={[pStyles.fieldRow, { flex: 1 }]}>
+                <View style={[pStyles.fieldIcon, { backgroundColor: '#00B86B14' }]}>
+                  <MaterialIcons name="wc" size={18} color="#00B86B" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={pStyles.fieldLabel}>Gender</Text>
+                  {editing ? (
+                    <View style={{ flexDirection: 'row', gap: 4, marginTop: 4 }}>
+                      {[['M', 'male'], ['F', 'female'], ['—', 'prefer-not-to-say']].map(([label, val]) => (
+                        <TouchableOpacity
+                          key={val}
+                          onPress={() => setEditedProfile({ ...editedProfile, gender: val })}
+                          style={[pStyles.chipBtn, editedProfile.gender === val && pStyles.chipBtnActive]}
+                        >
+                          <Text style={[pStyles.chipBtnText, editedProfile.gender === val && pStyles.chipBtnTextActive]}>{label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={pStyles.fieldValue}>
+                      {profile.gender === 'male' ? 'Male' : profile.gender === 'female' ? 'Female' : 'N/A'}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            <View style={pStyles.divider} />
+
+            {/* Height + Weight */}
+            <View style={{ flexDirection: 'row' }}>
+              <View style={[pStyles.fieldRow, { flex: 1 }]}>
+                <View style={[pStyles.fieldIcon, { backgroundColor: '#7C3AED14' }]}>
+                  <MaterialIcons name="height" size={18} color={PC.accentSecondary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={pStyles.fieldLabel}>Height (cm)</Text>
+                  {editing ? (
+                    <TextInput
+                      style={pStyles.fieldInput}
+                      value={editedProfile.height?.toString() || ''}
+                      onChangeText={(t) => setEditedProfile({ ...editedProfile, height: parseInt(t) || null })}
+                      placeholder="cm"
+                      placeholderTextColor={PC.textDim}
+                      keyboardType="numeric"
+                      selectionColor={PC.accentSecondary}
+                      underlineColorAndroid="transparent"
+                    />
+                  ) : (
+                    <Text style={pStyles.fieldValue}>{profile.height ? `${profile.height} cm` : 'Not set'}</Text>
+                  )}
+                </View>
+              </View>
+              <View style={[pStyles.fieldRow, { flex: 1 }]}>
+                <View style={[pStyles.fieldIcon, { backgroundColor: '#00B86B14' }]}>
+                  <MaterialIcons name="monitor-weight" size={18} color="#00B86B" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={pStyles.fieldLabel}>Weight (kg)</Text>
+                  {editing ? (
+                    <TextInput
+                      style={pStyles.fieldInput}
+                      value={editedProfile.weight?.toString() || ''}
+                      onChangeText={(t) => setEditedProfile({ ...editedProfile, weight: parseInt(t) || null })}
+                      placeholder="kg"
+                      placeholderTextColor={PC.textDim}
+                      keyboardType="numeric"
+                      selectionColor={PC.accentSecondary}
+                      underlineColorAndroid="transparent"
+                    />
+                  ) : (
+                    <Text style={pStyles.fieldValue}>{profile.weight ? `${profile.weight} kg` : 'Not set'}</Text>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            <View style={pStyles.divider} />
+
+            {/* Phone */}
+            <View style={pStyles.fieldRow}>
+              <View style={[pStyles.fieldIcon, { backgroundColor: '#FF8A0014' }]}>
+                <MaterialIcons name="phone" size={18} color="#FF8A00" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={pStyles.fieldLabel}>Phone</Text>
+                {editing ? (
+                  <TextInput
+                    style={pStyles.fieldInput}
+                    value={editedProfile.phone}
+                    onChangeText={(t) => setEditedProfile({ ...editedProfile, phone: t })}
+                    placeholder="Phone number"
+                    placeholderTextColor={PC.textDim}
+                    keyboardType="phone-pad"
+                    selectionColor={PC.accentSecondary}
+                    underlineColorAndroid="transparent"
+                  />
+                ) : (
+                  <Text style={pStyles.fieldValue}>{profile.phone || 'Not set'}</Text>
+                )}
+              </View>
+            </View>
+          </View>
+
+          <View style={pStyles.sectionCard}>
+            <Text style={pStyles.sectionTitle}>Fitness</Text>
+
+            {/* Fitness Level */}
+            <View style={pStyles.fieldRow}>
+              <View style={[pStyles.fieldIcon, { backgroundColor: fitnessInfo.color + '18' }]}>
+                <MaterialIcons name="fitness-center" size={18} color={fitnessInfo.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={pStyles.fieldLabel}>Fitness Level</Text>
+                {editing ? (
+                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
+                    {['beginner', 'intermediate', 'advanced'].map((lvl) => {
+                      const info = fitnessLevelMap[lvl];
+                      const active = editedProfile.fitness_level === lvl;
+                      return (
+                        <TouchableOpacity
+                          key={lvl}
+                          onPress={() => setEditedProfile({ ...editedProfile, fitness_level: lvl })}
+                          style={[pStyles.levelBtn, active && { backgroundColor: info.color, borderColor: info.color }]}
+                        >
+                          <Text style={[pStyles.levelBtnText, active && { color: '#FFF' }]}>
+                            {lvl.charAt(0).toUpperCase() + lvl.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                    <View style={[pStyles.badgeNeutral, { backgroundColor: fitnessInfo.color + '18' }]}> 
+                      <Text style={[pStyles.badgeNeutralText, { color: fitnessInfo.color }]}>{fitnessInfo.label}</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={pStyles.divider} />
+
+            {/* Bio */}
+            <View style={pStyles.fieldRow}>
+              <View style={[pStyles.fieldIcon, { backgroundColor: '#7C3AED14' }]}>
+                <MaterialIcons name="info-outline" size={18} color={PC.accentSecondary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={pStyles.fieldLabel}>Bio</Text>
+                {editing ? (
+                  <TextInput
+                    style={[pStyles.fieldInput, { height: 80, textAlignVertical: 'top' }]}
+                    value={editedProfile.bio}
+                    onChangeText={(t) => setEditedProfile({ ...editedProfile, bio: t })}
+                    placeholder="Tell us about yourself"
+                    placeholderTextColor={PC.textDim}
+                    multiline
+                    numberOfLines={3}
+                    selectionColor={PC.accentSecondary}
+                    underlineColorAndroid="transparent"
+                  />
+                ) : (
+                  <Text style={[pStyles.fieldValue, { lineHeight: 20 }]}>{profile.bio || 'Not set'}</Text>
+                )}
+              </View>
+            </View>
+
+            <View style={pStyles.divider} />
+
+            {/* Goals */}
+            <View style={pStyles.fieldRow}>
+              <View style={[pStyles.fieldIcon, { backgroundColor: '#FF477E14' }]}>
+                <MaterialIcons name="track-changes" size={18} color={PC.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={pStyles.fieldLabel}>Fitness Goals</Text>
+                {editing ? (
+                  <TextInput
+                    style={[pStyles.fieldInput, { height: 80, textAlignVertical: 'top' }]}
+                    value={editedProfile.goals}
+                    onChangeText={(t) => setEditedProfile({ ...editedProfile, goals: t })}
+                    placeholder="What are your fitness goals?"
+                    placeholderTextColor={PC.textDim}
+                    multiline
+                    numberOfLines={3}
+                    selectionColor={PC.accentSecondary}
+                    underlineColorAndroid="transparent"
+                  />
+                ) : (
+                  <Text style={[pStyles.fieldValue, { lineHeight: 20 }]}>{profile.goals || 'Not set'}</Text>
+                )}
+              </View>
+            </View>
+          </View>
+
+          {/* ── Account Management ── */}
+          {!editing && (
+            <View style={pStyles.sectionCard}>
+              <Text style={pStyles.sectionTitle}>Account</Text>
+
+              {!isCoach && !canBeCoach && (
+                <TouchableOpacity
+                  style={pStyles.actionRow}
+                  onPress={() => setShowPasswordModal(true)}
+                >
+                  <View style={[pStyles.actionIcon, { backgroundColor: PC.accent }]}> 
+                    <MaterialIcons name="school" size={18} color="#FFF" />
+                  </View>
+                  <Text style={pStyles.actionLabel}>Become a Coach</Text>
+                  <MaterialIcons name="chevron-right" size={20} color={PC.textDim} />
+                </TouchableOpacity>
+              )}
+
+              {isCoach && (
+                <>
+                  <TouchableOpacity style={pStyles.actionRow} onPress={handleConvertToClient}>
+                    <View style={[pStyles.actionIcon, { backgroundColor: '#EFE6D8' }]}> 
+                      <MaterialIcons name="person" size={18} color="#8C6A2A" />
+                    </View>
+                    <Text style={pStyles.actionLabel}>Switch to Client Mode</Text>
+                    <MaterialIcons name="chevron-right" size={20} color={PC.textDim} />
+                  </TouchableOpacity>
+                  <View style={pStyles.divider} />
+                </>
+              )}
+
+              {(!isCoach || canBeCoach) && isCoach && <View style={pStyles.divider} />}
+
+              <TouchableOpacity style={pStyles.actionRow} onPress={handleLogout}>
+                <View style={[pStyles.actionIcon, { backgroundColor: PC.accentSoft }]}> 
+                  <MaterialIcons name="logout" size={18} color={PC.accent} />
+                </View>
+                <Text style={pStyles.actionLabel}>Sign Out</Text>
+                <MaterialIcons name="chevron-right" size={20} color={PC.textDim} />
+              </TouchableOpacity>
+
+              <View style={pStyles.divider} />
+
+              <TouchableOpacity style={pStyles.actionRow} onPress={handleDeleteAccount}>
+                <View style={[pStyles.actionIcon, { backgroundColor: '#FF477514' }]}> 
+                  <MaterialIcons name="delete-forever" size={18} color={PC.danger} />
+                </View>
+                <Text style={[pStyles.actionLabel, { color: PC.danger }]}>Delete Account</Text>
+                <MaterialIcons name="chevron-right" size={20} color={PC.textDim} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={{ height: 32 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal
         visible={showPasswordModal}
@@ -1130,35 +1193,35 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
           setShowPasswordModal(false);
         }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, styles.coachQualificationModal]}>
+        <View style={pStyles.modalOverlay}>
+          <View style={[pStyles.modalContent, pStyles.coachQualificationModal]}>
             <LinearGradient
               colors={['#667eea', '#764ba2']}
-              style={styles.qualificationHeader}
+              style={pStyles.qualificationHeader}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <View style={styles.qualificationIconBadge}>
+              <View style={pStyles.qualificationIconBadge}>
                 <MaterialIcons name="school" size={40} color={colors.textLight} />
               </View>
-              <Text style={styles.qualificationTitle}>Become a Coach</Text>
-              <Text style={styles.qualificationSubtitle}>Join our community of health experts</Text>
+              <Text style={pStyles.qualificationTitle}>Become a Coach</Text>
+              <Text style={pStyles.qualificationSubtitle}>Join our community of health experts</Text>
             </LinearGradient>
             
-            <ScrollView style={styles.qualificationContent} showsVerticalScrollIndicator={false}>
-              <Text style={styles.qualificationDescription}>
+            <ScrollView style={pStyles.qualificationContent} showsVerticalScrollIndicator={false}>
+              <Text style={pStyles.qualificationDescription}>
                 🌟 Ready to inspire others? Let's ensure you're fully prepared to make a real impact.
               </Text>
 
-              <View style={styles.requirementsList}>
+              <View style={pStyles.requirementsList}>
                 <LinearGradient
                   colors={profile.full_name ? ['#11998e20', '#38ef7d10'] : [colors.surface, colors.surface]}
-                  style={styles.requirementCard}
+                  style={pStyles.requirementCard}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
                   <View style={[
-                    styles.requirementIconBadge,
+                    pStyles.requirementIconBadge,
                     { backgroundColor: profile.full_name ? colors.success + '25' : colors.textSecondary + '20' }
                   ]}>
                     <MaterialIcons 
@@ -1167,11 +1230,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                       color={profile.full_name ? colors.success : colors.textSecondary} 
                     />
                   </View>
-                  <View style={styles.requirementTextContainer}>
-                    <Text style={[styles.requirementTitle, profile.full_name && styles.requirementCompleted]}>
+                  <View style={pStyles.requirementTextContainer}>
+                    <Text style={[pStyles.requirementTitle, profile.full_name && pStyles.requirementCompleted]}>
                       Full Name
                     </Text>
-                    <Text style={styles.requirementDesc}>
+                    <Text style={pStyles.requirementDesc}>
                       {profile.full_name ? '✓ Completed' : 'Add your full name to your profile'}
                     </Text>
                   </View>
@@ -1179,12 +1242,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 
                 <LinearGradient
                   colors={profile.bio ? ['#f093fb20', '#f5576c10'] : [colors.surface, colors.surface]}
-                  style={styles.requirementCard}
+                  style={pStyles.requirementCard}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
                   <View style={[
-                    styles.requirementIconBadge,
+                    pStyles.requirementIconBadge,
                     { backgroundColor: profile.bio ? colors.success + '25' : colors.textSecondary + '20' }
                   ]}>
                     <MaterialIcons 
@@ -1193,11 +1256,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                       color={profile.bio ? colors.success : colors.textSecondary} 
                     />
                   </View>
-                  <View style={styles.requirementTextContainer}>
-                    <Text style={[styles.requirementTitle, profile.bio && styles.requirementCompleted]}>
+                  <View style={pStyles.requirementTextContainer}>
+                    <Text style={[pStyles.requirementTitle, profile.bio && pStyles.requirementCompleted]}>
                       Professional Bio
                     </Text>
-                    <Text style={styles.requirementDesc}>
+                    <Text style={pStyles.requirementDesc}>
                       {profile.bio ? '✓ Completed' : 'Tell clients about your expertise'}
                     </Text>
                   </View>
@@ -1205,12 +1268,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                 
                 <LinearGradient
                   colors={profile.fitness_level ? ['#667eea20', '#764ba210'] : [colors.surface, colors.surface]}
-                  style={styles.requirementCard}
+                  style={pStyles.requirementCard}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
                   <View style={[
-                    styles.requirementIconBadge,
+                    pStyles.requirementIconBadge,
                     { backgroundColor: profile.fitness_level ? colors.success + '25' : colors.textSecondary + '20' }
                   ]}>
                     <MaterialIcons 
@@ -1219,11 +1282,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                       color={profile.fitness_level ? colors.success : colors.textSecondary} 
                     />
                   </View>
-                  <View style={styles.requirementTextContainer}>
-                    <Text style={[styles.requirementTitle, profile.fitness_level && styles.requirementCompleted]}>
+                  <View style={pStyles.requirementTextContainer}>
+                    <Text style={[pStyles.requirementTitle, profile.fitness_level && pStyles.requirementCompleted]}>
                       Fitness Level
                     </Text>
-                    <Text style={styles.requirementDesc}>
+                    <Text style={pStyles.requirementDesc}>
                       {profile.fitness_level ? '✓ Completed' : 'Set your fitness expertise level'}
                     </Text>
                   </View>
@@ -1232,46 +1295,46 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
 
               <LinearGradient
                 colors={['#ffecd2', '#fcb69f']}
-                style={styles.coachAgreementCard}
+                style={pStyles.coachAgreementCard}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <View style={styles.agreementIconContainer}>
+                <View style={pStyles.agreementIconContainer}>
                   <MaterialIcons name="verified-user" size={24} color={colors.warning} />
                 </View>
-                <Text style={styles.agreementTitle}>Coach Responsibilities</Text>
-                <View style={styles.agreementListItem}>
+                <Text style={pStyles.agreementTitle}>Coach Responsibilities</Text>
+                <View style={pStyles.agreementListItem}>
                   <MaterialIcons name="check" size={16} color={colors.textPrimary} />
-                  <Text style={styles.agreementItemText}>Provide supportive and professional guidance</Text>
+                  <Text style={pStyles.agreementItemText}>Provide supportive and professional guidance</Text>
                 </View>
-                <View style={styles.agreementListItem}>
+                <View style={pStyles.agreementListItem}>
                   <MaterialIcons name="check" size={16} color={colors.textPrimary} />
-                  <Text style={styles.agreementItemText}>Respect client privacy and boundaries</Text>
+                  <Text style={pStyles.agreementItemText}>Respect client privacy and boundaries</Text>
                 </View>
-                <View style={styles.agreementListItem}>
+                <View style={pStyles.agreementListItem}>
                   <MaterialIcons name="check" size={16} color={colors.textPrimary} />
-                  <Text style={styles.agreementItemText}>Maintain regular communication with clients</Text>
+                  <Text style={pStyles.agreementItemText}>Maintain regular communication with clients</Text>
                 </View>
-                <View style={styles.agreementListItem}>
+                <View style={pStyles.agreementListItem}>
                   <MaterialIcons name="check" size={16} color={colors.textPrimary} />
-                  <Text style={styles.agreementItemText}>Stay updated with health best practices</Text>
+                  <Text style={pStyles.agreementItemText}>Stay updated with health best practices</Text>
                 </View>
               </LinearGradient>
             </ScrollView>
 
-            <View style={styles.qualificationButtons}>
+            <View style={pStyles.qualificationButtons}>
               <TouchableOpacity
-                style={styles.qualificationCancelButton}
+                style={pStyles.qualificationCancelButton}
                 onPress={() => setShowPasswordModal(false)}
               >
                 <MaterialIcons name="close" size={20} color={colors.textSecondary} />
-                <Text style={styles.qualificationCancelText}>Not Ready</Text>
+                <Text style={pStyles.qualificationCancelText}>Not Ready</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
-                  styles.qualificationSubmitButton,
-                  (!profile.full_name || !profile.bio || !profile.fitness_level) && styles.qualificationSubmitDisabled
+                  pStyles.qualificationSubmitButton,
+                  (!profile.full_name || !profile.bio || !profile.fitness_level) && pStyles.qualificationSubmitDisabled
                 ]}
                 onPress={handleCoachQualificationSubmit}
                 disabled={!profile.full_name || !profile.bio || !profile.fitness_level}
@@ -1281,12 +1344,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
                   colors={(!profile.full_name || !profile.bio || !profile.fitness_level) 
                     ? [colors.textSecondary, colors.textSecondary] 
                     : ['#11998e', '#38ef7d']}
-                  style={styles.qualificationSubmitGradient}
+                  style={pStyles.qualificationSubmitGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
                   <MaterialIcons name="verified" size={20} color={colors.textLight} />
-                  <Text style={styles.qualificationSubmitText}>
+                  <Text style={pStyles.qualificationSubmitText}>
                     Become a Coach 🚀
                   </Text>
                 </LinearGradient>
@@ -1303,24 +1366,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
         animationType="fade"
         onRequestClose={() => setShowLogoutConfirm(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.logoutModalContent}>
-            <Text style={styles.logoutTitle}>Sign Out</Text>
-            <Text style={styles.logoutMessage}>
+        <View style={pStyles.modalOverlay}>
+          <View style={pStyles.logoutModalContent}>
+            <Text style={pStyles.logoutTitle}>Sign Out</Text>
+            <Text style={pStyles.logoutMessage}>
               Are you sure you want to sign out?
             </Text>
-            <View style={styles.logoutButtons}>
+            <View style={pStyles.logoutButtons}>
               <TouchableOpacity
-                style={styles.logoutCancelButton}
+                style={pStyles.logoutCancelButton}
                 onPress={() => setShowLogoutConfirm(false)}
               >
-                <Text style={styles.logoutCancelText}>Cancel</Text>
+                <Text style={pStyles.logoutCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.logoutConfirmButton}
+                style={pStyles.logoutConfirmButton}
                 onPress={confirmLogout}
               >
-                <Text style={styles.logoutConfirmText}>Sign Out</Text>
+                <Text style={pStyles.logoutConfirmText}>Sign Out</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1334,25 +1397,25 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
         animationType="fade"
         onRequestClose={() => setShowConvertConfirm(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.logoutModalContent}>
+        <View style={pStyles.modalOverlay}>
+          <View style={pStyles.logoutModalContent}>
             <MaterialIcons name="person" size={48} color={colors.primary} />
-            <Text style={styles.logoutTitle}>Convert to Client</Text>
-            <Text style={styles.logoutMessage}>
+            <Text style={pStyles.logoutTitle}>Convert to Client</Text>
+            <Text style={pStyles.logoutMessage}>
               This will remove your coach privileges and unassign all your clients. Are you sure?
             </Text>
-            <View style={styles.logoutButtons}>
+            <View style={pStyles.logoutButtons}>
               <TouchableOpacity
-                style={styles.logoutCancelButton}
+                style={pStyles.logoutCancelButton}
                 onPress={() => setShowConvertConfirm(false)}
               >
-                <Text style={styles.logoutCancelText}>Cancel</Text>
+                <Text style={pStyles.logoutCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.logoutConfirmButton}
+                style={pStyles.logoutConfirmButton}
                 onPress={confirmConvertToClient}
               >
-                <Text style={styles.logoutConfirmText}>Convert</Text>
+                <Text style={pStyles.logoutConfirmText}>Convert</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1366,11 +1429,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
         animationType="fade"
         onRequestClose={() => setShowDeleteConfirm(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.logoutModalContent}>
+        <View style={pStyles.modalOverlay}>
+          <View style={pStyles.logoutModalContent}>
             <MaterialIcons name="warning" size={48} color={colors.error} />
-            <Text style={styles.logoutTitle}>Delete Account</Text>
-            <Text style={styles.logoutMessage}>
+            <Text style={pStyles.logoutTitle}>Delete Account</Text>
+            <Text style={pStyles.logoutMessage}>
               This will permanently delete your account and ALL of your data including:{'\n\n'}
               • Profile information{'\n'}
               • Activity history{'\n'}
@@ -1379,18 +1442,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
               • Goals and progress{'\n\n'}
               This action CANNOT be undone. Are you absolutely sure?
             </Text>
-            <View style={styles.logoutButtons}>
+            <View style={pStyles.logoutButtons}>
               <TouchableOpacity
-                style={styles.logoutCancelButton}
+                style={pStyles.logoutCancelButton}
                 onPress={() => setShowDeleteConfirm(false)}
               >
-                <Text style={styles.logoutCancelText}>Cancel</Text>
+                <Text style={pStyles.logoutCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.logoutConfirmButton, { backgroundColor: colors.error }]}
+                style={[pStyles.logoutConfirmButton, { backgroundColor: colors.error }]}
                 onPress={confirmDeleteAccount}
               >
-                <Text style={styles.logoutConfirmText}>Delete Forever</Text>
+                <Text style={pStyles.logoutConfirmText}>Delete Forever</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1404,452 +1467,454 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
         animationType="fade"
         onRequestClose={() => setShowBecomeCoachConfirm(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.logoutModalContent}>
+        <View style={pStyles.modalOverlay}>
+          <View style={pStyles.logoutModalContent}>
             <MaterialIcons name="emoji-events" size={48} color={colors.primary} />
-            <Text style={styles.logoutTitle}>Become a Health Coach</Text>
-            <Text style={styles.logoutMessage}>
+            <Text style={pStyles.logoutTitle}>Become a Health Coach</Text>
+            <Text style={pStyles.logoutMessage}>
               Are you sure you want to become a health coach? This will unlock coach features while keeping your client access.
             </Text>
-            <View style={styles.logoutButtons}>
+            <View style={pStyles.logoutButtons}>
               <TouchableOpacity
-                style={styles.logoutCancelButton}
+                style={pStyles.logoutCancelButton}
                 onPress={() => setShowBecomeCoachConfirm(false)}
               >
-                <Text style={styles.logoutCancelText}>No</Text>
+                <Text style={pStyles.logoutCancelText}>No</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.logoutConfirmButton, { backgroundColor: colors.primary }]}
+                style={[pStyles.logoutConfirmButton, { backgroundColor: colors.primary }]}
                 onPress={confirmBecomeCoach}
               >
-                <Text style={styles.logoutConfirmText}>Yes, Continue</Text>
+                <Text style={pStyles.logoutConfirmText}>Yes, Continue</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
+const pStyles = StyleSheet.create({
+  root: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: PC.bg,
   },
   offlineBanner: {
-    backgroundColor: colors.error,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    backgroundColor: '#FF3B30',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 8,
     justifyContent: 'center',
+    zIndex: 100,
   },
   offlineBannerText: {
-    color: colors.textLight,
-    fontSize: fontSizes.sm,
+    color: '#FFF',
+    fontSize: 13,
     fontFamily: 'Quicksand_600SemiBold',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: fontSizes.xl,
-    fontFamily: 'Poppins_700Bold',
-    color: colors.textPrimary,
-  },
-  editButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  cancelButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  saveButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  keyboardAvoid: {
-    flex: 1,
-  },
-  scrollView: {
+  scroll: {
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: 140,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
-  avatarSection: {
+
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: 18,
   },
-  avatarContainer: {
-    position: 'relative',
-    marginBottom: spacing.md,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
-    borderColor: colors.primary,
-  },
-  avatarEditBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: colors.surface,
-  },
-  avatarHint: {
-    fontSize: fontSizes.xs,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-    marginTop: spacing.xs,
-  },
-  avatarText: {
-    fontSize: 40,
+  topBarTitle: {
+    fontSize: 22,
     fontFamily: 'Poppins_700Bold',
-    color: colors.textLight,
+    color: PC.text,
+    letterSpacing: -0.4,
   },
-  email: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
+  topBarActions: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  statsSection: {
-    marginBottom: spacing.xl,
+  topBarButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: PC.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#0A0A14',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
   },
-  statsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    ...shadows.md,
+  topBarButtonAccent: {
+    backgroundColor: PC.accentSecondary,
+    borderColor: PC.accentSecondary,
   },
-  statsHeader: {
+  profileCard: {
+    backgroundColor: PC.card,
+    borderRadius: 32,
+    padding: 22,
+    marginBottom: 16,
+    shadowColor: '#0A0A14',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.03,
+    shadowRadius: 24,
+    elevation: 3,
+  },
+  profileHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border + '30',
   },
-  statsTitle: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Poppins_600SemiBold',
-    color: colors.textPrimary,
+  avatarShell: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: PC.surfaceMuted,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    shadowColor: PC.accentSecondary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 14,
+    elevation: 4,
   },
+  profileMeta: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  avatarImg: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+  },
+  avatarPlaceholder: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: PC.accentSecondary,
+  },
+  avatarInitial: {
+    fontSize: 32,
+    fontFamily: 'Poppins_700Bold',
+    color: '#FFF',
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    inset: 0,
+    borderRadius: 49,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraChip: {
+    position: 'absolute',
+    right: -4,
+    bottom: -4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: PC.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: PC.card,
+  },
+  profileName: {
+    fontSize: 24,
+    fontFamily: 'Poppins_700Bold',
+    color: PC.text,
+    letterSpacing: -0.5,
+  },
+  profileEmail: {
+    fontSize: 14,
+    fontFamily: 'Quicksand_500Medium',
+    color: PC.textDim,
+    marginTop: 2,
+  },
+  profileHint: {
+    fontSize: 12,
+    fontFamily: 'Quicksand_500Medium',
+    color: PC.textDim,
+    marginTop: 8,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 16,
+    flexWrap: 'wrap',
+  },
+  badgeNeutral: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: PC.surfaceMuted,
+  },
+  badgeNeutralText: {
+    fontSize: 12,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: PC.text,
+  },
+  badgeAccent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: PC.accentSoft,
+    backgroundColor: 'rgba(124, 58, 237, 0.06)',
+  },
+  badgeAccentText: {
+    fontSize: 12,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: PC.accent,
+  },
+
   statsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
   },
-  statItem: {
-    alignItems: 'center',
+  statCard: {
     flex: 1,
+    minWidth: 140,
+    backgroundColor: PC.card,
+    borderRadius: 24,
+    padding: 16,
+    shadowColor: '#0A0A14',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.03,
+    shadowRadius: 16,
+    elevation: 2,
   },
-  statItemLabel: {
-    fontSize: fontSizes.xs,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
+  statIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  statItemValue: {
-    fontSize: fontSizes.lg,
+  statValue: {
+    fontSize: 22,
     fontFamily: 'Poppins_700Bold',
-    color: colors.primary,
+    color: PC.text,
+    letterSpacing: -0.5,
   },
-  statDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: colors.border + '40',
-  },
-  formSection: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    ...shadows.md,
-  },
-  formGroup: {
-    marginBottom: spacing.md,
-  },
-  formRow: {
-    flexDirection: 'row',
-  },
-  formLabel: {
-    fontSize: fontSizes.sm,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  formValue: {
-    fontSize: fontSizes.md,
+  statUnit: {
+    fontSize: 11,
     fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-    paddingVertical: spacing.sm,
+    color: PC.textDim,
   },
-  input: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textPrimary,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  genderButtons: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  genderButton: {
-    flex: 1,
-    minWidth: 50,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xs,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  genderButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  genderButtonText: {
-    fontSize: fontSizes.md,
+  statLabel: {
+    fontSize: 11,
     fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textSecondary,
+    color: PC.textDim,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  genderButtonTextActive: {
-    color: colors.textLight,
+
+  sectionCard: {
+    backgroundColor: PC.card,
+    borderRadius: 32,
+    marginBottom: 16,
+    padding: 22,
+    shadowColor: '#0A0A14',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.03,
+    shadowRadius: 24,
+    elevation: 3,
   },
-  fitnessLevelButtons: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  fitnessLevelButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xs,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fitnessLevelButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  fitnessLevelButtonText: {
-    fontSize: fontSizes.xs,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  fitnessLevelButtonTextActive: {
-    color: colors.textLight,
-  },
-  dangerZone: {
-    marginTop: spacing.xl,
-    padding: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    gap: spacing.md,
-  },
-  dangerZoneTitle: {
-    fontSize: fontSizes.lg,
+  sectionTitle: {
+    fontSize: 17,
     fontFamily: 'Poppins_700Bold',
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
+    color: PC.text,
+    marginBottom: 16,
+    letterSpacing: -0.3,
   },
-  convertButton: {
+  fieldRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  fieldIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: PC.textDim,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 2,
+  },
+  fieldValue: {
+    fontSize: 15,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: PC.text,
+  },
+  fieldInput: {
+    fontSize: 15,
+    fontFamily: 'Quicksand_600SemiBold',
+    color: PC.text,
+    borderBottomWidth: 1.5,
+    borderBottomColor: PC.border,
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: PC.border,
+    marginVertical: 2,
+  },
+
+  /* Level / chip buttons */
+  chipBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: PC.border,
     borderWidth: 1,
-    borderColor: colors.primary + '30',
+    borderColor: PC.border,
   },
-  convertButtonText: {
-    fontSize: fontSizes.md,
+  chipBtnActive: {
+    backgroundColor: PC.accent,
+    borderColor: PC.accent,
+  },
+  chipBtnText: {
+    fontSize: 13,
     fontFamily: 'Quicksand_600SemiBold',
-    color: colors.primary,
+    color: PC.textDim,
   },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
+  chipBtnTextActive: {
+    color: '#FFF',
+  },
+  levelBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: PC.surfaceMuted,
     borderWidth: 1,
-    borderColor: colors.error + '30',
+    borderColor: PC.border,
+    alignItems: 'center',
   },
-  logoutButtonText: {
-    fontSize: fontSizes.md,
+  levelBtnText: {
+    fontSize: 12,
     fontFamily: 'Quicksand_600SemiBold',
-    color: colors.error,
+    color: PC.textDim,
   },
-  deleteButton: {
+
+  /* Account actions */
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+  },
+  actionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
-    backgroundColor: colors.error,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
+    alignItems: 'center',
   },
-  deleteButtonText: {
-    fontSize: fontSizes.md,
+  actionLabel: {
+    flex: 1,
+    fontSize: 15,
     fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textLight,
+    color: PC.text,
   },
+
+  /* ── Modals (kept identical) ── */
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
   },
-  modalContent: {
+  logoutModalContent: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius.xxl,
     padding: spacing.xl,
-    width: '100%',
+    width: '90%',
     maxWidth: 400,
-    ...shadows.md,
+    alignSelf: 'center',
+    alignItems: 'center',
+    ...shadows.lg,
   },
-  modalTitle: {
-    fontSize: fontSizes.xl,
-    fontFamily: 'Quicksand_700Bold',
+  logoutTitle: {
+    fontSize: fontSizes.xxl,
+    fontWeight: '700',
     color: colors.textPrimary,
+    fontFamily: 'Poppins_700Bold',
     marginBottom: spacing.sm,
-    textAlign: 'center',
+    marginTop: spacing.sm,
   },
-  modalDescription: {
+  logoutMessage: {
     fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_400Regular',
     color: colors.textSecondary,
-    marginBottom: spacing.lg,
+    fontFamily: 'Quicksand_500Medium',
     textAlign: 'center',
+    marginBottom: spacing.xl,
   },
-  modalInput: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_400Regular',
-    color: colors.textPrimary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.lg,
-  },
-  modalButtons: {
+  logoutButtons: {
     flexDirection: 'row',
     gap: spacing.md,
+    width: '100%',
   },
-  modalButton: {
+  logoutCancelButton: {
     flex: 1,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    alignItems: 'center',
-  },
-  modalCancelButton: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  modalCancelButtonText: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textSecondary,
-  },
-  modalConfirmButton: {
-    backgroundColor: colors.primary,
-  },
-  modalConfirmButtonText: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textLight,
-  },
-  coachSignupButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    overflow: 'hidden',
-    marginBottom: spacing.sm,
-  },
-  coachButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.border,
     borderRadius: borderRadius.md,
+    alignItems: 'center',
   },
-  coachSignupButtonText: {
-    color: colors.textLight,
+  logoutCancelText: {
     fontSize: fontSizes.md,
-    fontWeight: '700',
-    marginLeft: spacing.sm,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    fontFamily: 'Quicksand_600SemiBold',
+  },
+  logoutConfirmButton: {
     flex: 1,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.error,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  logoutConfirmText: {
+    fontSize: fontSizes.md,
+    fontWeight: '600',
+    color: colors.textLight,
+    fontFamily: 'Quicksand_600SemiBold',
   },
   coachQualificationModal: {
     maxHeight: '85%',
     backgroundColor: 'transparent',
     padding: 0,
     overflow: 'hidden',
+    width: '100%',
+    maxWidth: 400,
   },
   qualificationHeader: {
     padding: spacing.xl,
@@ -1861,7 +1926,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.md,
@@ -1935,7 +2000,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(255,255,255,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.md,
@@ -2004,94 +2069,12 @@ const styles = StyleSheet.create({
   qualificationSubmitDisabled: {
     opacity: 0.5,
   },
-  modalHeader: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  requirementItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  requirementText: {
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-    marginLeft: spacing.sm,
-    flex: 1,
-  },
-  coachAgreement: {
-    backgroundColor: colors.background,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.lg,
-  },
-  agreementText: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  modalButtonDisabled: {
-    backgroundColor: colors.textSecondary,
-    opacity: 0.5,
-  },
-  modalButtonTextDisabled: {
-    color: colors.textLight,
-    opacity: 0.7,
-  },
-  logoutModalContent: {
+  modalContent: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.xxl,
+    borderRadius: borderRadius.xl,
     padding: spacing.xl,
-    width: '90%',
-    maxWidth: 400,
-    alignSelf: 'center',
-    alignItems: 'center',
-    ...shadows.lg,
-  },
-  logoutTitle: {
-    fontSize: fontSizes.xxl,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-    marginBottom: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  logoutMessage: {
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  logoutButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
     width: '100%',
-  },
-  logoutCancelButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.border,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-  },
-  logoutCancelText: {
-    fontSize: fontSizes.md,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  logoutConfirmButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.error,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-  },
-  logoutConfirmText: {
-    fontSize: fontSizes.md,
-    fontWeight: '600',
-    color: colors.textLight,
-    fontFamily: 'Quicksand_600SemiBold',
+    maxWidth: 400,
+    ...shadows.md,
   },
 });

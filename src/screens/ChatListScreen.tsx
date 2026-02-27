@@ -50,7 +50,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
   const [isLoading, setIsLoading] = useState(true);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     const timer = setTimeout(() => {

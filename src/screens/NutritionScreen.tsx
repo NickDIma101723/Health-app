@@ -107,8 +107,8 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
   const [carbs, setCarbs] = useState('');
   const [fats, setFats] = useState('');
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
   const modalSlideAnim = useRef(new Animated.Value(300)).current;
   const [refreshKey, setRefreshKey] = useState(0);
 
