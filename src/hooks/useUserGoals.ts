@@ -24,33 +24,33 @@ export const useUserGoals = () => {
         .from('user_goals')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (fetchError) {
-        if (fetchError.code === 'PGRST116') {
-          const defaultGoals = {
-            user_id: user.id,
-            steps_daily: 10000,
-            calories_daily: 2200,
-            protein_daily: 165,
-            carbs_daily: 220,
-            fats_daily: 73,
-            water_daily: 8,
-            sleep_hours_daily: 8,
-            exercise_minutes_daily: 30,
-          };
+        throw fetchError;
+      }
 
-          const { data: inserted, error: insertError } = await supabase
-            .from('user_goals')
-            .insert(defaultGoals)
-            .select()
-            .single();
+      if (!data) {
+        const defaultGoals = {
+          user_id: user.id,
+          steps_daily: 10000,
+          calories_daily: 2200,
+          protein_daily: 165,
+          carbs_daily: 220,
+          fats_daily: 73,
+          water_daily: 8,
+          sleep_hours_daily: 8,
+          exercise_minutes_daily: 30,
+        };
 
-          if (insertError) throw insertError;
-          setGoals(inserted);
-        } else {
-          throw fetchError;
-        }
+        const { data: inserted, error: insertError } = await supabase
+          .from('user_goals')
+          .insert(defaultGoals)
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        setGoals(inserted);
       } else {
         setGoals(data);
       }

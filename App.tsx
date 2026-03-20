@@ -32,11 +32,12 @@ import { CreateWorkoutPlanScreen } from './src/screens/CreateWorkoutPlanScreen';
 import { ClientWorkoutPlansScreen } from './src/screens/ClientWorkoutPlansScreen';
 import { CreateNutritionPlanScreen } from './src/screens/CreateNutritionPlanScreen';
 import { ClientProgressAnalyticsScreen } from './src/screens/ClientProgressAnalyticsScreen';
+import { ActivityMapScreen } from './src/screens/ActivityMapScreen';
 import { colors } from './src/constants/theme';
 
 const { width } = Dimensions.get('window');
 
-type Screen = 'splash' | 'login' | 'register' | 'home' | 'mindfulness' | 'mindfulness-insights' | 'chat' | 'chat-list' | 'individual-chat' | 'schedule' | 'nutrition' | 'nutrition-calculator' | 'profile' | 'coach-dashboard' | 'coach-client-detail' | 'coach-notes' | 'assign-client' | 'coach-requests' | 'coach-selection' | 'become-coach' | 'create-workout-plan' | 'client-workout-plans' | 'create-nutrition-plan' | 'client-progress-analytics';
+type Screen = 'splash' | 'login' | 'register' | 'home' | 'mindfulness' | 'mindfulness-insights' | 'chat' | 'chat-list' | 'individual-chat' | 'schedule' | 'nutrition' | 'nutrition-calculator' | 'profile' | 'coach-dashboard' | 'coach-client-detail' | 'coach-notes' | 'assign-client' | 'coach-requests' | 'coach-selection' | 'become-coach' | 'create-workout-plan' | 'client-workout-plans' | 'create-nutrition-plan' | 'client-progress-analytics' | 'activity-map';
 
 function AppContent() {
   const { user, loading: authLoading, isCoach, coachStatusLoaded, canBeCoach, currentMode } = useAuth();
@@ -46,7 +47,6 @@ function AppContent() {
   const safeCurrentMode = currentMode ?? null;
   const [currentScreen, setCurrentScreen] = useState<Screen>('splash');
   const [displayScreen, setDisplayScreen] = useState<Screen>('splash');
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const [splashFinished, setSplashFinished] = useState(false);
   const [clientDetailParams, setClientDetailParams] = useState<any>(null);
   const [notesParams, setNotesParams] = useState<any>(null);
@@ -63,11 +63,6 @@ function AppContent() {
   const navigateWithTransition = (targetScreen: Screen, params?: any) => {
     console.log('[App] Navigation requested:', targetScreen, params);
     
-    if (isTransitioning) {
-      console.log('[App] Navigation blocked - transition in progress');
-      return;
-    }
-    
     if (targetScreen === 'coach-client-detail') {
       setClientDetailParams(params);
     } else if (targetScreen === 'coach-notes') {
@@ -76,16 +71,11 @@ function AppContent() {
       setChatParams(params);
     }
     
-    setIsTransitioning(true);
-    
+    // Switch immediately to keep the navigation bar fluid and snappy
     requestAnimationFrame(() => {
       console.log('[App] Navigating to:', targetScreen);
       setCurrentScreen(targetScreen);
       setDisplayScreen(targetScreen);
-      
-      setTimeout(() => {
-        setIsTransitioning(false);
-      }, 150);
     });
   };
 
@@ -198,13 +188,8 @@ function AppContent() {
 
   return (
     <View style={styles.screenContainer}>
-      {isTransitioning && (
-        <View style={[styles.transitionOverlay, { pointerEvents: 'none' }]} />
-      )}
-      
       <View 
         style={styles.screenContent}
-        removeClippedSubviews={isTransitioning}
       >
         {displayScreen === 'login' && (
           <LoginScreen onNavigateToRegister={() => navigateWithTransition('register')} />
@@ -311,6 +296,9 @@ function AppContent() {
             clientId={clientDetailParams.clientId}
             onBack={() => navigateWithTransition('coach-client-detail', clientDetailParams)}
           />
+        )}
+        {displayScreen === 'activity-map' && (
+          <ActivityMapScreen onNavigate={(screen) => navigateWithTransition(screen as Screen)} />
         )}
       </View>
     </View>

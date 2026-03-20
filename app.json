@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "HealthApp",
-    "slug": "HealthApp",
+    "slug": "aria",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -30,11 +30,13 @@
     },
     "extra": {
       "eas": {
-        "projectId": "8ca3b1bf-2ae9-417b-bc70-1a5e3479b4f6"
-      }
+        "projectId": "0b139bce-5931-4274-9450-de2a32c1891b"
+      },
+      "router": {}
     },
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "owner": "niko-studios"
   }
 }
