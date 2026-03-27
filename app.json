@@ -40,12 +40,7 @@
     },
     "plugins": [
       "expo-router",
-      [
-        "@rnmapbox/maps",
-        {
-          "RNMapboxMapsDownloadToken": "MAPBOX_TOKEN_REMOVED"
-        }
-      ]
+      "@rnmapbox/maps"
     ],
     "owner": "niko-studios"
   }
