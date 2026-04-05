@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Database } from '../types/database.types';
 
 type Message = Database['public']['Tables']['messages']['Row'];
 type MessageInsert = Database['public']['Tables']['messages']['Insert'];
-type MessageUpdate = Database['public']['Tables']['messages']['Update'];
 
 export const useMessages = (coachId?: string) => {
   const { user } = useAuth();
@@ -13,27 +12,21 @@ export const useMessages = (coachId?: string) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isFetching, setIsFetching] = useState(false);
+  const isFetchingRef = useRef(false);
+  const channelRef = useRef<any>(null);
 
-  const fetchMessages = async () => {
-    console.log('[useMessages] fetchMessages called - user:', user?.id, 'coachId:', coachId);
-    
+  const fetchMessages = useCallback(async () => {
     if (!user) {
-      console.log('[useMessages] Missing user, setting loading to false');
       setLoading(false);
       return;
     }
 
-    if (isFetching) {
-      console.log('[useMessages] Already fetching, skipping duplicate request');
-      return;
-    }
+    if (isFetchingRef.current) return;
 
     try {
-      console.log('[useMessages] Fetching messages...');
-      setIsFetching(true);
+      isFetchingRef.current = true;
       setLoading(true);
-      
+
       const query = coachId
         ? supabase
             .from('messages')
@@ -49,30 +42,28 @@ export const useMessages = (coachId?: string) => {
       const { data, error: fetchError } = await query;
 
       if (fetchError) throw fetchError;
-      
-      console.log('[useMessages] ✅ Fetched', data?.length || 0, 'messages');
+
       setMessages(data || []);
-      
-      const unread = data?.filter(msg => 
-        msg.receiver_id === user.id && 
-        (!coachId || msg.sender_id === coachId) && 
+
+      const unread = data?.filter(msg =>
+        msg.receiver_id === user.id &&
+        (!coachId || msg.sender_id === coachId) &&
         !msg.is_read
       ).length || 0;
-      
+
       setUnreadCount(unread);
       setError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch messages');
-      console.error('[useMessages] ❌ Error fetching messages:', err);
+      console.error('[useMessages] Error fetching messages:', err);
     } finally {
-      console.log('[useMessages] Setting loading to FALSE (completed)');
       setLoading(false);
-      setIsFetching(false);
+      isFetchingRef.current = false;
     }
-  };
+  }, [user?.id, coachId]);
 
-  const sendMessage = async (
-    messageText: string | null, 
+  const sendMessage = useCallback(async (
+    messageText: string | null,
     receiverId: string,
     mediaUrl?: string | null,
     mediaType?: string | null,
@@ -102,67 +93,62 @@ export const useMessages = (coachId?: string) => {
         .select()
         .single();
 
-      if (insertError) {
-        console.error('Insert error details:', insertError);
-        throw insertError;
-      }
-      
-      setMessages(prev => [...prev, data]);
-      
+      if (insertError) throw insertError;
+
+      // Deduplicate: only add if not already present (subscription may have added it)
+      setMessages(prev => {
+        if (prev.find(m => m.id === data.id)) return prev;
+        return [...prev, data];
+      });
+
       return { data, error: null };
     } catch (err: any) {
       console.error('Failed to send message:', err);
       return { data: null, error: err.message || 'Failed to send message' };
     }
-  };
+  }, [user?.id]);
 
-  const markAsRead = async (messageIds: string[]) => {
+  const markAsRead = useCallback(async (messageIds: string[]) => {
     if (!user || messageIds.length === 0) return;
 
     try {
       const { error: updateError } = await supabase
         .from('messages')
-        .update({ 
-          is_read: true, 
-          read_at: new Date().toISOString() 
+        .update({
+          is_read: true,
+          read_at: new Date().toISOString()
         })
         .in('id', messageIds)
         .eq('receiver_id', user.id);
 
       if (updateError) throw updateError;
-      
-      setMessages(prev => prev.map(msg => 
-        messageIds.includes(msg.id) 
+
+      setMessages(prev => prev.map(msg =>
+        messageIds.includes(msg.id)
           ? { ...msg, is_read: true, read_at: new Date().toISOString() }
           : msg
       ));
-      
+
       setUnreadCount(prev => Math.max(0, prev - messageIds.length));
     } catch (err: any) {
       console.error('Error marking messages as read:', err);
     }
-  };
+  }, [user?.id]);
 
-  const markAllAsRead = async () => {
+  const markAllAsRead = useCallback(async () => {
     if (!user || !coachId) return;
 
-    try {
-      const unreadMessages = messages.filter(msg => 
-        msg.receiver_id === user.id && 
-        msg.sender_id === coachId && 
-        !msg.is_read
-      );
+    const unreadMessages = messages.filter(msg =>
+      msg.receiver_id === user.id &&
+      msg.sender_id === coachId &&
+      !msg.is_read
+    );
 
-      if (unreadMessages.length === 0) return;
+    if (unreadMessages.length === 0) return;
+    await markAsRead(unreadMessages.map(msg => msg.id));
+  }, [user?.id, coachId, messages, markAsRead]);
 
-      const messageIds = unreadMessages.map(msg => msg.id);
-      await markAsRead(messageIds);
-    } catch (err: any) {
-      console.error('Error marking all messages as read:', err);
-    }
-  };
-
-  const deleteMessage = async (messageId: string) => {
+  const deleteMessage = useCallback(async (messageId: string) => {
     if (!user) return { error: 'No user logged in' };
 
     try {
@@ -173,16 +159,16 @@ export const useMessages = (coachId?: string) => {
         .eq('sender_id', user.id);
 
       if (deleteError) throw deleteError;
-      
+
       setMessages(prev => prev.filter(msg => msg.id !== messageId));
-      
+
       return { error: null };
     } catch (err: any) {
       return { error: err.message || 'Failed to delete message' };
     }
-  };
+  }, [user?.id]);
 
-  const clearChatHistory = async () => {
+  const clearChatHistory = useCallback(async () => {
     if (!user || !coachId) return { error: 'No user or coach specified' };
 
     try {
@@ -192,72 +178,85 @@ export const useMessages = (coachId?: string) => {
         .or(`and(sender_id.eq.${user.id},receiver_id.eq.${coachId}),and(sender_id.eq.${coachId},receiver_id.eq.${user.id})`);
 
       if (deleteError) throw deleteError;
-      
+
       setMessages([]);
       setUnreadCount(0);
-      
+
       return { error: null };
     } catch (err: any) {
       console.error('Failed to clear chat history:', err);
       return { error: err.message || 'Failed to clear chat history' };
     }
-  };
+  }, [user?.id, coachId]);
 
   useEffect(() => {
-    console.log('[useMessages] useEffect triggered - user:', user?.id, 'coachId:', coachId);
-    
-    if (user) {
-      console.log('[useMessages] Both user and coachId present, fetching messages');
-      fetchMessages();
-      const channel = supabase
-        .channel('messages_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'messages',
-            filter: coachId
-              ? `or(and(sender_id.eq.${user.id},receiver_id.eq.${coachId}),and(sender_id.eq.${coachId},receiver_id.eq.${user.id}))`
-              : `or(sender_id.eq.${user.id},receiver_id.eq.${user.id})`,
-          },
-          (payload) => {
-            if (payload.eventType === 'INSERT') {
-              const newMessage = payload.new as Message;
-              setMessages(prev => {
-                if (prev.find(m => m.id === newMessage.id)) return prev;
-                return [...prev, newMessage];
-              });
-              
-              if (newMessage.receiver_id === user.id && !newMessage.is_read && (!coachId || newMessage.sender_id === coachId)) {
-                setUnreadCount(prev => prev + 1);
-              }
-            } else if (payload.eventType === 'UPDATE') {
-              const updatedMessage = payload.new as Message;
-              setMessages(prev => prev.map(msg => 
-                msg.id === updatedMessage.id ? updatedMessage : msg
-              ));
-              
-              if (updatedMessage.is_read && updatedMessage.receiver_id === user.id) {
-                setUnreadCount(prev => Math.max(0, prev - 1));
-              }
-            } else if (payload.eventType === 'DELETE') {
-              const deletedMessage = payload.old as Message;
-              setMessages(prev => prev.filter(msg => msg.id !== deletedMessage.id));
-            }
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    } else {
-      console.log('[useMessages] No coachId, setting loading to false and clearing messages');
+    if (!user) {
       setMessages([]);
       setLoading(false);
+      return;
     }
-  }, [user, coachId]);
+
+    fetchMessages();
+
+    // Use unique channel name per user+partner combo to avoid conflicts
+    const channelName = coachId
+      ? `msgs_${user.id}_${coachId}`
+      : `msgs_${user.id}_all`;
+
+    // Clean up previous channel
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+    }
+
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: coachId
+            ? `or(and(sender_id.eq.${user.id},receiver_id.eq.${coachId}),and(sender_id.eq.${coachId},receiver_id.eq.${user.id}))`
+            : `or(sender_id.eq.${user.id},receiver_id.eq.${user.id})`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newMessage = payload.new as Message;
+            setMessages(prev => {
+              if (prev.find(m => m.id === newMessage.id)) return prev;
+              return [...prev, newMessage];
+            });
+
+            if (newMessage.receiver_id === user.id && !newMessage.is_read && (!coachId || newMessage.sender_id === coachId)) {
+              setUnreadCount(prev => prev + 1);
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedMessage = payload.new as Message;
+            setMessages(prev => prev.map(msg =>
+              msg.id === updatedMessage.id ? updatedMessage : msg
+            ));
+
+            if (updatedMessage.is_read && updatedMessage.receiver_id === user.id) {
+              setUnreadCount(prev => Math.max(0, prev - 1));
+            }
+          } else if (payload.eventType === 'DELETE') {
+            const deletedMessage = payload.old as Message;
+            setMessages(prev => prev.filter(msg => msg.id !== deletedMessage.id));
+          }
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [user?.id, coachId]);
 
   return {
     messages,

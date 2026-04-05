@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,20 +8,50 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
-  Alert,
   ActivityIndicator,
-  Animated,
+  StatusBar,
+  Dimensions,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
-  BottomNavigation,
-  CoachBottomNavigation,
-  BackgroundDecorations,
-} from '../components';
-import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
+  ChatCircle,
+  MagnifyingGlass,
+  X,
+  UserPlus,
+  ArrowsClockwise,
+  ImageSquare,
+  FileText,
+  Users,
+  PaperPlaneTilt,
+} from 'phosphor-react-native';
+import {} from '../components';
 import { useAuth } from '../contexts/AuthContext';
 import { useMessages, useCoaches } from '../hooks';
 import { supabase } from '../lib/supabase';
+
+const { width } = Dimensions.get('window');
+
+const C = {
+  bg: '#FAFAFA',
+  card: '#FFFFFF',
+  cardDark: '#111111',
+  accent: '#10B981',
+  lime: '#D4F940',
+  text: '#1A1A1A',
+  dim: '#8C8C8C',
+  border: '#EEEEEE',
+  warmBg: '#F5F0EB',
+  red: '#EF4444',
+} as const;
+
+const F = {
+  bold: 'PlusJakartaSans_700Bold',
+  semi: 'PlusJakartaSans_600SemiBold',
+  medium: 'PlusJakartaSans_500Medium',
+  regular: 'PlusJakartaSans_400Regular',
+} as const;
+
+const PAD = 20;
 
 interface ChatListScreenProps {
   onNavigate?: (screen: string, params?: any) => void;
@@ -37,12 +67,17 @@ interface ChatPreview {
   isOnline: boolean;
   unreadCount: number;
   isCoach: boolean;
+  lastMessageType?: 'text' | 'image' | 'document';
 }
 
+const AVATAR_COLORS = [
+  '#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#14B8A6', '#EC4899',
+];
+
 export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) => {
-  const { user, currentMode, coachData, switchToCoachMode, switchToClientMode, canBeCoach } = useAuth();
+  const { user, currentMode, coachData } = useAuth();
   const { messages } = useMessages();
-  const { coaches, myCoach } = useCoaches();
+  const { myCoach } = useCoaches();
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [chatPreviews, setChatPreviews] = useState<ChatPreview[]>([]);
@@ -50,27 +85,20 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
   const [isLoading, setIsLoading] = useState(true);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [searchFocused, setSearchFocused] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300);
+    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const loadCoachClients = async () => {
-    if (!coachData || currentMode !== 'coach') {
-      setIsLoading(false);
-      return;
-    }
-
+  const loadCoachClients = useCallback(async () => {
+    if (!coachData || currentMode !== 'coach') { setIsLoading(false); return; }
     if (isLoadingClients) return;
 
     try {
       setIsLoadingClients(true);
       setIsLoading(true);
-      console.log('[ChatList] Loading clients for coach:', coachData.id);
 
       const { data: assignments, error: assignError } = await supabase
         .from('coach_client_assignments')
@@ -78,16 +106,8 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
         .eq('coach_id', coachData.id)
         .eq('is_active', true);
 
-      if (assignError) {
-        console.error('[ChatList] Error loading assignments:', assignError);
-        return;
-      }
-
-      if (!assignments || assignments.length === 0) {
-        console.log('[ChatList] No active client assignments found');
-        setCoachClients([]);
-        return;
-      }
+      if (assignError) { console.error('[ChatList] Error loading assignments:', assignError); return; }
+      if (!assignments || assignments.length === 0) { setCoachClients([]); return; }
 
       const clientIds = assignments.map(a => a.client_user_id);
       const { data: profiles, error: profileError } = await supabase
@@ -95,10 +115,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
         .select('user_id, full_name, phone, bio')
         .in('user_id', clientIds);
 
-      if (profileError) {
-        console.error('[ChatList] Error loading client profiles:', profileError);
-        return;
-      }
+      if (profileError) { console.error('[ChatList] Error loading client profiles:', profileError); return; }
 
       const clients = assignments.map(assignment => {
         const profile = profiles?.find(p => p.user_id === assignment.client_user_id);
@@ -110,8 +127,6 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
           assigned_at: assignment.assigned_at,
         };
       });
-
-      console.log('[ChatList] Loaded coach clients:', clients.length);
       setCoachClients(clients);
     } catch (error) {
       console.error('[ChatList] Error in loadCoachClients:', error);
@@ -120,85 +135,75 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
         setIsLoading(false);
         setIsLoadingClients(false);
         setInitialLoadComplete(true);
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: false,
-        }).start();
       }, 100);
     }
-  };
+  }, [coachData, currentMode, isLoadingClients]);
 
   useEffect(() => {
-    console.log('[ChatList] Mode check:', { currentMode, coachData: !!coachData });
     if (currentMode === 'coach' && coachData && !isLoadingClients) {
-      console.log('[ChatList] Loading coach clients...');
       loadCoachClients();
     } else if (currentMode !== 'coach') {
       const previews: ChatPreview[] = [];
-
       if (myCoach) {
         const coachMessages = messages.filter(msg =>
           msg.sender_id === myCoach.user_id || msg.receiver_id === myCoach.user_id
         );
         const lastMessage = coachMessages[coachMessages.length - 1];
+        const lastMsgType = lastMessage?.media_type === 'image' ? 'image'
+          : lastMessage?.media_type === 'document' ? 'document' : 'text';
 
         previews.push({
           id: myCoach.user_id,
           name: myCoach.full_name || 'Health Coach',
-          lastMessage: lastMessage?.message_text || 'Start your health journey!',
+          lastMessage: lastMessage?.media_type === 'image' ? 'Photo'
+            : lastMessage?.media_type === 'document' ? 'Document'
+            : lastMessage?.message_text || 'Start your health journey!',
           timestamp: lastMessage ? formatTimestamp(new Date(lastMessage.created_at)) : 'Now',
-          avatar: '👩‍⚕️',
+          avatar: '\u{1F469}\u200D\u2695\uFE0F',
           isOnline: true,
           unreadCount: coachMessages.filter(msg => msg.sender_id === myCoach.user_id && !msg.is_read).length,
           isCoach: true,
+          lastMessageType: lastMsgType as any,
         });
       }
-
       setChatPreviews(previews);
-      setTimeout(() => {
-        setIsLoading(false);
-        setInitialLoadComplete(true);
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: false,
-        }).start();
-      }, 100);
+      setTimeout(() => { setIsLoading(false); setInitialLoadComplete(true); }, 100);
     }
   }, [currentMode, coachData?.id, messages.length, myCoach?.user_id]);
 
   useEffect(() => {
-    console.log('[ChatList] Coach clients effect:', {
-      currentMode,
-      coachClientsCount: coachClients.length,
-      coachClients: coachClients.map(c => ({ name: c.full_name, id: c.user_id }))
-    });
-
     if (currentMode === 'coach' && coachClients.length > 0 && messages) {
       const previews: ChatPreview[] = coachClients.map(client => {
         const clientMessages = messages.filter(msg =>
           msg.sender_id === client.user_id || msg.receiver_id === client.user_id
         );
         const lastMessage = clientMessages[clientMessages.length - 1];
-
+        const lastMsgType = lastMessage?.media_type === 'image' ? 'image'
+          : lastMessage?.media_type === 'document' ? 'document' : 'text';
         return {
           id: client.user_id,
           name: client.full_name,
-          lastMessage: lastMessage?.message_text || 'Start chatting with your client!',
+          lastMessage: lastMessage?.media_type === 'image' ? 'Photo'
+            : lastMessage?.media_type === 'document' ? 'Document'
+            : lastMessage?.message_text || 'Start chatting with your client!',
           timestamp: lastMessage ? formatTimestamp(new Date(lastMessage.created_at)) : 'New',
-          avatar: client.full_name?.charAt(0)?.toUpperCase() || '�',
+          avatar: client.full_name?.charAt(0)?.toUpperCase() || '?',
           avatar_url: client.avatar_url,
           isOnline: true,
           unreadCount: clientMessages.filter(msg => msg.sender_id === client.user_id && !msg.is_read).length,
           isCoach: false,
+          lastMessageType: lastMsgType as any,
         };
       });
-
-      console.log('[ChatList] Created coach chat previews:', previews.length, previews);
+      previews.sort((a, b) => {
+        if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
+        if (b.unreadCount > 0 && a.unreadCount === 0) return 1;
+        if (a.timestamp === 'New' && b.timestamp !== 'New') return 1;
+        if (b.timestamp === 'New' && a.timestamp !== 'New') return -1;
+        return 0;
+      });
       setChatPreviews(previews);
     } else if (currentMode === 'coach' && coachClients.length === 0) {
-      console.log('[ChatList] 📝 No coach clients found, clearing chat previews');
       setChatPreviews([]);
     }
   }, [coachClients.length, messages.length, currentMode]);
@@ -207,10 +212,10 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
     const now = new Date();
     const messageDate = new Date(timestamp);
     const diffInMinutes = Math.floor((now.getTime() - messageDate.getTime()) / (1000 * 60));
-
     if (diffInMinutes < 1) return 'now';
     if (diffInMinutes < 60) return `${diffInMinutes}m`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h`;
+    if (diffInMinutes < 2880) return 'Yesterday';
     return messageDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
@@ -218,370 +223,208 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
     chat.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
   );
 
-  
-
   const handleChatPress = (chatId: string, chatName?: string) => {
-    
-    
-    const result = onNavigate?.('individual-chat', { clientId: chatId, clientName: chatName, from: 'chat-list' });
-    console.log('[ChatList] onNavigate returned:', result);
+    onNavigate?.('individual-chat', { clientId: chatId, clientName: chatName, from: 'chat-list' });
   };
 
-  const renderChatItem = (chat: ChatPreview) => {
-    console.log('[ChatList] Rendering chat item:', { id: chat.id, name: chat.name });
-    return (
-      <TouchableOpacity
-        key={chat.id}
-        style={styles.chatItem}
-        onPress={() => {
-          console.log('[ChatList] 🔥 TOUCH DETECTED for:', chat.id, 'name:', chat.name);
-          handleChatPress(chat.id, chat.name);
-        }}
-        activeOpacity={0.7}
-      >
-        <View style={styles.avatarContainer}>
-          {chat.avatar_url ? (
-            <Image
-              source={{ uri: chat.avatar_url }}
-              style={styles.avatarImage}
-            />
-          ) : (
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{chat.avatar}</Text>
-            </View>
-          )}
-          {chat.isOnline && <View style={styles.onlineIndicator} />}
-        </View>
+  const getAvatarColor = (name: string): string => AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+  const totalUnread = chatPreviews.reduce((sum, c) => sum + c.unreadCount, 0);
 
-        <View style={styles.chatContent}>
-          <View style={styles.chatHeader}>
-            <Text style={styles.chatName} numberOfLines={1}>
-              {chat.name}
-            </Text>
-            <Text style={styles.timestamp}>{chat.timestamp}</Text>
-          </View>
-          
-          <View style={styles.messagePreview}>
-            <Text style={styles.lastMessage} numberOfLines={1}>
-              {chat.lastMessage}
-            </Text>
-            {chat.unreadCount > 0 && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadCount}>
-                  {chat.unreadCount > 9 ? '9+' : chat.unreadCount}
-                </Text>
+  const renderChatItem = (chat: ChatPreview, index: number) => {
+    const avatarColor = getAvatarColor(chat.name);
+    return (
+      <Animated.View key={chat.id} entering={FadeInDown.delay(index * 50).duration(400).springify()}>
+        <TouchableOpacity
+          style={[styles.chatItem, chat.unreadCount > 0 && styles.chatItemUnread]}
+          onPress={() => handleChatPress(chat.id, chat.name)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.avatarContainer}>
+            {chat.avatar_url ? (
+              <Image source={{ uri: chat.avatar_url }} style={styles.avatarImage} />
+            ) : chat.isCoach ? (
+              <View style={[styles.avatar, { backgroundColor: C.accent }]}>
+                <Text style={styles.avatarEmoji}>{chat.avatar}</Text>
+              </View>
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+                <Text style={styles.avatarText}>{chat.avatar}</Text>
+              </View>
+            )}
+            {chat.isOnline && (
+              <View style={styles.onlineRing}>
+                <View style={styles.onlineIndicator} />
               </View>
             )}
           </View>
-        </View>
-
-        <MaterialIcons name="chevron-right" size={20} color={colors.textSecondary} />
-      </TouchableOpacity>
+          <View style={styles.chatContent}>
+            <View style={styles.chatHeader}>
+              <Text style={[styles.chatName, chat.unreadCount > 0 && { fontFamily: F.bold }]} numberOfLines={1}>{chat.name}</Text>
+              <Text style={[styles.timestamp, chat.unreadCount > 0 && styles.timestampUnread]}>{chat.timestamp}</Text>
+            </View>
+            <View style={styles.messagePreview}>
+              <View style={styles.lastMessageRow}>
+                {chat.lastMessageType === 'image' && <ImageSquare size={14} color={C.dim} style={{ marginRight: 4 }} />}
+                {chat.lastMessageType === 'document' && <FileText size={14} color={C.dim} style={{ marginRight: 4 }} />}
+                <Text style={[styles.lastMessage, chat.unreadCount > 0 && styles.lastMessageUnread]} numberOfLines={1}>{chat.lastMessage}</Text>
+              </View>
+              {chat.unreadCount > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadCount}>{chat.unreadCount > 99 ? '99+' : chat.unreadCount}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <BackgroundDecorations />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerSubtitle}>Messages</Text>
-          <Text style={styles.headerTitle}>
-            {currentMode === 'coach' ? 'Client Chats' : 'Chats'}
-          </Text>
-        </View>
-        <View style={styles.headerActions}>
-          {currentMode === 'coach' ? (
-            <>
-              <TouchableOpacity 
-                style={styles.headerButton}
-                onPress={() => loadCoachClients()}
-              >
-                <MaterialIcons name="refresh" size={24} color={colors.primary} />
+      {/* Header */}
+      <Animated.View entering={FadeInDown.duration(500).springify()}>
+        <View style={styles.headerArea}>
+          <View style={styles.headerTop}>
+            <View>
+              <Text style={styles.headerGreeting}>{currentMode === 'coach' ? 'Coach Chat' : 'Messages'}</Text>
+              <Text style={styles.headerTitle}>{currentMode === 'coach' ? 'Your Clients' : 'Conversations'}</Text>
+            </View>
+            <View style={styles.headerActions}>
+              {currentMode === 'coach' ? (
+                <>
+                  <TouchableOpacity style={styles.headerBtn} onPress={() => loadCoachClients()}>
+                    <ArrowsClockwise size={20} color={C.accent} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.headerBtnAccent} onPress={() => onNavigate?.('assign-client')}>
+                    <UserPlus size={20} color="#FFF" weight="bold" />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity style={styles.headerBtnAccent} onPress={() => onNavigate?.('coach-selection')}>
+                  <UserPlus size={20} color="#FFF" weight="bold" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          <View style={[styles.searchContainer, searchFocused && styles.searchFocused]}>
+            <MagnifyingGlass size={18} color={C.dim} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search conversations..."
+              placeholderTextColor={C.dim}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              selectionColor={C.accent}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <View style={styles.searchClearBg}><X size={12} color={C.dim} weight="bold" /></View>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.headerButton}
-                onPress={() => onNavigate?.('assign-client')}
-              >
-                <MaterialIcons name="person-add" size={24} color={colors.primary} />
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <TouchableOpacity 
-                style={styles.headerButton}
-                onPress={() => onNavigate?.('coach-selection')}
-              >
-                <MaterialIcons name="person-add" size={24} color={colors.primary} />
-              </TouchableOpacity>
-            </>
+            )}
+          </View>
+
+          {chatPreviews.length > 0 && (
+            <View style={styles.statsRow}>
+              <View style={styles.statPill}>
+                <ChatCircle size={13} color={C.accent} weight="fill" />
+                <Text style={styles.statText}>{chatPreviews.length} {currentMode === 'coach' ? 'clients' : 'chats'}</Text>
+              </View>
+              {totalUnread > 0 && (
+                <View style={[styles.statPill, { backgroundColor: C.cardDark }]}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.lime }} />
+                  <Text style={[styles.statText, { color: C.lime }]}>{totalUnread} unread</Text>
+                </View>
+              )}
+            </View>
           )}
         </View>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <MaterialIcons name="search" size={20} color={colors.textSecondary} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search chats..."
-          placeholderTextColor={colors.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          selectionColor={colors.primary}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <MaterialIcons name="close" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-        )}
-      </View>
+      </Animated.View>
 
       {isLoading || !initialLoadComplete ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading chats...</Text>
+          <View style={styles.loadingPulse}><ActivityIndicator size="large" color={C.accent} /></View>
+          <Text style={styles.loadingText}>Loading conversations...</Text>
         </View>
       ) : (
-        <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-          <ScrollView
-            style={styles.chatList}
-            showsVerticalScrollIndicator={false}
-          >
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.chatListContent} showsVerticalScrollIndicator={false}>
           {filteredChats.length > 0 ? (
-            filteredChats.map(renderChatItem)
+            <>{filteredChats.map((chat, i) => renderChatItem(chat, i))}<View style={{ height: 20 }} /></>
           ) : (
             <View style={styles.emptyState}>
-              <MaterialIcons name="chat-bubble-outline" size={64} color={colors.textSecondary} />
-              <Text style={styles.emptyStateTitle}>
-                {currentMode === 'coach' ? 'No clients yet' : 'No chats yet'}
+              <View style={styles.emptyIconOuter}>
+                <View style={styles.emptyIconInner}><ChatCircle size={36} color="#FFF" weight="fill" /></View>
+              </View>
+              <Text style={styles.emptyTitle}>
+                {debouncedSearchQuery ? 'No results found' : currentMode === 'coach' ? 'No clients yet' : 'No conversations yet'}
               </Text>
-              <Text style={styles.emptyStateSubtitle}>
-                {currentMode === 'coach' 
-                  ? 'Clients will appear here when they are assigned to you'
-                  : 'Start chatting with your health coach'
-                }
+              <Text style={styles.emptySub}>
+                {debouncedSearchQuery ? `No chats matching "${debouncedSearchQuery}"` : currentMode === 'coach' ? 'Clients will appear here once assigned' : 'Connect with a health coach to start'}
               </Text>
-              <TouchableOpacity
-                style={styles.startChatButton}
-                onPress={() => onNavigate?.(currentMode === 'coach' ? 'assign-client' : 'coach-selection')}
-              >
-                <Text style={styles.startChatButtonText}>
-                  {currentMode === 'coach' ? 'Manage Clients' : 'Find a Coach'}
-                </Text>
-              </TouchableOpacity>
+              {!debouncedSearchQuery && (
+                <TouchableOpacity style={styles.startBtn} onPress={() => onNavigate?.(currentMode === 'coach' ? 'assign-client' : 'coach-selection')} activeOpacity={0.8}>
+                  {currentMode === 'coach' ? <Users size={18} color="#FFF" weight="bold" /> : <PaperPlaneTilt size={18} color="#FFF" weight="fill" />}
+                  <Text style={styles.startBtnText}>{currentMode === 'coach' ? 'Manage Clients' : 'Find a Coach'}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
-          </ScrollView>
-        </Animated.View>
-      )}
-
-      {currentMode === 'coach' ? (
-        <CoachBottomNavigation
-          activeTab="chat"
-          onTabChange={(tab) => onNavigate?.(tab)}
-        />
-      ) : (
-        <BottomNavigation
-          activeTab="chat"
-          onTabChange={(tab) => onNavigate?.(tab)}
-        />
+        </ScrollView>
       )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerSubtitle: {
-    fontSize: fontSizes.sm,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  headerTitle: {
-    fontSize: fontSizes.xl,
-    fontFamily: 'Poppins_700Bold',
-    color: colors.textPrimary,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textPrimary,
-  },
-  chatList: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-  },
-  chatItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.sm,
-    ...shadows.sm,
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginRight: spacing.md,
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: colors.primaryPale,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  avatarText: {
-    fontSize: 24,
-  },
-  onlineIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: colors.success,
-    borderWidth: 2,
-    borderColor: colors.surface,
-  },
-  chatContent: {
-    flex: 1,
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  chatName: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  timestamp: {
-    fontSize: fontSizes.xs,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-  },
-  messagePreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  lastMessage: {
-    fontSize: fontSizes.sm,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  unreadBadge: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: spacing.sm,
-  },
-  unreadCount: {
-    fontSize: fontSizes.xs,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textLight,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-  },
-  emptyStateTitle: {
-    fontSize: fontSizes.lg,
-    fontFamily: 'Poppins_700Bold',
-    color: colors.textPrimary,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  emptyStateSubtitle: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  startChatButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-  },
-  startChatButtonText: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textLight,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-  },
-  loadingText: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-    marginTop: spacing.md,
-  },
+  container: { flex: 1, backgroundColor: C.bg },
+  headerArea: { paddingHorizontal: PAD, paddingTop: 24, paddingBottom: 16, backgroundColor: C.bg },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+  headerGreeting: { fontSize: 13, fontFamily: F.medium, color: C.dim, marginBottom: 2 },
+  headerTitle: { fontSize: 28, fontFamily: F.bold, color: C.text, letterSpacing: -0.5 },
+  headerActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  headerBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#ECFDF5', justifyContent: 'center', alignItems: 'center' },
+  headerBtnAccent: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.accent, justifyContent: 'center', alignItems: 'center' },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 16, borderWidth: 1.5, borderColor: C.border, gap: 10 },
+  searchFocused: { borderColor: C.accent },
+  searchInput: { flex: 1, fontSize: 15, fontFamily: F.medium, color: C.text, padding: 0 },
+  searchClearBg: { width: 22, height: 22, borderRadius: 11, backgroundColor: C.border, justifyContent: 'center', alignItems: 'center' },
+  statsRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  statPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#ECFDF5', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20 },
+  statText: { fontSize: 12, fontFamily: F.semi, color: C.accent },
+  chatListContent: { paddingHorizontal: PAD, paddingTop: 8, paddingBottom: 110 },
+  chatItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, padding: 14, borderRadius: 20, marginBottom: 10, borderWidth: 1, borderColor: C.border },
+  chatItemUnread: { borderColor: 'rgba(16,185,129,0.3)', backgroundColor: '#F0FDF9' },
+  avatarContainer: { position: 'relative', marginRight: 14 },
+  avatar: { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center' },
+  avatarImage: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: C.accent },
+  avatarEmoji: { fontSize: 24 },
+  avatarText: { fontSize: 19, fontFamily: F.bold, color: '#FFF' },
+  onlineRing: { position: 'absolute', bottom: -1, right: -1, width: 18, height: 18, borderRadius: 9, backgroundColor: C.card, justifyContent: 'center', alignItems: 'center' },
+  onlineIndicator: { width: 12, height: 12, borderRadius: 6, backgroundColor: C.accent },
+  chatContent: { flex: 1 },
+  chatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 },
+  chatName: { fontSize: 15, fontFamily: F.semi, color: C.text, flex: 1, marginRight: 8 },
+  timestamp: { fontSize: 12, fontFamily: F.medium, color: C.dim },
+  timestampUnread: { color: C.accent, fontFamily: F.semi },
+  messagePreview: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  lastMessageRow: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 },
+  lastMessage: { fontSize: 13, fontFamily: F.regular, color: C.dim, flex: 1 },
+  lastMessageUnread: { color: C.text, fontFamily: F.medium },
+  unreadBadge: { backgroundColor: C.accent, borderRadius: 12, minWidth: 24, height: 24, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 7 },
+  unreadCount: { fontSize: 11, fontFamily: F.bold, color: '#FFF' },
+  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80, paddingHorizontal: 32 },
+  emptyIconOuter: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#ECFDF5', justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
+  emptyIconInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: C.accent, justifyContent: 'center', alignItems: 'center' },
+  emptyTitle: { fontSize: 20, fontFamily: F.bold, color: C.text, marginBottom: 8, textAlign: 'center' },
+  emptySub: { fontSize: 14, fontFamily: F.regular, color: C.dim, textAlign: 'center', marginBottom: 28, lineHeight: 22 },
+  startBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.cardDark, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 28 },
+  startBtnText: { fontSize: 15, fontFamily: F.semi, color: '#FFF' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
+  loadingPulse: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#ECFDF5', justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
+  loadingText: { fontSize: 14, fontFamily: F.medium, color: C.dim },
 });

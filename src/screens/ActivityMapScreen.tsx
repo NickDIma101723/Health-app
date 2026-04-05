@@ -1,22 +1,28 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Platform, ScrollView } from 'react-native';
-import { MaterialIcons, FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { CaretLeft, PersonSimpleRun, PersonSimpleWalk, Bicycle, Timer, Flame, Gauge, Crosshair, Play, Pause, Stop, Lightning, Sparkle, ListNumbers, CaretUp, CaretDown, ArrowRight, Flag, FlagCheckered } from 'phosphor-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import Mapbox from '@rnmapbox/maps';
 import { analyzeWorkoutWithGemini } from '../lib/gemini';
-import { MAPBOX_TOKEN, getMapStyle } from '../lib/mapStyle';
+import { MAPBOX_TOKEN } from '../lib/mapStyle';
 
 Mapbox.setAccessToken(MAPBOX_TOKEN);
 
 const { width, height } = Dimensions.get('window');
+
+const F = {
+  bold: 'PlusJakartaSans_700Bold',
+  semi: 'PlusJakartaSans_600SemiBold',
+  medium: 'PlusJakartaSans_500Medium',
+  regular: 'PlusJakartaSans_400Regular',
+} as const;
 
 const S_COLORS = {
   bg: '#F4F6FB',
   card: '#FFFFFF',
   accent: '#FF477E',
   accentSecondary: '#7C3AED',
-  accentCyan: '#00F0FF',
   text: '#1A1A24',
   textDim: '#8A8A9D',
   border: '#EAEDF4',
@@ -24,10 +30,16 @@ const S_COLORS = {
 
 type ActivityType = 'run' | 'walk' | 'cycle';
 
-const ACTIVITY_CONFIG: Record<ActivityType, { icon: string; label: string; caloriesPerKm: number; iconFamily: 'MaterialIcons' | 'MaterialCommunityIcons' }> = {
-  run: { icon: 'directions-run', label: 'Run', caloriesPerKm: 65, iconFamily: 'MaterialIcons' },
-  walk: { icon: 'walk', label: 'Walk', caloriesPerKm: 45, iconFamily: 'MaterialCommunityIcons' },
-  cycle: { icon: 'bike', label: 'Cycle', caloriesPerKm: 30, iconFamily: 'MaterialCommunityIcons' },
+const ACTIVITY_CONFIG: Record<ActivityType, { label: string; caloriesPerKm: number }> = {
+  run: { label: 'Run', caloriesPerKm: 65 },
+  walk: { label: 'Walk', caloriesPerKm: 45 },
+  cycle: { label: 'Cycle', caloriesPerKm: 30 },
+};
+
+const ACTIVITY_ICONS: Record<ActivityType, React.ComponentType<any>> = {
+  run: PersonSimpleRun,
+  walk: PersonSimpleWalk,
+  cycle: Bicycle,
 };
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -83,7 +95,6 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
     return () => clearInterval(interval);
   }, [isTracking, isPaused]);
 
-  // Track splits (per-km)
   useEffect(() => {
     const currentWholeKm = Math.floor(distanceKm);
     const lastWholeKm = Math.floor(lastSplitKm);
@@ -114,12 +125,10 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
         const speed = loc.coords.speed;
         const altitude = loc.coords.altitude;
 
-        // Current speed
         if (speed !== null && speed >= 0) {
           setCurrentSpeedKmh(speed * 3.6);
         }
 
-        // Elevation
         if (altitude !== null) {
           setLastAltitude(prev => {
             if (prev !== null && altitude > prev) {
@@ -205,7 +214,6 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
   const stopTracking = () => {
     setIsTracking(false); setIsPaused(false);
     if (subscription) { subscription.remove(); setSubscription(null); }
-    // Fit route in view
     if (routeCoordinates.length >= 2) {
       const lngs = routeCoordinates.map(c => c.longitude);
       const lats = routeCoordinates.map(c => c.latitude);
@@ -280,9 +288,8 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
   const endPoint = !isTracking && routeCoordinates.length > 1 ? routeCoordinates[routeCoordinates.length - 1] : null;
 
   const ActivityIcon = ({ type, size, color }: { type: ActivityType; size: number; color: string }) => {
-    const cfg = ACTIVITY_CONFIG[type];
-    if (cfg.iconFamily === 'MaterialCommunityIcons') return <MaterialCommunityIcons name={cfg.icon as any} size={size} color={color} />;
-    return <MaterialIcons name={cfg.icon as any} size={size} color={color} />;
+    const Icon = ACTIVITY_ICONS[type];
+    return <Icon size={size} color={color} weight="fill" />;
   };
 
   return (
@@ -290,7 +297,7 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
       <Mapbox.MapView
         ref={mapRef}
         style={StyleSheet.absoluteFillObject}
-        styleURL={getMapStyle()}
+        styleURL="mapbox://styles/mapbox/dark-v11"
         attributionEnabled={false}
         logoEnabled={false}
         compassEnabled={false}
@@ -305,7 +312,6 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
         />
         <Mapbox.LocationPuck puckBearingEnabled puckBearing="heading" />
 
-        {/* Route line */}
         {routeCoordinates.length >= 2 && (
           <Mapbox.ShapeSource id="routeSource" shape={routeGeoJSON}>
             <Mapbox.LineLayer
@@ -320,21 +326,19 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
           </Mapbox.ShapeSource>
         )}
 
-        {/* Start marker */}
         {startPoint && (
           <Mapbox.PointAnnotation id="startMarker" coordinate={[startPoint.longitude, startPoint.latitude]}>
             <View style={styles.markerStart}>
-              <MaterialIcons name="play-arrow" size={14} color="#FFF" />
+              <Play size={10} color="#FFF" weight="fill" />
             </View>
             <Mapbox.Callout title="Start" />
           </Mapbox.PointAnnotation>
         )}
 
-        {/* End marker */}
         {endPoint && (
           <Mapbox.PointAnnotation id="endMarker" coordinate={[endPoint.longitude, endPoint.latitude]}>
             <View style={styles.markerEnd}>
-              <MaterialIcons name="flag" size={14} color="#FFF" />
+              <Flag size={10} color="#FFF" weight="fill" />
             </View>
             <Mapbox.Callout title="Finish" />
           </Mapbox.PointAnnotation>
@@ -344,7 +348,7 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
       {/* Top header */}
       <View style={styles.topHeader}>
         <TouchableOpacity style={styles.backButton} onPress={() => onNavigate('home')}>
-          <Ionicons name="chevron-back" size={24} color={S_COLORS.text} style={{ marginLeft: -2 }} />
+          <CaretLeft size={22} color={S_COLORS.text} weight="bold" />
         </TouchableOpacity>
 
         {isTracking && (
@@ -355,7 +359,7 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
         )}
       </View>
 
-      {/* Activity type selector (only before tracking) */}
+      {/* Activity type selector */}
       {!isTracking && distanceKm === 0 && (
         <View style={styles.activitySelector}>
           {(Object.keys(ACTIVITY_CONFIG) as ActivityType[]).map(type => (
@@ -377,15 +381,15 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
       {/* Center on me button */}
       {isTracking && !isFollowing && (
         <TouchableOpacity style={styles.centerButton} onPress={centerOnMe} activeOpacity={0.85}>
-          <MaterialIcons name="my-location" size={22} color={S_COLORS.accentSecondary} />
+          <Crosshair size={22} color={S_COLORS.accentSecondary} weight="bold" />
         </TouchableOpacity>
       )}
 
-      {/* Live pace badge while tracking */}
+      {/* Live pace badge */}
       {isTracking && !isPaused && (
         <View style={styles.livePaceBadge}>
           <LinearGradient colors={['#7C3AED', '#FF477E']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.livePaceGradient}>
-            <MaterialIcons name="speed" size={16} color="#FFF" />
+            <Lightning size={16} color="#FFF" weight="fill" />
             <Text style={styles.livePaceText}>{currentSpeedKmh.toFixed(1)} km/h</Text>
           </LinearGradient>
         </View>
@@ -395,18 +399,17 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
       <View style={styles.bottomSheet}>
         <View style={styles.handleBar} />
 
-        {/* Distance + timer combo */}
         <View style={styles.distanceHero}>
           <View style={{ alignItems: 'center' }}>
             <Text style={styles.distanceNumber}>{distanceKm.toFixed(2)}</Text>
             <View style={styles.distanceUnitRow}>
               <View style={styles.distanceDot} />
-              <Text style={styles.distanceUnit}>km</Text>
+              <Text style={styles.distanceUnit}>K M</Text>
             </View>
           </View>
           {isTracking && (
             <View style={styles.liveTimerBox}>
-              <MaterialIcons name="timer" size={16} color={isPaused ? '#FF8A00' : '#0088FF'} />
+              <Timer size={16} color={isPaused ? '#FF8A00' : '#0088FF'} weight="fill" />
               <Text style={[styles.liveTimerText, isPaused && { color: '#FF8A00' }]}>{formatTime(durationSec)}</Text>
             </View>
           )}
@@ -416,42 +419,35 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
         <View style={styles.statsRow}>
           <View style={styles.statPill}>
             <LinearGradient colors={['rgba(0,136,255,0.12)', 'rgba(0,136,255,0.04)']} style={styles.statPillGrad}>
-              <MaterialIcons name="timer" size={16} color="#0088FF" />
+              <Timer size={18} color="#0088FF" weight="fill" />
               <Text style={styles.statPillValue}>{formatTime(durationSec)}</Text>
-              <Text style={styles.statPillLabel}>Time</Text>
+              <Text style={styles.statPillLabel}>TIME</Text>
             </LinearGradient>
           </View>
           <View style={styles.statPill}>
             <LinearGradient colors={['rgba(124,58,237,0.12)', 'rgba(124,58,237,0.04)']} style={styles.statPillGrad}>
-              <MaterialIcons name="speed" size={16} color={S_COLORS.accentSecondary} />
+              <PersonSimpleRun size={18} color={S_COLORS.accentSecondary} weight="fill" />
               <Text style={styles.statPillValue}>{calculatePace()}</Text>
-              <Text style={styles.statPillLabel}>Avg Pace</Text>
+              <Text style={styles.statPillLabel}>AVG PACE</Text>
             </LinearGradient>
           </View>
           <View style={styles.statPill}>
             <LinearGradient colors={['rgba(255,138,0,0.12)', 'rgba(255,138,0,0.04)']} style={styles.statPillGrad}>
-              <MaterialIcons name="local-fire-department" size={16} color="#FF8A00" />
+              <Flame size={18} color="#FF8A00" weight="fill" />
               <Text style={styles.statPillValue}>{calories}</Text>
-              <Text style={styles.statPillLabel}>Cal</Text>
-            </LinearGradient>
-          </View>
-          <View style={styles.statPill}>
-            <LinearGradient colors={['rgba(76,175,80,0.12)', 'rgba(76,175,80,0.04)']} style={styles.statPillGrad}>
-              <MaterialIcons name="terrain" size={16} color="#4CAF50" />
-              <Text style={styles.statPillValue}>{Math.round(elevationGain)}m</Text>
-              <Text style={styles.statPillLabel}>Elev.</Text>
+              <Text style={styles.statPillLabel}>CAL</Text>
             </LinearGradient>
           </View>
         </View>
 
-        {/* Splits (after workout) */}
+        {/* Splits */}
         {!isTracking && splits.length > 0 && (
           <TouchableOpacity style={styles.splitsToggle} onPress={() => setShowSplits(!showSplits)} activeOpacity={0.7}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <MaterialIcons name="format-list-numbered" size={18} color={S_COLORS.accentSecondary} />
+              <ListNumbers size={18} color={S_COLORS.accentSecondary} />
               <Text style={styles.splitsToggleText}>Km Splits ({splits.length})</Text>
             </View>
-            <MaterialIcons name={showSplits ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={22} color={S_COLORS.textDim} />
+            {showSplits ? <CaretUp size={22} color={S_COLORS.textDim} /> : <CaretDown size={22} color={S_COLORS.textDim} />}
           </TouchableOpacity>
         )}
         {showSplits && splits.length > 0 && (
@@ -465,15 +461,15 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
           </ScrollView>
         )}
 
-        {/* AI Insight Section */}
+        {/* AI */}
         {!isTracking && distanceKm > 0 && (
           <View style={styles.aiSection}>
             {!aiInsight && !isAnalyzing && (
               <TouchableOpacity style={{ width: '100%' }} activeOpacity={0.85} onPress={generateGeminiInsight}>
                 <LinearGradient colors={['#7C3AED', '#FF477E']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.aiButton}>
-                  <View style={styles.aiButtonIcon}><FontAwesome5 name="magic" size={14} color="#FFF" /></View>
+                  <View style={styles.aiButtonIcon}><Sparkle size={14} color="#FFF" weight="fill" /></View>
                   <Text style={styles.aiButtonText}>AI Coach Analysis</Text>
-                  <MaterialIcons name="arrow-forward" size={18} color="rgba(255,255,255,0.7)" />
+                  <ArrowRight size={18} color="rgba(255,255,255,0.7)" />
                 </LinearGradient>
               </TouchableOpacity>
             )}
@@ -486,7 +482,7 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
             {aiInsight && (
               <View style={styles.aiInsightBox}>
                 <View style={styles.aiHeader}>
-                  <View style={styles.aiHeaderIcon}><FontAwesome5 name="robot" size={14} color={S_COLORS.accentSecondary} /></View>
+                  <View style={styles.aiHeaderIcon}><Sparkle size={14} color={S_COLORS.accentSecondary} weight="fill" /></View>
                   <Text style={styles.aiTitle}>Coach Insight</Text>
                 </View>
                 <Text style={styles.aiInsightText}>{aiInsight}</Text>
@@ -500,21 +496,21 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
           <View style={styles.trackingActions}>
             <TouchableOpacity style={styles.secondaryActionBtn} activeOpacity={0.85} onPress={isPaused ? resumeTracking : pauseTracking}>
               <View style={[styles.secondaryActionInner, { backgroundColor: isPaused ? 'rgba(0,136,255,0.12)' : 'rgba(255,138,0,0.12)' }]}>
-                <MaterialIcons name={isPaused ? "play-arrow" : "pause"} size={26} color={isPaused ? '#0088FF' : '#FF8A00'} />
+                {isPaused ? <Play size={26} color="#0088FF" weight="fill" /> : <Pause size={26} color="#FF8A00" weight="fill" />}
               </View>
               <Text style={styles.secondaryActionLabel}>{isPaused ? 'Resume' : 'Pause'}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.stopActionBtn} activeOpacity={0.85} onPress={stopTracking}>
               <LinearGradient colors={['#FF477E', '#FF512F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.stopActionGrad}>
-                <MaterialIcons name="stop" size={28} color="#FFF" />
+                <Stop size={28} color="#FFF" weight="fill" />
               </LinearGradient>
               <Text style={styles.secondaryActionLabel}>Finish</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.secondaryActionBtn} activeOpacity={0.85} onPress={centerOnMe}>
               <View style={[styles.secondaryActionInner, { backgroundColor: 'rgba(124,58,237,0.12)' }]}>
-                <MaterialIcons name="my-location" size={22} color={S_COLORS.accentSecondary} />
+                <Crosshair size={22} color={S_COLORS.accentSecondary} weight="bold" />
               </View>
               <Text style={styles.secondaryActionLabel}>Center</Text>
             </TouchableOpacity>
@@ -539,91 +535,82 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: S_COLORS.bg },
+  container: { flex: 1, backgroundColor: '#1A1A24' },
 
-  topHeader: { position: 'absolute', top: Platform.OS === 'ios' ? 60 : 40, left: 24, right: 24, flexDirection: 'row', justifyContent: 'space-between', zIndex: 10 },
-  backButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: S_COLORS.card, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 5 },
+  topHeader: { position: 'absolute', top: Platform.OS === 'ios' ? 54 : 24, left: 24, right: 24, flexDirection: 'row', justifyContent: 'space-between', zIndex: 10 },
+  backButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: S_COLORS.card, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 5 },
 
   trackingIndicator: { flexDirection: 'row', alignItems: 'center', backgroundColor: S_COLORS.card, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 5 },
   trackingPaused: { borderWidth: 1.5, borderColor: '#FF8A00' },
   trackingDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: S_COLORS.accent, marginRight: 8 },
-  trackingText: { fontFamily: 'Poppins_700Bold', fontSize: 13, color: S_COLORS.text, letterSpacing: 1 },
+  trackingText: { fontFamily: F.bold, fontSize: 13, color: S_COLORS.text, letterSpacing: 1 },
 
-  // Activity selector
-  activitySelector: { position: 'absolute', top: Platform.OS === 'ios' ? 118 : 98, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 10, zIndex: 10 },
-  activityChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: S_COLORS.card, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
+  activitySelector: { position: 'absolute', top: Platform.OS === 'ios' ? 112 : 82, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 10, zIndex: 10 },
+  activityChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: S_COLORS.card, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
   activityChipActive: { backgroundColor: S_COLORS.accentSecondary },
-  activityChipText: { fontFamily: 'Quicksand_600SemiBold', fontSize: 14, color: S_COLORS.textDim },
+  activityChipText: { fontFamily: F.semi, fontSize: 14, color: S_COLORS.textDim },
   activityChipTextActive: { color: '#FFF' },
 
-  // Center button
   centerButton: { position: 'absolute', right: 24, bottom: 380, width: 48, height: 48, borderRadius: 24, backgroundColor: S_COLORS.card, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5, zIndex: 10 },
 
-  // Live pace badge
   livePaceBadge: { position: 'absolute', left: 24, bottom: 380, zIndex: 10 },
   livePaceGradient: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
-  livePaceText: { fontFamily: 'Poppins_700Bold', fontSize: 14, color: '#FFF' },
+  livePaceText: { fontFamily: F.bold, fontSize: 14, color: '#FFF' },
 
-  // Markers
   markerStart: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#4CAF50', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#FFF' },
   markerEnd: { width: 28, height: 28, borderRadius: 14, backgroundColor: S_COLORS.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#FFF' },
 
-  // Bottom sheet
   bottomSheet: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: S_COLORS.card,
     borderTopLeftRadius: 32, borderTopRightRadius: 32,
     paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 34 : 20, paddingHorizontal: 24,
-    shadowColor: '#000', shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.10, shadowRadius: 24, elevation: 24,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.12, shadowRadius: 24, elevation: 24,
   },
-  handleBar: { width: 40, height: 5, backgroundColor: S_COLORS.border, borderRadius: 3, alignSelf: 'center', marginBottom: 14 },
+  handleBar: { width: 40, height: 5, backgroundColor: '#E0E0E5', borderRadius: 3, alignSelf: 'center', marginBottom: 18 },
 
-  distanceHero: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 16, gap: 20 },
-  distanceNumber: { fontFamily: 'Poppins_700Bold', fontSize: 52, color: S_COLORS.text, letterSpacing: -2, lineHeight: 56 },
-  distanceUnitRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: -4 },
-  distanceDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: S_COLORS.accent, marginRight: 4 },
-  distanceUnit: { fontFamily: 'Poppins_600SemiBold', fontSize: 14, color: S_COLORS.textDim, textTransform: 'uppercase', letterSpacing: 2 },
+  distanceHero: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 18, gap: 20 },
+  distanceNumber: { fontFamily: F.bold, fontSize: 52, color: S_COLORS.text, letterSpacing: -2, lineHeight: 56 },
+  distanceUnitRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: -2 },
+  distanceDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: S_COLORS.accent, marginRight: 5 },
+  distanceUnit: { fontFamily: F.semi, fontSize: 13, color: S_COLORS.textDim, letterSpacing: 3 },
 
   liveTimerBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: S_COLORS.bg, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16 },
-  liveTimerText: { fontFamily: 'Poppins_700Bold', fontSize: 22, color: '#0088FF', fontVariant: ['tabular-nums'] },
+  liveTimerText: { fontFamily: F.bold, fontSize: 22, color: '#0088FF' },
 
-  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   statPill: { flex: 1 },
-  statPillGrad: { alignItems: 'center', paddingVertical: 12, borderRadius: 18, gap: 2 },
-  statPillValue: { fontFamily: 'Poppins_700Bold', fontSize: 15, color: S_COLORS.text, marginTop: 4 },
-  statPillLabel: { fontFamily: 'Quicksand_500Medium', fontSize: 10, color: S_COLORS.textDim, textTransform: 'uppercase', letterSpacing: 0.5 },
+  statPillGrad: { alignItems: 'center', paddingVertical: 14, borderRadius: 20, gap: 3 },
+  statPillValue: { fontFamily: F.bold, fontSize: 16, color: S_COLORS.text, marginTop: 5 },
+  statPillLabel: { fontFamily: F.medium, fontSize: 10, color: S_COLORS.textDim, letterSpacing: 0.8 },
 
-  // Splits
   splitsToggle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: S_COLORS.bg, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, marginBottom: 10 },
-  splitsToggleText: { fontFamily: 'Poppins_700Bold', fontSize: 14, color: S_COLORS.text },
+  splitsToggleText: { fontFamily: F.bold, fontSize: 14, color: S_COLORS.text },
   splitsList: { maxHeight: 120, backgroundColor: S_COLORS.bg, borderRadius: 16, paddingHorizontal: 16, marginBottom: 10 },
   splitRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: S_COLORS.border },
-  splitKm: { fontFamily: 'Quicksand_600SemiBold', fontSize: 14, color: S_COLORS.text },
-  splitTime: { fontFamily: 'Poppins_700Bold', fontSize: 14, color: S_COLORS.accentSecondary },
+  splitKm: { fontFamily: F.semi, fontSize: 14, color: S_COLORS.text },
+  splitTime: { fontFamily: F.bold, fontSize: 14, color: S_COLORS.accentSecondary },
 
-  // AI
   aiSection: { marginBottom: 14 },
   aiButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 20, gap: 10 },
   aiButtonIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  aiButtonText: { fontFamily: 'Poppins_700Bold', color: '#FFF', fontSize: 14, flex: 1 },
+  aiButtonText: { fontFamily: F.bold, color: '#FFF', fontSize: 14, flex: 1 },
   aiLoader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, gap: 10, backgroundColor: S_COLORS.bg, borderRadius: 20 },
-  aiLoaderText: { fontFamily: 'Quicksand_500Medium', color: S_COLORS.textDim, fontSize: 13 },
+  aiLoaderText: { fontFamily: F.medium, color: S_COLORS.textDim, fontSize: 13 },
   aiInsightBox: { backgroundColor: S_COLORS.bg, padding: 18, borderRadius: 20, borderWidth: 1, borderColor: S_COLORS.border },
   aiHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   aiHeaderIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(124,58,237,0.1)', alignItems: 'center', justifyContent: 'center' },
-  aiTitle: { fontFamily: 'Poppins_700Bold', color: S_COLORS.text, fontSize: 15 },
-  aiInsightText: { fontFamily: 'Quicksand_500Medium', color: S_COLORS.text, fontSize: 13, lineHeight: 20 },
+  aiTitle: { fontFamily: F.bold, color: S_COLORS.text, fontSize: 15 },
+  aiInsightText: { fontFamily: F.regular, color: S_COLORS.text, fontSize: 13, lineHeight: 20 },
 
-  // Tracking action buttons (pause/stop/center)
   trackingActions: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 24 },
   secondaryActionBtn: { alignItems: 'center', gap: 6 },
   secondaryActionInner: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  secondaryActionLabel: { fontFamily: 'Quicksand_600SemiBold', fontSize: 12, color: S_COLORS.textDim },
+  secondaryActionLabel: { fontFamily: F.semi, fontSize: 12, color: S_COLORS.textDim },
   stopActionBtn: { alignItems: 'center', gap: 6 },
   stopActionGrad: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
 
-  // Start button
   actionShadow: { shadowColor: S_COLORS.accentSecondary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 12 },
   actionButton: { width: '100%', paddingVertical: 18, borderRadius: 100, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10 },
-  actionButtonText: { fontFamily: 'Poppins_700Bold', color: '#FFFFFF', fontSize: 16, letterSpacing: 0.5 },
+  actionButtonText: { fontFamily: F.bold, color: '#FFFFFF', fontSize: 16, letterSpacing: 0.5 },
 });

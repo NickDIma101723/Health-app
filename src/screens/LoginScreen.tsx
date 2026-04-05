@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,80 +7,65 @@ import {
   Platform,
   ScrollView,
   TouchableOpacity,
-  Alert,
-  Animated,
+  TextInput,
+  ActivityIndicator,
   Modal,
 } from 'react-native';
-import { Button, Input } from '../components/ui';
-import { colors, spacing, fontSizes, borderRadius } from '../constants/theme';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Eye, EyeSlash, EnvelopeSimple, Lock } from 'phosphor-react-native';
 import { useAuth } from '../contexts/AuthContext';
 
 interface LoginScreenProps {
   onNavigateToRegister: () => void;
 }
 
+const C = {
+  bg: '#FAFAFA', card: '#FFFFFF', cardDark: '#111111',
+  accent: '#10B981', accentSoft: '#ECFDF5', lime: '#D4F940',
+  warmBg: '#F5F0EB', text: '#1A1A1A', dim: '#8C8C8C',
+  border: '#EEEEEE', red: '#EF4444',
+};
+const F = {
+  bold: 'PlusJakartaSans_700Bold',
+  semi: 'PlusJakartaSans_600SemiBold',
+  medium: 'PlusJakartaSans_500Medium',
+  regular: 'PlusJakartaSans_400Regular',
+};
+
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }) => {
   const { signIn, resetPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: false,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  }, []);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {};
-    
-    if (!email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Email is invalid';
-    }
-    
-    if (!password) {
-      newErrors.password = 'Password is required';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
-    
+    if (!email) newErrors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = 'Email is invalid';
+    if (!password) newErrors.password = 'Password is required';
+    else if (password.length < 6) newErrors.password = 'Password must be at least 6 characters';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleLogin = async () => {
     if (!validateForm()) return;
-
     console.log('[LoginScreen] Attempting login...');
     setLoading(true);
     setErrors({});
-    
     try {
       const { error } = await signIn(email.trim(), password.trim());
       setLoading(false);
-
       if (error) {
         console.error('[LoginScreen] Login error:', error);
         const newErrors: { email?: string; password?: string } = {};
-        
         if (error.message.includes('Invalid login credentials')) {
           newErrors.password = 'Wrong password or email';
         } else if (error.message.includes('Email not confirmed')) {
@@ -90,7 +75,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
         } else {
           newErrors.password = error.message || 'Login failed';
         }
-        
         setErrors(newErrors);
       } else {
         console.log('[LoginScreen] Login successful');
@@ -108,129 +92,121 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
   };
 
   const handleResetPassword = async () => {
-    if (!resetEmail || !/\S+@\S+\.\S+/.test(resetEmail)) {
-      return;
-    }
-
+    if (!resetEmail || !/\S+@\S+\.\S+/.test(resetEmail)) return;
     setResetLoading(true);
-    const { error } = await resetPassword(resetEmail);
+    await resetPassword(resetEmail);
     setResetLoading(false);
-
-    if (error) {
-      setShowResetModal(false);
-    } else {
-      setShowResetModal(false);
-    }
+    setShowResetModal(false);
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Animated.View
-          style={[
-            styles.header,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <View style={styles.decorativeShapes}>
-            <View style={[styles.shape, styles.shapeOne]} />
-            <View style={[styles.shape, styles.shapeTwo]} />
+    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={s.header}>
+          <View style={s.logoBadge}>
+            <Text style={s.logoLetter}>A</Text>
           </View>
-          
-          <Text style={styles.greeting}>Welcome</Text>
-          <Text style={styles.title}>Let's start your wellness journey</Text>
+          <Text style={s.greeting}>WELCOME BACK</Text>
+          <Text style={s.title}>Sign in to{'\n'}your account</Text>
         </Animated.View>
 
-        <Animated.View
-          style={[
-            styles.formContainer,
-            {
-              opacity: fadeAnim,
-            },
-          ]}
-        >
-          <Input
-            placeholder="Your email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            error={errors.email}
-          />
+        {/* Form */}
+        <Animated.View entering={FadeInDown.delay(250).duration(500)} style={s.form}>
+          {/* Email */}
+          <View>
+            <Text style={s.label}>Email</Text>
+            <View style={[s.inputWrap, emailFocused && s.inputFocused, errors.email ? s.inputError : null]}>
+              <EnvelopeSimple size={18} color={emailFocused ? C.accent : C.dim} weight="bold" />
+              <TextInput
+                style={s.input}
+                placeholder="you@example.com"
+                placeholderTextColor={C.dim}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => setEmailFocused(false)}
+              />
+            </View>
+            {errors.email ? <Text style={s.errorText}>{errors.email}</Text> : null}
+          </View>
 
-          <Input
-            placeholder="Your password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            error={errors.password}
-          />
+          {/* Password */}
+          <View>
+            <Text style={s.label}>Password</Text>
+            <View style={[s.inputWrap, passwordFocused && s.inputFocused, errors.password ? s.inputError : null]}>
+              <Lock size={18} color={passwordFocused ? C.accent : C.dim} weight="bold" />
+              <TextInput
+                style={s.input}
+                placeholder="Enter your password"
+                placeholderTextColor={C.dim}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                {showPassword
+                  ? <Eye size={18} color={C.dim} />
+                  : <EyeSlash size={18} color={C.dim} />}
+              </TouchableOpacity>
+            </View>
+            {errors.password ? <Text style={s.errorText}>{errors.password}</Text> : null}
+          </View>
 
-          <TouchableOpacity style={styles.forgotPassword} onPress={handleForgotPassword}>
-            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+          <TouchableOpacity onPress={handleForgotPassword} style={s.forgotRow}>
+            <Text style={s.forgotText}>Forgot password?</Text>
           </TouchableOpacity>
 
-          <Button
-            title="Sign In"
+          {/* Sign In Button */}
+          <TouchableOpacity
+            style={[s.primaryBtn, loading && { opacity: 0.7 }]}
             onPress={handleLogin}
-            loading={loading}
-            fullWidth
-            variant="primary"
-            size="lg"
-          />
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading
+              ? <ActivityIndicator color={C.lime} />
+              : <Text style={s.primaryBtnText}>Sign In</Text>}
+          </TouchableOpacity>
+        </Animated.View>
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>New to Aria? </Text>
-            <TouchableOpacity onPress={onNavigateToRegister}>
-              <Text style={styles.footerLink}>Create account</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Footer */}
+        <Animated.View entering={FadeInDown.delay(400).duration(500)} style={s.footer}>
+          <Text style={s.footerText}>New to Aria? </Text>
+          <TouchableOpacity onPress={onNavigateToRegister}>
+            <Text style={s.footerLink}>Create account</Text>
+          </TouchableOpacity>
         </Animated.View>
       </ScrollView>
 
-      <Modal
-        visible={showResetModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowResetModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Reset Password</Text>
-            <Text style={styles.modalDescription}>
-              Enter your email address and we'll send you a link to reset your password.
-            </Text>
-            
-            <Input
-              placeholder="Your email"
-              value={resetEmail}
-              onChangeText={setResetEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalButtonCancel}
-                onPress={() => setShowResetModal(false)}
-              >
-                <Text style={styles.modalButtonCancelText}>Cancel</Text>
+      {/* Reset Password Modal */}
+      <Modal visible={showResetModal} transparent animationType="fade" onRequestClose={() => setShowResetModal(false)}>
+        <View style={s.overlay}>
+          <View style={s.modal}>
+            <Text style={s.modalTitle}>Reset Password</Text>
+            <Text style={s.modalDesc}>We'll send a reset link to your email address.</Text>
+            <View style={[s.inputWrap, { marginBottom: 16 }]}>
+              <EnvelopeSimple size={18} color={C.dim} weight="bold" />
+              <TextInput
+                style={s.input}
+                placeholder="your@email.com"
+                placeholderTextColor={C.dim}
+                value={resetEmail}
+                onChangeText={setResetEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+            <View style={s.modalBtns}>
+              <TouchableOpacity style={s.cancelBtn} onPress={() => setShowResetModal(false)}>
+                <Text style={s.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={styles.modalButtonConfirm}
-                onPress={handleResetPassword}
-                disabled={resetLoading}
-              >
-                <Text style={styles.modalButtonConfirmText} numberOfLines={1}>
-                  {resetLoading ? 'Sending...' : 'Send Reset'}
-                </Text>
+              <TouchableOpacity style={s.confirmBtn} onPress={handleResetPassword} disabled={resetLoading}>
+                <Text style={s.confirmBtnText}>{resetLoading ? 'Sending...' : 'Send Link'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -240,153 +216,84 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.bg },
+  scrollContent: { flexGrow: 1, padding: 24, paddingTop: 70 },
+
+  header: { marginBottom: 40 },
+  logoBadge: {
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: C.cardDark, justifyContent: 'center', alignItems: 'center',
+    marginBottom: 20,
   },
-  scrollContent: {
-    flexGrow: 1,
-    padding: spacing.xl,
-    paddingTop: spacing.xxxl,
-  },
-  header: {
-    marginBottom: spacing.xxxl,
-    position: 'relative',
-  },
-  decorativeShapes: {
-    position: 'absolute',
-    top: -20,
-    right: 0,
-    width: 100,
-    height: 100,
-  },
-  shape: {
-    position: 'absolute',
-    borderRadius: borderRadius.full,
-  },
-  shapeOne: {
-    width: 60,
-    height: 60,
-    backgroundColor: colors.primaryLight,
-    top: 0,
-    right: 0,
-  },
-  shapeTwo: {
-    width: 40,
-    height: 40,
-    backgroundColor: colors.secondaryLight,
-    bottom: 0,
-    left: 20,
-  },
+  logoLetter: { fontSize: 22, fontFamily: F.bold, color: C.lime },
   greeting: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-    fontWeight: '500',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    fontFamily: 'Quicksand_600SemiBold',
+    fontSize: 11, fontFamily: F.semi, color: C.dim,
+    letterSpacing: 2.5, marginBottom: 6,
   },
   title: {
-    fontSize: fontSizes.xxl,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    lineHeight: 42,
-    letterSpacing: -0.5,
-    fontFamily: 'Poppins_700Bold',
+    fontSize: 30, fontFamily: F.bold, color: C.text,
+    lineHeight: 38, letterSpacing: -0.8,
   },
-  formContainer: {
-    gap: spacing.md,
+
+  form: { gap: 18 },
+  label: {
+    fontSize: 13, fontFamily: F.semi, color: C.text,
+    marginBottom: 6, marginLeft: 2,
   },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginTop: -spacing.xs,
-    marginBottom: spacing.sm,
+  inputWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.card, borderRadius: 14,
+    borderWidth: 1.5, borderColor: C.border,
+    paddingHorizontal: 14, height: 52, gap: 10,
   },
-  forgotPasswordText: {
-    color: colors.primary,
-    fontSize: fontSizes.sm,
-    fontWeight: '600',
-    fontFamily: 'Quicksand_600SemiBold',
+  inputFocused: { borderColor: C.accent, backgroundColor: C.accentSoft },
+  inputError: { borderColor: C.red },
+  input: {
+    flex: 1, fontSize: 15, fontFamily: F.medium, color: C.text,
+    paddingVertical: 0,
   },
+  errorText: {
+    fontSize: 12, fontFamily: F.medium, color: C.red,
+    marginTop: 4, marginLeft: 2,
+  },
+
+  forgotRow: { alignSelf: 'flex-end', marginTop: -6 },
+  forgotText: { fontSize: 13, fontFamily: F.semi, color: C.accent },
+
+  primaryBtn: {
+    backgroundColor: C.cardDark, borderRadius: 100,
+    height: 54, justifyContent: 'center', alignItems: 'center',
+    marginTop: 8,
+  },
+  primaryBtnText: { fontSize: 16, fontFamily: F.bold, color: '#FFF' },
+
   footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: spacing.xl,
+    flexDirection: 'row', justifyContent: 'center',
+    marginTop: 32, paddingBottom: 24,
   },
-  footerText: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_500Medium',
+  footerText: { fontSize: 14, fontFamily: F.regular, color: C.dim },
+  footerLink: { fontSize: 14, fontFamily: F.bold, color: C.accent },
+
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center', alignItems: 'center', padding: 24,
   },
-  footerLink: {
-    color: colors.primary,
-    fontSize: fontSizes.md,
-    fontWeight: '600',
-    fontFamily: 'Poppins_700Bold',
+  modal: {
+    backgroundColor: C.card, borderRadius: 20,
+    padding: 24, width: '100%', maxWidth: 380,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
+  modalTitle: { fontSize: 20, fontFamily: F.bold, color: C.text, marginBottom: 6 },
+  modalDesc: { fontSize: 14, fontFamily: F.regular, color: C.dim, marginBottom: 18, lineHeight: 20 },
+  modalBtns: { flexDirection: 'row', gap: 12 },
+  cancelBtn: {
+    flex: 1, height: 46, borderRadius: 12,
+    backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center',
   },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    width: '100%',
-    maxWidth: 400,
+  cancelBtnText: { fontSize: 14, fontFamily: F.semi, color: C.dim },
+  confirmBtn: {
+    flex: 1, height: 46, borderRadius: 12,
+    backgroundColor: C.cardDark, justifyContent: 'center', alignItems: 'center',
   },
-  modalTitle: {
-    fontSize: fontSizes.xl,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-    fontFamily: 'Poppins_700Bold',
-  },
-  modalDescription: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    marginBottom: spacing.lg,
-    lineHeight: 20,
-    fontFamily: 'Quicksand_500Medium',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  modalButtonCancel: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.border,
-    alignItems: 'center',
-  },
-  modalButtonCancelText: {
-    fontSize: fontSizes.md,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  modalButtonConfirm: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalButtonConfirmText: {
-    fontSize: fontSizes.md,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    fontFamily: 'Quicksand_600SemiBold',
-    textAlign: 'center',
-  },
+  confirmBtnText: { fontSize: 14, fontFamily: F.semi, color: '#FFF' },
 });

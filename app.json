@@ -2,6 +2,7 @@
   "expo": {
     "name": "HealthApp",
     "slug": "aria-syc6pt",
+    "scheme": "healthapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -40,7 +41,8 @@
     },
     "plugins": [
       "expo-router",
-      "@rnmapbox/maps"
+      "@rnmapbox/maps",
+      "expo-web-browser"
     ],
     "owner": "niko-studios"
   }

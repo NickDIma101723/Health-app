@@ -1,13 +1,26 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { MotiView } from 'moti';
-import { colors, fontSizes, spacing, borderRadius } from '../constants/theme';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 interface SplashScreenProps {
   onFinish: () => void;
 }
 
 const { width } = Dimensions.get('window');
+
+const C = {
+  bg: '#FAFAFA', card: '#FFFFFF', cardDark: '#111111',
+  accent: '#10B981', accentSoft: '#ECFDF5', lime: '#D4F940',
+  warmBg: '#F5F0EB', text: '#1A1A1A', dim: '#8C8C8C',
+  border: '#EEEEEE',
+};
+const F = {
+  bold: 'PlusJakartaSans_700Bold',
+  semi: 'PlusJakartaSans_600SemiBold',
+  medium: 'PlusJakartaSans_500Medium',
+  regular: 'PlusJakartaSans_400Regular',
+};
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
   const [exitAnimation, setExitAnimation] = useState(false);
@@ -17,363 +30,165 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
     setTimeout(() => onFinish(), 400);
   };
 
+  const RING_R = 52;
+  const RING_CIRC = 2 * Math.PI * RING_R;
+
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
       <MotiView
-        style={styles.content}
-        from={{ opacity: 0, scale: 0.9 }}
-        animate={{ 
-          opacity: exitAnimation ? 0 : 1, 
-          scale: exitAnimation ? 0.9 : 1 
-        }}
-        transition={{ 
-          type: 'timing',
-          duration: exitAnimation ? 300 : 800,
-        }}
+        style={s.content}
+        from={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: exitAnimation ? 0 : 1, scale: exitAnimation ? 0.95 : 1 }}
+        transition={{ type: 'timing', duration: exitAnimation ? 300 : 700 }}
       >
-        <MotiView 
-          style={styles.illustrationContainer}
-          from={{ opacity: 0, scale: 0.8 }}
+        {/* Logo Area */}
+        <MotiView
+          style={s.logoWrap}
+          from={{ opacity: 0, scale: 0.6 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ 
-            type: 'spring',
-            delay: 100,
-            damping: 15,
-          }}
+          transition={{ type: 'spring', delay: 200, damping: 12 }}
         >
-          <View style={styles.illustrationBackground}>
-            <MotiView 
-              style={[styles.decorativeCircle, styles.circle1]}
-              from={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 0.2 }}
-              transition={{ 
-                type: 'spring',
-                delay: 200,
-                damping: 12,
-              }}
-            />
-            <MotiView 
-              style={[styles.decorativeCircle, styles.circle2]}
-              from={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 0.25 }}
-              transition={{ 
-                type: 'spring',
-                delay: 300,
-                damping: 12,
-              }}
-            />
-            <MotiView 
-              style={[styles.decorativeCircle, styles.circle3]}
-              from={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 0.3 }}
-              transition={{ 
-                type: 'spring',
-                delay: 400,
-                damping: 12,
-              }}
-            />
+          {/* Outer ring */}
+          <Svg width={130} height={130} style={{ position: 'absolute' }}>
+            <Circle cx={65} cy={65} r={RING_R} stroke={C.border} strokeWidth={4} fill="none" />
+            <Circle cx={65} cy={65} r={RING_R} stroke={C.accent} strokeWidth={4} fill="none"
+              strokeDasharray={`${0.75 * RING_CIRC} ${RING_CIRC}`}
+              strokeLinecap="round" transform="rotate(-90, 65, 65)" />
+          </Svg>
+          <View style={s.logoCircle}>
+            <Text style={s.logoLetter}>A</Text>
           </View>
-          
-          <MotiView 
-            style={styles.logoCircle}
-            from={{ scale: 0, rotate: '-180deg' }}
-            animate={{ scale: 1, rotate: '0deg' }}
-            transition={{ 
-              type: 'spring',
-              delay: 500,
-              damping: 10,
-            }}
-          >
-            <Text style={styles.logoText}>A</Text>
+
+          {/* Decorative dots */}
+          <MotiView style={[s.dot, { top: -4, right: 10 }]}
+            from={{ scale: 0 }} animate={{ scale: 1 }}
+            transition={{ type: 'spring', delay: 600, damping: 8 }}>
+            <View style={[s.dotInner, { backgroundColor: C.lime, width: 10, height: 10 }]} />
           </MotiView>
-          
-          <View style={styles.illustrationAccents}>
-            <MotiView 
-              style={[styles.accentDot, styles.dot1]}
-              from={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ 
-                type: 'spring',
-                delay: 700,
-                damping: 8,
-              }}
-            />
-            <MotiView 
-              style={[styles.accentDot, styles.dot2]}
-              from={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ 
-                type: 'spring',
-                delay: 800,
-                damping: 8,
-              }}
-            />
-            <MotiView 
-              style={[styles.accentDot, styles.dot3]}
-              from={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ 
-                type: 'spring',
-                delay: 900,
-                damping: 8,
-              }}
-            />
-          </View>
+          <MotiView style={[s.dot, { bottom: 4, left: 6 }]}
+            from={{ scale: 0 }} animate={{ scale: 1 }}
+            transition={{ type: 'spring', delay: 700, damping: 8 }}>
+            <View style={[s.dotInner, { backgroundColor: C.accent, width: 8, height: 8 }]} />
+          </MotiView>
+          <MotiView style={[s.dot, { top: 20, left: -2 }]}
+            from={{ scale: 0 }} animate={{ scale: 1 }}
+            transition={{ type: 'spring', delay: 800, damping: 8 }}>
+            <View style={[s.dotInner, { backgroundColor: C.warmBg, width: 12, height: 12 }]} />
+          </MotiView>
         </MotiView>
 
-        <View style={styles.textContent}>
-          <MotiView
-            from={{ opacity: 0, translateY: 20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ 
-              type: 'timing',
-              delay: 600,
-              duration: 600,
-            }}
-          >
-            <Text style={styles.brandName}>Aria</Text>
-          </MotiView>
-          
-          <MotiView
-            from={{ opacity: 0, translateY: 20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ 
-              type: 'timing',
-              delay: 700,
-              duration: 600,
-            }}
-          >
-            <Text style={styles.tagline}>Health & Wellness</Text>
-          </MotiView>
-          
-          <MotiView
-            from={{ opacity: 0, translateY: 30 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ 
-              type: 'spring',
-              delay: 900,
-              damping: 15,
-            }}
-          >
-            <Text style={styles.welcomeText}>
-              Welcome to your{'\n'}wellness journey
-            </Text>
-            <Text style={styles.description}>
-              Track your health, connect with coaches,{'\n'}and achieve your wellness goals
-            </Text>
-          </MotiView>
-        </View>
+        {/* Text Content */}
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', delay: 500, duration: 600 }}
+        >
+          <Text style={s.brand}>Aria</Text>
+        </MotiView>
+
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', delay: 600, duration: 600 }}
+        >
+          <Text style={s.tagline}>HEALTH & WELLNESS</Text>
+        </MotiView>
+
+        <MotiView
+          from={{ opacity: 0, translateY: 25 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', delay: 800, damping: 15 }}
+        >
+          <Text style={s.headline}>{'Your wellness\njourney starts here'}</Text>
+          <Text style={s.sub}>{'Track health, connect with coaches,\nand reach your goals'}</Text>
+        </MotiView>
       </MotiView>
 
+      {/* Bottom CTA */}
       <MotiView
-        style={styles.buttonContainer}
-        from={{ opacity: 0, scale: 0.8, translateY: 30 }}
-        animate={{ opacity: 1, scale: 1, translateY: 0 }}
-        transition={{ 
-          type: 'spring',
-          delay: 1100,
-          damping: 15,
-        }}
+        style={s.bottomArea}
+        from={{ opacity: 0, translateY: 30 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'spring', delay: 1000, damping: 14 }}
       >
-        <TouchableOpacity
-          style={styles.getStartedButton}
-          onPress={handleGetStarted}
-          activeOpacity={0.9}
-        >
-          <Text style={styles.buttonText}>Get Started</Text>
-          <View style={styles.buttonArrow}>
-            <Text style={styles.arrowIcon}>→</Text>
+        <TouchableOpacity style={s.ctaBtn} onPress={handleGetStarted} activeOpacity={0.85}>
+          <Text style={s.ctaText}>Get Started</Text>
+          <View style={s.ctaArrow}>
+            <Text style={s.ctaArrowText}>{'\u2192'}</Text>
           </View>
         </TouchableOpacity>
-        
-        <Text style={styles.footerText}>
-          Tap to begin your journey
-        </Text>
+        <Text style={s.footer}>Tap to begin your journey</Text>
       </MotiView>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: 'space-between',
-    paddingVertical: spacing.xxxl,
+    flex: 1, backgroundColor: C.bg,
+    justifyContent: 'space-between', paddingVertical: 60,
   },
   content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 32,
   },
-  illustrationContainer: {
-    width: width * 0.7,
-    height: width * 0.7,
-    maxWidth: 280,
-    maxHeight: 280,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.xxl,
-    position: 'relative',
-  },
-  illustrationBackground: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-  },
-  decorativeCircle: {
-    position: 'absolute',
-    borderRadius: 9999,
-  },
-  circle1: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: colors.primary,
-    opacity: 0.2,
-  },
-  circle2: {
-    width: '75%',
-    height: '75%',
-    backgroundColor: colors.secondary,
-    opacity: 0.25,
-    top: '12.5%',
-    left: '12.5%',
-  },
-  circle3: {
-    width: '50%',
-    height: '50%',
-    backgroundColor: colors.accent,
-    opacity: 0.3,
-    top: '25%',
-    left: '25%',
+
+  logoWrap: {
+    width: 130, height: 130,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 36, position: 'relative',
   },
   logoCircle: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    boxShadow: '0px 8px 20px rgba(109, 207, 246, 0.3)',
-    elevation: 10,
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: C.cardDark,
+    justifyContent: 'center', alignItems: 'center',
   },
-  logoText: {
-    fontSize: 72,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: -2,
-  },
-  illustrationAccents: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-  },
-  accentDot: {
-    position: 'absolute',
-    borderRadius: 9999,
-  },
-  dot1: {
-    width: 12,
-    height: 12,
-    backgroundColor: colors.secondary,
-    top: '10%',
-    right: '15%',
-  },
-  dot2: {
-    width: 16,
-    height: 16,
-    backgroundColor: colors.accent,
-    bottom: '20%',
-    left: '10%',
-  },
-  dot3: {
-    width: 10,
-    height: 10,
-    backgroundColor: colors.primary,
-    top: '30%',
-    left: '5%',
-  },
-  textContent: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  brandName: {
-    fontSize: fontSizes.xxxl,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
+  logoLetter: {
+    fontSize: 40, fontFamily: F.bold, color: C.lime,
     letterSpacing: -1,
-    fontFamily: 'Poppins_700Bold',
+  },
+  dot: { position: 'absolute' },
+  dotInner: { borderRadius: 99 },
+
+  brand: {
+    fontSize: 38, fontFamily: F.bold, color: C.text,
+    letterSpacing: -1.5, textAlign: 'center', marginBottom: 4,
   },
   tagline: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    marginBottom: spacing.xl,
-    fontWeight: '500',
-    fontFamily: 'Quicksand_600SemiBold',
+    fontSize: 11, fontFamily: F.semi, color: C.dim,
+    letterSpacing: 3, textAlign: 'center', marginBottom: 28,
   },
-  welcomeText: {
-    fontSize: fontSizes.xl,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-    lineHeight: 32,
-    fontFamily: 'Poppins_700Bold',
+  headline: {
+    fontSize: 22, fontFamily: F.bold, color: C.text,
+    textAlign: 'center', lineHeight: 30, marginBottom: 10,
   },
-  description: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    fontFamily: 'Quicksand_500Medium',
+  sub: {
+    fontSize: 14, fontFamily: F.regular, color: C.dim,
+    textAlign: 'center', lineHeight: 21,
   },
-  buttonContainer: {
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.lg,
+
+  bottomArea: {
+    alignItems: 'center', paddingHorizontal: 32, paddingBottom: 16,
   },
-  getStartedButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xxl,
-    borderRadius: borderRadius.xl,
-    width: '100%',
-    maxWidth: 320,
-    boxShadow: '0px 6px 12px rgba(109, 207, 246, 0.25)',
-    elevation: 8,
+  ctaBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.cardDark, paddingVertical: 18,
+    paddingHorizontal: 40, borderRadius: 100,
+    width: '100%', maxWidth: 320, gap: 10,
   },
-  buttonText: {
-    fontSize: fontSizes.lg,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginRight: spacing.sm,
-    fontFamily: 'Poppins_700Bold',
+  ctaText: {
+    fontSize: 17, fontFamily: F.bold, color: '#FFF',
   },
-  buttonArrow: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  ctaArrow: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: C.lime,
+    justifyContent: 'center', alignItems: 'center',
   },
-  arrowIcon: {
-    fontSize: fontSizes.lg,
-    color: '#FFFFFF',
-    fontWeight: '600',
+  ctaArrowText: {
+    fontSize: 16, color: C.cardDark, fontFamily: F.bold,
   },
-  footerText: {
-    fontSize: fontSizes.xs,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
-    fontWeight: '500',
-    letterSpacing: 0.5,
+  footer: {
+    fontSize: 12, fontFamily: F.medium, color: C.dim,
+    marginTop: 14, letterSpacing: 0.3,
   },
 });

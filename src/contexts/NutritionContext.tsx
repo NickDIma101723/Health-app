@@ -66,7 +66,7 @@ const defaultGoals: NutritionGoals = {
   protein: 150,
   carbs: 250,
   fats: 70,
-  water: 8,
+  water: 2000,
 };
 
 const getInitialMeals = (): Meal[] => {
@@ -84,6 +84,7 @@ const getInitialMeals = (): Meal[] => {
       fats: 24,
       time: '08:00',
       date: today,
+      imageUrl: 'https://www.themealdb.com/images/media/meals/1550441882.jpg',
       ingredients: ['Whole grain bread', 'Avocado', 'Eggs', 'Cherry tomatoes'],
       createdAt: now,
       updatedAt: now,
@@ -98,6 +99,7 @@ const getInitialMeals = (): Meal[] => {
       fats: 4,
       time: '10:30',
       date: today,
+      imageUrl: 'https://www.themealdb.com/images/media/meals/mqprt21583959046.jpg',
       ingredients: ['Greek yogurt', 'Mixed berries', 'Honey', 'Granola'],
       createdAt: now,
       updatedAt: now,
@@ -112,6 +114,7 @@ const getInitialMeals = (): Meal[] => {
       fats: 18,
       time: '13:00',
       date: today,
+      imageUrl: 'https://www.themealdb.com/images/media/meals/1529446352.jpg',
       ingredients: ['Grilled chicken', 'Mixed greens', 'Quinoa', 'Olive oil dressing'],
       createdAt: now,
       updatedAt: now,
@@ -126,6 +129,7 @@ const getInitialMeals = (): Meal[] => {
       fats: 6,
       time: '16:00',
       date: today,
+      imageUrl: 'https://www.themealdb.com/images/media/meals/adxcbq1619787919.jpg',
       ingredients: ['Protein powder', 'Banana', 'Almond milk', 'Peanut butter'],
       createdAt: now,
       updatedAt: now,
@@ -165,7 +169,7 @@ export const NutritionProvider: React.FC<{ children: ReactNode }> = ({ children 
       { calories: 0, protein: 0, carbs: 0, fats: 0 }
     );
 
-    const totalWater = dayWater.reduce((sum, intake) => sum + intake.amount, 0) / 1000;
+    const totalWater = dayWater.reduce((sum, intake) => sum + intake.amount, 0);
 
     return {
       date,

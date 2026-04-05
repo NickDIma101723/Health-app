@@ -1,0 +1,404 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
+  Dimensions,
+  StatusBar,
+  Animated,
+  Easing,
+} from 'react-native';
+import ReAnimated, { FadeInDown } from 'react-native-reanimated';
+import {
+  Play, Pause, SkipForward, SkipBack, Repeat, Shuffle,
+  Heart, MusicNote, Waveform, Timer, SpeakerHigh,
+  Sun, Waves, Wind, Mountains,
+} from 'phosphor-react-native';
+import Svg, { Circle as SvgCircle } from 'react-native-svg';
+import { BottomNavigation } from '../components';
+
+const { width } = Dimensions.get('window');
+
+const C = {
+  bg: '#FAFAFA',
+  card: '#FFFFFF',
+  cardDark: '#111111',
+  text: '#1A1A1A',
+  dim: '#8C8C8C',
+  border: '#EEEEEE',
+  muted: '#F3F3F3',
+  accent: '#10B981',
+  accentSoft: 'rgba(16,185,129,0.10)',
+  warmBg: '#F5F0EB',
+};
+
+const F = {
+  bold: 'PlusJakartaSans_700Bold',
+  semi: 'PlusJakartaSans_600SemiBold',
+  medium: 'PlusJakartaSans_500Medium',
+  regular: 'PlusJakartaSans_400Regular',
+} as const;
+
+interface Track {
+  id: string;
+  title: string;
+  artist: string;
+  duration: string;
+  durationSec: number;
+  mood: string;
+  color: string;
+  bg: string;
+  icon: React.ComponentType<any>;
+}
+
+const PLAYLISTS = [
+  { id: 'workout', label: 'Workout', icon: Sun, color: '#EF4444', bg: '#FEF2F2' },
+  { id: 'chill', label: 'Chill', icon: Waves, color: '#38BDF8', bg: '#F0F9FF' },
+  { id: 'focus', label: 'Focus', icon: Mountains, color: '#F59E0B', bg: '#FFFBEB' },
+  { id: 'run', label: 'Running', icon: Wind, color: '#10B981', bg: '#ECFDF5' },
+];
+
+const TRACKS: Track[] = [
+  // Workout
+  { id: '1',  title: 'Stronger',              artist: 'Kanye West',          duration: '5:12', durationSec: 312, mood: 'workout', color: '#EF4444', bg: '#FEF2F2', icon: Sun },
+  { id: '2',  title: 'Lose Yourself',          artist: 'Eminem',             duration: '5:26', durationSec: 326, mood: 'workout', color: '#EF4444', bg: '#FEF2F2', icon: Sun },
+  { id: '3',  title: "Till I Collapse",         artist: 'Eminem ft. Nate Dogg', duration: '4:57', durationSec: 297, mood: 'workout', color: '#EF4444', bg: '#FEF2F2', icon: Sun },
+  { id: '4',  title: 'HUMBLE.',                artist: 'Kendrick Lamar',     duration: '2:57', durationSec: 177, mood: 'workout', color: '#EF4444', bg: '#FEF2F2', icon: Sun },
+  { id: '5',  title: 'Power',                  artist: 'Kanye West',         duration: '4:52', durationSec: 292, mood: 'workout', color: '#EF4444', bg: '#FEF2F2', icon: Sun },
+  // Chill
+  { id: '6',  title: 'Blinding Lights',        artist: 'The Weeknd',         duration: '3:20', durationSec: 200, mood: 'chill', color: '#38BDF8', bg: '#F0F9FF', icon: Waves },
+  { id: '7',  title: 'Sunflower',              artist: 'Post Malone & Swae Lee', duration: '2:38', durationSec: 158, mood: 'chill', color: '#38BDF8', bg: '#F0F9FF', icon: Waves },
+  { id: '8',  title: 'Heat Waves',             artist: 'Glass Animals',      duration: '3:58', durationSec: 238, mood: 'chill', color: '#38BDF8', bg: '#F0F9FF', icon: Waves },
+  { id: '9',  title: 'Levitating',             artist: 'Dua Lipa',           duration: '3:23', durationSec: 203, mood: 'chill', color: '#38BDF8', bg: '#F0F9FF', icon: Waves },
+  { id: '10', title: 'Stay',                   artist: 'The Kid LAROI & Justin Bieber', duration: '2:21', durationSec: 141, mood: 'chill', color: '#38BDF8', bg: '#F0F9FF', icon: Waves },
+  // Focus
+  { id: '11', title: 'Experience',             artist: 'Ludovico Einaudi',   duration: '5:15', durationSec: 315, mood: 'focus', color: '#F59E0B', bg: '#FFFBEB', icon: Mountains },
+  { id: '12', title: 'Nuvole Bianche',         artist: 'Ludovico Einaudi',   duration: '5:57', durationSec: 357, mood: 'focus', color: '#F59E0B', bg: '#FFFBEB', icon: Mountains },
+  { id: '13', title: 'Comptine d\'un autre été', artist: 'Yann Tiersen',      duration: '2:20', durationSec: 140, mood: 'focus', color: '#F59E0B', bg: '#FFFBEB', icon: Mountains },
+  { id: '14', title: 'River Flows in You',     artist: 'Yiruma',             duration: '3:01', durationSec: 181, mood: 'focus', color: '#F59E0B', bg: '#FFFBEB', icon: Mountains },
+  { id: '15', title: 'Clair de Lune',          artist: 'Claude Debussy',     duration: '5:00', durationSec: 300, mood: 'focus', color: '#F59E0B', bg: '#FFFBEB', icon: Mountains },
+  // Running
+  { id: '16', title: "Can't Hold Us",          artist: 'Macklemore & Ryan Lewis', duration: '4:18', durationSec: 258, mood: 'run', color: '#10B981', bg: '#ECFDF5', icon: Wind },
+  { id: '17', title: 'Unstoppable',            artist: 'Sia',                duration: '3:37', durationSec: 217, mood: 'run', color: '#10B981', bg: '#ECFDF5', icon: Wind },
+  { id: '18', title: 'Run the World (Girls)',   artist: 'Beyoncé',           duration: '3:56', durationSec: 236, mood: 'run', color: '#10B981', bg: '#ECFDF5', icon: Wind },
+  { id: '19', title: 'Eye of the Tiger',       artist: 'Survivor',           duration: '4:05', durationSec: 245, mood: 'run', color: '#10B981', bg: '#ECFDF5', icon: Wind },
+  { id: '20', title: "Don't Stop Me Now",      artist: 'Queen',              duration: '3:29', durationSec: 209, mood: 'run', color: '#10B981', bg: '#ECFDF5', icon: Wind },
+];
+
+const formatTime = (sec: number) => {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
+export const MusicScreen: React.FC<{ onNavigate?: (screen: string) => void }> = ({ onNavigate }) => {
+  const [activePlaylist, setActivePlaylist] = useState('workout');
+  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const [liked, setLiked] = useState<Set<string>>(new Set());
+  const [shuffle, setShuffle] = useState(false);
+  const [repeat, setRepeat] = useState(false);
+
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const filteredTracks = TRACKS.filter(t => t.mood === activePlaylist);
+
+  useEffect(() => {
+    if (isPlaying && currentTrack) {
+      timerRef.current = setInterval(() => {
+        setElapsed(prev => {
+          const next = prev + 1;
+          if (next >= currentTrack.durationSec) {
+            skipNext();
+            return 0;
+          }
+          setProgress(next / currentTrack.durationSec);
+          return next;
+        });
+      }, 1000);
+
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.05, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        ])
+      ).start();
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+      pulseAnim.setValue(1);
+    }
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isPlaying, currentTrack]);
+
+  const playTrack = (track: Track) => {
+    if (currentTrack?.id === track.id) {
+      setIsPlaying(!isPlaying);
+    } else {
+      setCurrentTrack(track);
+      setElapsed(0);
+      setProgress(0);
+      setIsPlaying(true);
+    }
+  };
+
+  const skipNext = () => {
+    if (!currentTrack) return;
+    const tracks = filteredTracks;
+    const idx = tracks.findIndex(t => t.id === currentTrack.id);
+    const nextIdx = shuffle ? Math.floor(Math.random() * tracks.length) : (idx + 1) % tracks.length;
+    setCurrentTrack(tracks[nextIdx]);
+    setElapsed(0);
+    setProgress(0);
+    setIsPlaying(true);
+  };
+
+  const skipPrev = () => {
+    if (!currentTrack) return;
+    if (elapsed > 3) {
+      setElapsed(0);
+      setProgress(0);
+      return;
+    }
+    const tracks = filteredTracks;
+    const idx = tracks.findIndex(t => t.id === currentTrack.id);
+    const prevIdx = idx === 0 ? tracks.length - 1 : idx - 1;
+    setCurrentTrack(tracks[prevIdx]);
+    setElapsed(0);
+    setProgress(0);
+  };
+
+  const toggleLike = (trackId: string) => {
+    setLiked(prev => {
+      const next = new Set(prev);
+      if (next.has(trackId)) next.delete(trackId);
+      else next.add(trackId);
+      return next;
+    });
+  };
+
+  return (
+    <View style={S.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <SafeAreaView style={{ flex: 1, paddingTop: 10 }}>
+        <ScrollView
+          style={S.scroll}
+          contentContainerStyle={S.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <ReAnimated.View entering={FadeInDown.duration(600).springify()}>
+            <View style={S.header}>
+              <View>
+                <Text style={S.headerSub}>Your Soundtrack</Text>
+                <Text style={S.headerTitle}>Music</Text>
+              </View>
+              <View style={S.headerRight}>
+                <View style={S.headerBadge}>
+                  <MusicNote size={14} color={C.text} weight="fill" />
+                  <Text style={S.headerBadgeText}>{TRACKS.length} tracks</Text>
+                </View>
+              </View>
+            </View>
+          </ReAnimated.View>
+
+          {/* Now Playing Card */}
+          {currentTrack && (
+            <ReAnimated.View entering={FadeInDown.delay(50).duration(500).springify()}>
+              <View style={S.playerCard}>
+                <View style={S.playerTop}>
+                  <View style={S.playerTrackInfo}>
+                    <Animated.View style={[S.playerIcon, { backgroundColor: currentTrack.bg, transform: [{ scale: pulseAnim }] }]}>
+                      <currentTrack.icon size={32} color={currentTrack.color} weight="duotone" />
+                    </Animated.View>
+                    <View style={S.playerTextCol}>
+                      <Text style={S.playerTitle} numberOfLines={1}>{currentTrack.title}</Text>
+                      <Text style={S.playerArtist}>{currentTrack.artist}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => toggleLike(currentTrack.id)}>
+                      <Heart
+                        size={22}
+                        color={liked.has(currentTrack.id) ? '#EF4444' : 'rgba(255,255,255,0.35)'}
+                        weight={liked.has(currentTrack.id) ? 'fill' : 'regular'}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Progress Bar */}
+                <View style={S.progressRow}>
+                  <Text style={S.progressTime}>{formatTime(elapsed)}</Text>
+                  <View style={S.progressTrack}>
+                    <View style={[S.progressFill, { width: `${progress * 100}%` }]} />
+                  </View>
+                  <Text style={S.progressTime}>{currentTrack.duration}</Text>
+                </View>
+
+                {/* Controls */}
+                <View style={S.controls}>
+                  <TouchableOpacity onPress={() => setShuffle(!shuffle)}>
+                    <Shuffle size={20} color={shuffle ? C.accent : 'rgba(255,255,255,0.35)'} weight="bold" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={skipPrev} style={S.ctrlBtn}>
+                    <SkipBack size={22} color="#FFF" weight="fill" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setIsPlaying(!isPlaying)} style={S.playBtn}>
+                    {isPlaying
+                      ? <Pause size={28} color={C.cardDark} weight="fill" />
+                      : <Play size={28} color={C.cardDark} weight="fill" />
+                    }
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={skipNext} style={S.ctrlBtn}>
+                    <SkipForward size={22} color="#FFF" weight="fill" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setRepeat(!repeat)}>
+                    <Repeat size={20} color={repeat ? C.accent : 'rgba(255,255,255,0.35)'} weight="bold" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ReAnimated.View>
+          )}
+
+          {/* Playlist Filters */}
+          <ReAnimated.View entering={FadeInDown.delay(100).duration(600).springify()}>
+            <Text style={S.sectionLabel}>Playlists</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.filtersRow}>
+              {PLAYLISTS.map((pl) => {
+                const active = activePlaylist === pl.id;
+                const Icon = pl.icon;
+                return (
+                  <TouchableOpacity
+                    key={pl.id}
+                    style={[S.filterChip, active && { backgroundColor: C.cardDark }]}
+                    activeOpacity={0.8}
+                    onPress={() => setActivePlaylist(pl.id)}
+                  >
+                    <View style={[S.filterIcon, { backgroundColor: active ? 'rgba(255,255,255,0.12)' : pl.bg }]}>
+                      <Icon size={18} color={active ? '#FFF' : pl.color} weight="fill" />
+                    </View>
+                    <Text style={[S.filterLabel, active && { color: '#FFF' }]}>{pl.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </ReAnimated.View>
+
+          {/* Track List */}
+          <ReAnimated.View entering={FadeInDown.delay(150).duration(600).springify()}>
+            <View style={S.trackListHeader}>
+              <Text style={S.sectionLabel}>Tracks</Text>
+              <Text style={S.trackCount}>{filteredTracks.length} songs</Text>
+            </View>
+
+            {filteredTracks.map((track, idx) => {
+              const isActive = currentTrack?.id === track.id;
+              const isLiked = liked.has(track.id);
+              const Icon = track.icon;
+              return (
+                <TouchableOpacity
+                  key={track.id}
+                  style={[S.trackRow, isActive && S.trackRowActive]}
+                  activeOpacity={0.75}
+                  onPress={() => playTrack(track)}
+                >
+                  <View style={S.trackLeft}>
+                    <View style={[S.trackIcon, { backgroundColor: isActive ? C.accent : track.bg }]}>
+                      {isActive && isPlaying
+                        ? <Waveform size={18} color="#FFF" weight="bold" />
+                        : <Icon size={18} color={isActive ? '#FFF' : track.color} weight="duotone" />
+                      }
+                    </View>
+                    <View style={S.trackInfo}>
+                      <Text style={[S.trackTitle, isActive && { color: C.accent }]} numberOfLines={1}>{track.title}</Text>
+                      <Text style={S.trackArtist}>{track.artist}</Text>
+                    </View>
+                  </View>
+                  <View style={S.trackRight}>
+                    <TouchableOpacity onPress={() => toggleLike(track.id)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                      <Heart size={18} color={isLiked ? '#EF4444' : C.dim} weight={isLiked ? 'fill' : 'regular'} />
+                    </TouchableOpacity>
+                    <Text style={S.trackDuration}>{track.duration}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ReAnimated.View>
+
+          {/* Quick Tip */}
+          <ReAnimated.View entering={FadeInDown.delay(200).duration(600).springify()}>
+            <View style={S.tipCard}>
+              <SpeakerHigh size={20} color={C.accent} weight="duotone" />
+              <Text style={S.tipText}>Listening to calming music for 15 minutes before bed can improve sleep quality by 35%</Text>
+            </View>
+          </ReAnimated.View>
+        </ScrollView>
+      </SafeAreaView>
+      <BottomNavigation activeTab="music" onTabChange={onNavigate} />
+    </View>
+  );
+};
+
+const S = StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.bg },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 100, maxWidth: 500, alignSelf: 'center' as const, width: '100%' },
+
+  /* Header */
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, marginTop: 24 },
+  headerSub: { fontSize: 13, color: C.dim, fontFamily: F.medium, marginBottom: 2 },
+  headerTitle: { fontSize: 32, color: C.text, fontFamily: F.bold, letterSpacing: -0.8 },
+  headerRight: { flexDirection: 'row', gap: 8 },
+  headerBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.muted, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14 },
+  headerBadgeText: { fontSize: 12, fontFamily: F.semi, color: C.text },
+
+  /* Player Card */
+  playerCard: { backgroundColor: C.cardDark, borderRadius: 24, padding: 20, marginBottom: 24 },
+  playerTop: { marginBottom: 16 },
+  playerTrackInfo: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  playerIcon: { width: 56, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  playerTextCol: { flex: 1 },
+  playerTitle: { fontSize: 17, fontFamily: F.bold, color: '#FFF', marginBottom: 2 },
+  playerArtist: { fontSize: 13, fontFamily: F.medium, color: 'rgba(255,255,255,0.45)' },
+
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 },
+  progressTime: { fontSize: 11, fontFamily: F.medium, color: 'rgba(255,255,255,0.35)', minWidth: 32 },
+  progressTrack: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.12)' },
+  progressFill: { height: 4, borderRadius: 2, backgroundColor: C.accent },
+
+  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24 },
+  ctrlBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
+  playBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center' },
+
+  /* Filters */
+  sectionLabel: { fontSize: 18, fontFamily: F.bold, color: C.text, marginBottom: 12 },
+  filtersRow: { gap: 10, paddingBottom: 20 },
+  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.card, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: C.border },
+  filterIcon: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  filterLabel: { fontSize: 13, fontFamily: F.semi, color: C.text },
+
+  /* Track List */
+  trackListHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  trackCount: { fontSize: 13, fontFamily: F.medium, color: C.dim },
+  trackRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.card, borderRadius: 16, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: C.border },
+  trackRowActive: { backgroundColor: '#F0FDF4', borderColor: C.accent },
+  trackLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  trackIcon: { width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  trackInfo: { flex: 1 },
+  trackTitle: { fontSize: 15, fontFamily: F.semi, color: C.text, marginBottom: 2 },
+  trackArtist: { fontSize: 12, fontFamily: F.medium, color: C.dim },
+  trackRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  trackDuration: { fontSize: 12, fontFamily: F.medium, color: C.dim, minWidth: 32, textAlign: 'right' as const },
+
+  /* Tip */
+  tipCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.accentSoft, borderRadius: 16, padding: 16, marginTop: 8, marginBottom: 24 },
+  tipText: { flex: 1, fontSize: 13, fontFamily: F.medium, color: C.text, lineHeight: 19 },
+});

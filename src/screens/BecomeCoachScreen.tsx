@@ -10,12 +10,46 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
-import { BackgroundDecorations } from '../components';
+import {
+  ArrowLeft,
+  GraduationCap,
+  CheckCircle,
+  WarningCircle,
+  TrendUp,
+  ChatCircle,
+  Clock,
+  Heart,
+  Users,
+  ShieldCheck,
+  Envelope,
+  BookOpen,
+  Trophy,
+  Crown,
+  ArrowRight,
+  UserCircle,
+  Fire,
+} from 'phosphor-react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import Svg, { Circle } from 'react-native-svg';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+
+/* ── Design tokens ── */
+const C = {
+  bg: '#FAFAFA', card: '#FFFFFF', cardDark: '#111111',
+  accent: '#10B981', accentSoft: '#ECFDF5', lime: '#D4F940',
+  warmBg: '#F5F0EB', text: '#1A1A1A', dim: '#8C8C8C',
+  border: '#EEEEEE', red: '#EF4444', amber: '#F59E0B',
+  blue: '#3B82F6', purple: '#8B5CF6',
+};
+const F = {
+  bold: 'PlusJakartaSans_700Bold',
+  semi: 'PlusJakartaSans_600SemiBold',
+  medium: 'PlusJakartaSans_500Medium',
+  regular: 'PlusJakartaSans_400Regular',
+};
+const PAD = 20;
+const RAD = 20;
 
 interface BecomeCoachScreenProps {
   onNavigate?: (screen: string) => void;
@@ -28,397 +62,284 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
   const [loading, setLoading] = useState(true);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  useEffect(() => {
-    fetchProfile();
-  }, [user]);
+  useEffect(() => { fetchProfile(); }, [user]);
 
   const fetchProfile = async () => {
     if (!user) return;
-    
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
+        .from('profiles').select('*').eq('user_id', user.id).single();
       if (error) throw error;
       setProfile(data);
     } catch (error) {
       console.error('Error fetching profile:', error);
       Alert.alert('Error', 'Failed to load profile information');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const isProfileComplete = profile && profile.full_name && profile.bio && profile.fitness_level;
-
   const missingFields: string[] = [];
   if (!profile?.full_name) missingFields.push('Full Name');
   if (!profile?.bio) missingFields.push('Bio/About');
   if (!profile?.fitness_level) missingFields.push('Fitness Level');
 
-    const handleBecomeCoach = async () => {
-    console.log('[BecomeCoach] Button clicked!', { isProfileComplete, profile });
-    
+  const handleBecomeCoach = async () => {
     if (!isProfileComplete) {
-      console.log('[BecomeCoach] Profile incomplete:', missingFields);
       Alert.alert(
         'Complete Your Profile First',
-        `To become a coach, please complete your profile with:\n${missingFields.map(field => `• ${field}`).join('\n')}\n\nGo to your profile to update these fields.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Go to Profile', onPress: () => onNavigate?.('profile') }
-        ]
+        `To become a coach, please complete your profile with:\n${missingFields.map(f => `• ${f}`).join('\n')}\n\nGo to your profile to update these fields.`,
+        [{ text: 'Cancel', style: 'cancel' }, { text: 'Go to Profile', onPress: () => onNavigate?.('profile') }]
       );
       return;
     }
-
-    if (!user) {
-      console.log('[BecomeCoach] No user found!');
-      Alert.alert('Error', 'You must be logged in to become a coach');
-      return;
-    }
-
+    if (!user) { Alert.alert('Error', 'You must be logged in to become a coach'); return; }
     setShowConfirmModal(true);
   };
 
   const confirmBecomeCoach = async () => {
     setShowConfirmModal(false);
-    console.log('[BecomeCoach] Starting coach creation for user:', user!.id);
     setSubmitting(true);
-
     try {
-      console.log('[BecomeCoach] Checking existing coach status...');
       const { data: existingCoach, error: checkError } = await supabase
-        .from('coaches')
-        .select('*')
-        .eq('user_id', user!.id)
-        .maybeSingle();
-
-      console.log('[BecomeCoach] Existing coach check result:', { existingCoach, checkError });
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.log('[BecomeCoach] Database error:', checkError);
-        throw checkError;
-      }
+        .from('coaches').select('*').eq('user_id', user!.id).maybeSingle();
+      if (checkError && checkError.code !== 'PGRST116') throw checkError;
 
       if (existingCoach) {
         if (existingCoach.is_active) {
-          console.log('[BecomeCoach] User is already an active coach, refreshing status...');
-          console.log('[BecomeCoach] Available functions:', { 
-            refreshCoachStatus: !!refreshCoachStatus, 
-            switchToCoachMode: !!switchToCoachMode,
-            onNavigate: !!onNavigate
-          });
-          
-          if (refreshCoachStatus) {
-            console.log('[BecomeCoach] Calling refreshCoachStatus...');
-            await refreshCoachStatus();
-            console.log('[BecomeCoach] refreshCoachStatus completed');
-          } else {
-            console.log('[BecomeCoach] WARNING: refreshCoachStatus not available!');
-          }
-          
-          if (switchToCoachMode) {
-            console.log('[BecomeCoach] Calling switchToCoachMode...');
-            await switchToCoachMode();
-            console.log('[BecomeCoach] switchToCoachMode completed');
-          } else {
-            console.log('[BecomeCoach] WARNING: switchToCoachMode not available!');
-          }
-          
-          console.log('[BecomeCoach] Showing alert...');
+          if (refreshCoachStatus) await refreshCoachStatus();
+          if (switchToCoachMode) await switchToCoachMode();
           if (typeof window !== 'undefined' && window.alert) {
-            window.alert('✅ You\'re Already a Coach! Great news! You\'re already certified as a health coach. Navigating to your coach dashboard now...');
-            if (onNavigate) {
-              onNavigate('coach-dashboard');
-            }
+            window.alert('You\'re already a coach! Navigating to your dashboard...');
+            onNavigate?.('coach-dashboard');
           } else {
-            Alert.alert(
-              '✅ You\'re Already a Coach!', 
-              'Great news! You\'re already certified as a health coach. Navigating to your coach dashboard now...',
-              [
-                {
-                  text: 'Go to Coach Dashboard',
-                  onPress: () => {
-                    console.log('[BecomeCoach] Alert button pressed, navigating to coach dashboard...');
-                    console.log('[BecomeCoach] Current auth state:', { isCoach: canBeCoach, currentMode: 'should be coach' });
-                    
-                    if (onNavigate) {
-                      onNavigate('coach-dashboard');
-                    } else {
-                      console.log('[BecomeCoach] ERROR: onNavigate is not available!');
-                    }
-                  }
-                }
-              ]
-            );
+            Alert.alert('Already a Coach!', 'Navigating to your coach dashboard...', [
+              { text: 'Go to Dashboard', onPress: () => onNavigate?.('coach-dashboard') }
+            ]);
           }
           return;
         }
-        console.log('[BecomeCoach] Reactivating existing coach...');
         const { error: updateError } = await supabase
-          .from('coaches')
-          .update({ is_active: true })
-          .eq('user_id', user!.id);
-
-        if (updateError) {
-          console.log('[BecomeCoach] Error reactivating coach:', updateError);
-          throw updateError;
-        }
-        console.log('[BecomeCoach] Coach reactivated successfully');
+          .from('coaches').update({ is_active: true }).eq('user_id', user!.id);
+        if (updateError) throw updateError;
       } else {
-        console.log('[BecomeCoach] Creating new coach with data:', {
-          user_id: user!.id,
-          full_name: profile.full_name,
-          email: user!.email || '',
-          specialization: profile.fitness_level,
-          bio: profile.bio,
-        });
-        
         const { error: insertError } = await supabase
-          .from('coaches')
-          .insert({
-            user_id: user!.id,
-            full_name: profile.full_name,
-            email: user!.email || '',
-            specialization: profile.fitness_level,
-            bio: profile.bio,
-            is_active: true,
+          .from('coaches').insert({
+            user_id: user!.id, full_name: profile.full_name,
+            email: user!.email || '', specialization: profile.fitness_level,
+            bio: profile.bio, is_active: true,
           });
-
-        if (insertError) {
-          console.log('[BecomeCoach] Error creating coach:', insertError);
-          throw insertError;
-        }
-        console.log('[BecomeCoach] New coach created successfully');
+        if (insertError) throw insertError;
       }
 
-      console.log('[BecomeCoach] New coach - activating coach mode and navigating...');
-      
-      
-      if (switchToCoachMode) {
-        console.log('[BecomeCoach] Switching to coach mode...');
-        await switchToCoachMode();
-      }
-      
-      
-      console.log('[BecomeCoach] Navigating to coach dashboard...');
+      if (switchToCoachMode) await switchToCoachMode();
       onNavigate?.('coach-dashboard');
     } catch (error) {
       console.error('Error becoming coach:', error);
-      if (typeof window !== 'undefined' && window.alert) {
-        window.alert('Failed to become a coach. Please try again.');
-      } else {
-        Alert.alert('Error', 'Failed to become a coach. Please try again.');
-      }
-    } finally {
-      setSubmitting(false);
-    }
+      Alert.alert('Error', 'Failed to become a coach. Please try again.');
+    } finally { setSubmitting(false); }
   };
 
+  /* ── Loading ── */
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <BackgroundDecorations />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading your profile...</Text>
+      <SafeAreaView style={s.root}>
+        <View style={s.loadWrap}>
+          <ActivityIndicator size="large" color={C.accent} />
+          <Text style={s.loadText}>Loading your profile...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
+  const completedCount = [profile?.full_name, profile?.bio, profile?.fitness_level].filter(Boolean).length;
+  const progress = completedCount / 3;
+  const RING_R = 38;
+  const RING_STROKE = 6;
+  const RING_CIRC = 2 * Math.PI * RING_R;
+
+  const requirements = [
+    { label: 'Full Name', value: profile?.full_name, display: profile?.full_name || 'Not set' },
+    { label: 'Bio / About', value: profile?.bio, display: profile?.bio ? 'Complete' : 'Missing' },
+    { label: 'Fitness Level', value: profile?.fitness_level, display: profile?.fitness_level || 'Not set' },
+  ];
+
+  const benefits = [
+    { Icon: TrendUp, text: 'Track client progress & goals', color: C.accent },
+    { Icon: ChatCircle, text: 'Secure messaging platform', color: C.blue },
+    { Icon: Clock, text: 'Flexible coaching schedule', color: C.purple },
+    { Icon: Heart, text: 'Make a real difference', color: C.red },
+    { Icon: Users, text: 'Build meaningful connections', color: C.amber },
+  ];
+
+  const responsibilities = [
+    { Icon: ShieldCheck, text: 'Provide supportive and professional guidance' },
+    { Icon: UserCircle, text: 'Respect client privacy and boundaries' },
+    { Icon: Envelope, text: 'Maintain regular communication' },
+    { Icon: BookOpen, text: 'Stay updated with best practices' },
+    { Icon: Trophy, text: 'Encourage and motivate clients' },
+  ];
+
   return (
-    <SafeAreaView style={styles.container}>
-      <BackgroundDecorations />
-
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => onNavigate?.('coach-selection')} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color={colors.textPrimary} />
+    <SafeAreaView style={s.root}>
+      {/* Header */}
+      <Animated.View entering={FadeInDown.duration(400).springify()} style={s.header}>
+        <TouchableOpacity onPress={() => onNavigate?.('coach-selection')} style={s.backBtn}>
+          <ArrowLeft size={20} color={C.text} weight="bold" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Coach Qualification</Text>
-      </View>
-
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        <View style={styles.heroSection}>
-          <View style={styles.heroIcon}>
-            <MaterialIcons name="school" size={48} color={colors.primary} />
-          </View>
-          <Text style={styles.heroTitle}>Coach Qualification Check</Text>
-          <Text style={styles.heroText}>
-            Let's ensure you're ready to inspire and guide others on their health journey
-          </Text>
+        <View>
+          <Text style={s.headerSub}>Become a</Text>
+          <Text style={s.headerTitle}>Health Coach</Text>
         </View>
+      </Animated.View>
 
-        {}
-        <View style={styles.statusCard}>
-          <View style={styles.statusHeader}>
-            <MaterialIcons 
-              name={isProfileComplete ? "verified" : "warning"} 
-              size={24} 
-              color={isProfileComplete ? colors.success : colors.warning} 
-            />
-            <Text style={[styles.statusTitle, { color: isProfileComplete ? colors.success : colors.warning }]}>
-              Profile {isProfileComplete ? 'Complete' : 'Incomplete'}
-            </Text>
-          </View>
-          
-          {}
-          <View style={styles.requirementsList}>
-            <View style={styles.requirementItem}>
-              <MaterialIcons 
-                name={profile?.full_name ? "check-circle" : "radio-button-unchecked"} 
-                size={20} 
-                color={profile?.full_name ? colors.success : colors.textSecondary} 
-              />
-              <Text style={[styles.requirementText, profile?.full_name && styles.requirementCompleted]}>
-                Full Name: {profile?.full_name || 'Not set'}
-              </Text>
-            </View>
-            
-            <View style={styles.requirementItem}>
-              <MaterialIcons 
-                name={profile?.bio ? "check-circle" : "radio-button-unchecked"} 
-                size={20} 
-                color={profile?.bio ? colors.success : colors.textSecondary} 
-              />
-              <Text style={[styles.requirementText, profile?.bio && styles.requirementCompleted]}>
-                Bio/About: {profile?.bio ? 'Complete' : 'Missing'}
-              </Text>
-            </View>
-            
-            <View style={styles.requirementItem}>
-              <MaterialIcons 
-                name={profile?.fitness_level ? "check-circle" : "radio-button-unchecked"} 
-                size={20} 
-                color={profile?.fitness_level ? colors.success : colors.textSecondary} 
-              />
-              <Text style={[styles.requirementText, profile?.fitness_level && styles.requirementCompleted]}>
-                Fitness Level: {profile?.fitness_level || 'Not set'}
-              </Text>
-            </View>
-          </View>
-
-          {!isProfileComplete && (
-            <TouchableOpacity 
-              style={styles.profileButton}
-              onPress={() => onNavigate?.('profile')}
-            >
-              <MaterialIcons name="edit" size={20} color={colors.primary} />
-              <Text style={styles.profileButtonText}>Complete Profile</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {}
-        <View style={styles.benefitsCard}>
-          <View style={styles.cardHeader}>
-            <MaterialIcons name="stars" size={24} color={colors.primary} />
-            <Text style={styles.cardTitle}>What You'll Get as a Coach</Text>
-          </View>
-          <View style={styles.benefitsList}>
-            {[
-              { icon: 'trending-up', text: 'Track client progress & goals' },
-              { icon: 'chat', text: 'Secure messaging platform' },
-              { icon: 'schedule', text: 'Flexible coaching schedule' },
-              { icon: 'favorite', text: 'Make a real difference' },
-              { icon: 'people', text: 'Build meaningful connections' }
-            ].map((benefit, index) => (
-              <View key={index} style={styles.benefitWidget}>
-                <View style={styles.benefitIconContainer}>
-                  <MaterialIcons name={benefit.icon as any} size={18} color={colors.primary} />
-                </View>
-                <Text style={styles.benefitText}>{benefit.text}</Text>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        {/* Hero Card with Progress Ring */}
+        <Animated.View entering={FadeInDown.delay(50).duration(500).springify()} style={{ paddingHorizontal: PAD, marginBottom: 20 }}>
+          <View style={s.heroCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+              <View style={{ position: 'relative', width: 90, height: 90, alignItems: 'center', justifyContent: 'center' }}>
+                <Svg width={90} height={90} style={{ position: 'absolute' }}>
+                  <Circle cx={45} cy={45} r={RING_R} stroke={C.border} strokeWidth={RING_STROKE} fill="none" />
+                  <Circle cx={45} cy={45} r={RING_R} stroke={C.accent} strokeWidth={RING_STROKE} fill="none"
+                    strokeDasharray={`${progress * RING_CIRC} ${RING_CIRC}`}
+                    strokeLinecap="round" rotation="-90" origin="45,45" />
+                </Svg>
+                <GraduationCap size={30} color={C.accent} weight="duotone" />
               </View>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.responsibilitiesCard}>
-          <View style={styles.cardHeader}>
-            <MaterialIcons name="assignment" size={24} color={colors.warning} />
-            <Text style={styles.cardTitle}>Coach Responsibilities</Text>
-          </View>
-          <View style={styles.responsibilityList}>
-            {[
-              { icon: 'support', text: 'Provide supportive and professional guidance' },
-              { icon: 'shield', text: 'Respect client privacy and boundaries' },
-              { icon: 'message', text: 'Maintain regular communication' },
-              { icon: 'school', text: 'Stay updated with best practices' },
-              { icon: 'emoji-events', text: 'Encourage and motivate clients' }
-            ].map((item, index) => (
-              <View key={index} style={styles.responsibilityWidget}>
-                <View style={styles.responsibilityIconContainer}>
-                  <MaterialIcons name={item.icon as any} size={16} color={colors.warning} />
-                </View>
-                <Text style={styles.responsibilityText}>{item.text}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={s.heroLabel}>QUALIFICATION STATUS</Text>
+                <Text style={s.heroTitle}>
+                  {isProfileComplete ? 'Ready to Go!' : `${completedCount}/3 Complete`}
+                </Text>
+                <Text style={s.heroDim}>
+                  {isProfileComplete
+                    ? 'Your profile meets all requirements'
+                    : 'Complete your profile to qualify'}
+                </Text>
               </View>
-            ))}
+            </View>
           </View>
-        </View>
+        </Animated.View>
 
-        <TouchableOpacity
-          style={[
-            styles.submitButton, 
-            !isProfileComplete && styles.submitButtonDisabled
-          ]}
-          onPress={handleBecomeCoach}
-          disabled={!isProfileComplete || submitting}
-        >
-          {submitting ? (
-            <ActivityIndicator size="small" color={colors.textLight} />
-          ) : (
-            <LinearGradient
-              colors={isProfileComplete ? [colors.primary, colors.primaryDark] : [colors.textSecondary, colors.textSecondary]}
-              style={styles.buttonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <MaterialIcons 
-                name={isProfileComplete ? "local-fire-department" : "warning"} 
-                size={20} 
-                color={colors.textLight} 
-              />
-              <Text style={styles.submitButtonText}>
-                {isProfileComplete ? "Become a Coach" : "Complete Profile First"}
+        {/* Requirements Card */}
+        <Animated.View entering={FadeInDown.delay(100).duration(500).springify()} style={{ paddingHorizontal: PAD, marginBottom: 20 }}>
+          <View style={s.sectionCard}>
+            <View style={s.sectionHeader}>
+              <View style={[s.sectionIcon, { backgroundColor: isProfileComplete ? C.accentSoft : '#FEF3C7' }]}>
+                {isProfileComplete
+                  ? <CheckCircle size={20} color={C.accent} weight="fill" />
+                  : <WarningCircle size={20} color={C.amber} weight="fill" />}
+              </View>
+              <Text style={s.sectionTitle}>
+                {'Profile ' + (isProfileComplete ? 'Complete' : 'Incomplete')}
               </Text>
-              {isProfileComplete && (
-                <MaterialIcons name="arrow-forward" size={20} color={colors.textLight} />
-              )}
-            </LinearGradient>
-          )}
-        </TouchableOpacity>
+            </View>
+
+            <View style={{ gap: 10, marginTop: 14 }}>
+              {requirements.map((req, i) => (
+                <View key={i} style={s.reqRow}>
+                  {req.value
+                    ? <CheckCircle size={20} color={C.accent} weight="fill" />
+                    : <View style={s.reqCircleEmpty} />}
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.reqLabel, req.value && { color: C.text }]}>{req.label}</Text>
+                    <Text style={[s.reqValue, req.value ? { color: C.accent } : { color: C.dim }]}>{req.display}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            {!isProfileComplete && (
+              <TouchableOpacity style={s.profileBtn} onPress={() => onNavigate?.('profile')}>
+                <Text style={s.profileBtnText}>Complete Profile</Text>
+                <ArrowRight size={16} color={C.accent} weight="bold" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </Animated.View>
+
+        {/* Benefits Card */}
+        <Animated.View entering={FadeInDown.delay(150).duration(500).springify()} style={{ paddingHorizontal: PAD, marginBottom: 20 }}>
+          <View style={s.sectionCard}>
+            <View style={s.sectionHeader}>
+              <View style={[s.sectionIcon, { backgroundColor: C.accentSoft }]}>
+                <Crown size={20} color={C.accent} weight="fill" />
+              </View>
+              <Text style={s.sectionTitle}>{"What You'll Get"}</Text>
+            </View>
+            <View style={{ gap: 10, marginTop: 14 }}>
+              {benefits.map((b, i) => (
+                <View key={i} style={s.benefitRow}>
+                  <View style={[s.benefitIcon, { backgroundColor: `${b.color}14` }]}>
+                    <b.Icon size={16} color={b.color} weight="fill" />
+                  </View>
+                  <Text style={s.benefitText}>{b.text}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Responsibilities Card (dark) */}
+        <Animated.View entering={FadeInDown.delay(200).duration(500).springify()} style={{ paddingHorizontal: PAD, marginBottom: 24 }}>
+          <View style={s.darkCard}>
+            <View style={s.sectionHeader}>
+              <View style={[s.sectionIcon, { backgroundColor: 'rgba(212,249,64,0.2)' }]}>
+                <ShieldCheck size={20} color={C.lime} weight="fill" />
+              </View>
+              <Text style={[s.sectionTitle, { color: '#FFF' }]}>Coach Responsibilities</Text>
+            </View>
+            <View style={{ gap: 10, marginTop: 14 }}>
+              {responsibilities.map((r, i) => (
+                <View key={i} style={s.respRow}>
+                  <View style={s.respDot} />
+                  <Text style={s.respText}>{r.text}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* CTA Button */}
+        <Animated.View entering={FadeInDown.delay(250).duration(500).springify()} style={{ paddingHorizontal: PAD }}>
+          <TouchableOpacity
+            style={[s.ctaBtn, !isProfileComplete && { opacity: 0.5 }]}
+            onPress={handleBecomeCoach}
+            disabled={!isProfileComplete || submitting}
+            activeOpacity={0.85}
+          >
+            {submitting ? (
+              <ActivityIndicator size="small" color={C.cardDark} />
+            ) : (
+              <>
+                <Fire size={20} color={C.cardDark} weight="fill" />
+                <Text style={s.ctaText}>
+                  {isProfileComplete ? 'Become a Coach' : 'Complete Profile First'}
+                </Text>
+                {isProfileComplete && <ArrowRight size={18} color={C.cardDark} weight="bold" />}
+              </>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
 
-      {}
-      <Modal
-        visible={showConfirmModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowConfirmModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <MaterialIcons name="emoji-events" size={48} color={colors.primary} />
-            <Text style={styles.modalTitle}>Become a Health Coach</Text>
-            <Text style={styles.modalMessage}>
-              Are you sure you want to become a health coach? This will unlock coach features and allow you to help others with their fitness goals.
+      {/* Confirm Modal */}
+      <Modal visible={showConfirmModal} transparent animationType="fade" onRequestClose={() => setShowConfirmModal(false)}>
+        <View style={s.overlay}>
+          <View style={s.modal}>
+            <View style={[s.sectionIcon, { backgroundColor: C.accentSoft, width: 56, height: 56, borderRadius: 28, marginBottom: 14 }]}>
+              <GraduationCap size={28} color={C.accent} weight="duotone" />
+            </View>
+            <Text style={s.modalTitle}>Become a Health Coach</Text>
+            <Text style={s.modalMsg}>
+              {"This will unlock coach features and allow you to help others with their fitness goals. Ready?"}
             </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => setShowConfirmModal(false)}
-              >
-                <Text style={styles.modalCancelText}>No</Text>
+            <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+              <TouchableOpacity style={s.modalCancel} onPress={() => setShowConfirmModal(false)}>
+                <Text style={s.modalCancelText}>Not Yet</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalConfirmButton}
-                onPress={confirmBecomeCoach}
-              >
-                <Text style={styles.modalConfirmText}>Yes</Text>
+              <TouchableOpacity style={s.modalConfirm} onPress={confirmBecomeCoach}>
+                <Text style={s.modalConfirmText}>{"Let's Go"}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -428,297 +349,99 @@ export const BecomeCoachScreen: React.FC<BecomeCoachScreenProps> = ({ onNavigate
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-  },
+/* ── Styles ── */
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.bg },
+  loadWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadText: { marginTop: 12, fontSize: 14, color: C.dim, fontFamily: F.medium },
+
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: PAD,
+    paddingTop: 20, paddingBottom: 12, gap: 14,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-    ...shadows.sm,
+  backBtn: {
+    width: 42, height: 42, borderRadius: 21, backgroundColor: '#F5F5F5',
+    justifyContent: 'center', alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
+  headerSub: { fontSize: 13, color: C.dim, fontFamily: F.medium },
+  headerTitle: { fontSize: 22, color: C.text, fontFamily: F.bold },
+
+  heroCard: {
+    backgroundColor: C.warmBg, borderRadius: RAD, padding: 20,
   },
-  content: {
-    flex: 1,
+  heroLabel: { fontSize: 11, fontFamily: F.semi, color: C.dim, letterSpacing: 1, marginBottom: 4 },
+  heroTitle: { fontSize: 20, fontFamily: F.bold, color: C.text },
+  heroDim: { fontSize: 13, fontFamily: F.regular, color: C.dim, marginTop: 2 },
+
+  sectionCard: {
+    backgroundColor: C.card, borderRadius: RAD, padding: 20,
+    borderWidth: 1, borderColor: C.border,
   },
-  contentContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  sectionIcon: {
+    width: 36, height: 36, borderRadius: 18,
+    justifyContent: 'center', alignItems: 'center',
   },
-  heroSection: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
+  sectionTitle: { fontSize: 17, fontFamily: F.bold, color: C.text, flex: 1 },
+
+  reqRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  reqCircleEmpty: {
+    width: 20, height: 20, borderRadius: 10,
+    borderWidth: 2, borderColor: C.border,
   },
-  heroIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primaryPale,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.md,
+  reqLabel: { fontSize: 14, fontFamily: F.semi, color: C.dim },
+  reqValue: { fontSize: 12, fontFamily: F.regular, marginTop: 1 },
+
+  profileBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, backgroundColor: C.accentSoft, paddingVertical: 12,
+    borderRadius: 14, marginTop: 16,
   },
-  heroTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-    marginBottom: spacing.xs,
+  profileBtnText: { fontSize: 14, fontFamily: F.semi, color: C.accent },
+
+  benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  benefitIcon: {
+    width: 34, height: 34, borderRadius: 17,
+    justifyContent: 'center', alignItems: 'center',
   },
-  heroText: {
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-    textAlign: 'center',
-    paddingHorizontal: spacing.xl,
+  benefitText: { fontSize: 14, fontFamily: F.medium, color: C.text, flex: 1 },
+
+  darkCard: {
+    backgroundColor: C.cardDark, borderRadius: RAD, padding: 20,
   },
-  benefitsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...shadows.md,
+  respRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  respDot: {
+    width: 6, height: 6, borderRadius: 3, backgroundColor: C.lime,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    gap: spacing.sm,
+  respText: { fontSize: 14, fontFamily: F.medium, color: 'rgba(255,255,255,0.8)', flex: 1 },
+
+  ctaBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.lime, paddingVertical: 16, borderRadius: 16,
+    gap: 8,
   },
-  cardTitle: {
-    fontSize: fontSizes.lg,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-    flex: 1,
+  ctaText: { fontSize: 16, fontFamily: F.bold, color: C.cardDark },
+
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center', alignItems: 'center', padding: PAD,
   },
-  benefitsList: {
-    gap: spacing.sm,
+  modal: {
+    backgroundColor: C.card, borderRadius: RAD, padding: 28,
+    width: '100%', maxWidth: 360, alignItems: 'center',
   },
-  benefitWidget: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primaryPale,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
+  modalTitle: { fontSize: 20, fontFamily: F.bold, color: C.text, marginBottom: 8, textAlign: 'center' },
+  modalMsg: { fontSize: 14, fontFamily: F.regular, color: C.dim, textAlign: 'center', marginBottom: 24, lineHeight: 20 },
+  modalCancel: {
+    flex: 1, paddingVertical: 14, backgroundColor: '#F5F5F5',
+    borderRadius: 14, alignItems: 'center',
   },
-  benefitIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
+  modalCancelText: { fontSize: 15, fontFamily: F.semi, color: C.text },
+  modalConfirm: {
+    flex: 1, paddingVertical: 14, backgroundColor: C.cardDark,
+    borderRadius: 14, alignItems: 'center',
   },
-  benefitText: {
-    fontSize: fontSizes.sm,
-    color: colors.textPrimary,
-    fontFamily: 'Quicksand_600SemiBold',
-    flex: 1,
-  },
-  submitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-    gap: spacing.xs,
-    marginTop: spacing.md,
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    fontSize: fontSizes.md,
-    fontWeight: '600',
-    color: colors.textLight,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  statusCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...shadows.sm,
-  },
-  statusHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  statusTitle: {
-    fontSize: fontSizes.lg,
-    fontWeight: 'bold',
-    marginLeft: spacing.sm,
-    fontFamily: 'Quicksand_700Bold',
-  },
-  requirementsList: {
-    gap: spacing.sm,
-  },
-  requirementItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  requirementText: {
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-    marginLeft: spacing.sm,
-    flex: 1,
-  },
-  requirementCompleted: {
-    color: colors.success,
-    fontWeight: '600',
-  },
-  profileButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primaryPale,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.md,
-  },
-  profileButtonText: {
-    fontSize: fontSizes.md,
-    fontWeight: '600',
-    color: colors.primary,
-    marginLeft: spacing.xs,
-  },
-  responsibilitiesCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...shadows.md,
-  },
-  responsibilityList: {
-    gap: spacing.sm,
-  },
-  responsibilityWidget: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-    padding: spacing.sm,
-    borderRadius: borderRadius.md,
-    gap: spacing.xs,
-  },
-  responsibilityIconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  responsibilityText: {
-    fontSize: fontSizes.sm,
-    color: colors.textPrimary,
-    fontFamily: 'Quicksand_500Medium',
-    flex: 1,
-  },
-  buttonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.xs,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xxl,
-    padding: spacing.xl,
-    width: '90%',
-    maxWidth: 400,
-    alignSelf: 'center',
-    alignItems: 'center',
-    ...shadows.lg,
-  },
-  modalTitle: {
-    fontSize: fontSizes.xxl,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  modalMessage: {
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    width: '100%',
-  },
-  modalCancelButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.border,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    fontSize: fontSizes.md,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    fontFamily: 'Quicksand_600SemiBold',
-    textAlign: 'center',
-  },
-  modalConfirmButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-  },
-  modalConfirmText: {
-    fontSize: fontSizes.md,
-    fontWeight: '600',
-    color: colors.textLight,
-    fontFamily: 'Quicksand_600SemiBold',
-    textAlign: 'center',
-  },
+  modalConfirmText: { fontSize: 15, fontFamily: F.semi, color: '#FFF' },
 });
 
 

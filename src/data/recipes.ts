@@ -38,6 +38,7 @@ export const RECIPE_DATABASE: Recipe[] = [
     cookTime: 0,
     servings: 1,
     difficulty: 'easy',
+    imageUrl: 'https://www.themealdb.com/images/media/meals/sywswr1511383814.jpg',
     ingredients: [
       '1 frozen banana',
       '1/2 cup frozen mixed berries',
@@ -69,6 +70,7 @@ export const RECIPE_DATABASE: Recipe[] = [
     cookTime: 10,
     servings: 1,
     difficulty: 'easy',
+    imageUrl: 'https://www.themealdb.com/images/media/meals/1550440197.jpg',
     ingredients: [
       '2 slices whole grain bread',
       '1 ripe avocado',
@@ -101,6 +103,7 @@ export const RECIPE_DATABASE: Recipe[] = [
     cookTime: 0,
     servings: 1,
     difficulty: 'easy',
+    imageUrl: 'https://www.themealdb.com/images/media/meals/sng9bm1765320170.jpg',
     ingredients: [
       '1/2 cup rolled oats',
       '1/2 cup almond milk',
@@ -134,6 +137,7 @@ export const RECIPE_DATABASE: Recipe[] = [
     cookTime: 15,
     servings: 2,
     difficulty: 'medium',
+    imageUrl: 'https://www.themealdb.com/images/media/meals/pk8wtn1763758591.jpg',
     ingredients: [
       '2 chicken breasts',
       '6 cups romaine lettuce',
@@ -168,6 +172,7 @@ export const RECIPE_DATABASE: Recipe[] = [
     cookTime: 20,
     servings: 2,
     difficulty: 'easy',
+    imageUrl: 'https://www.themealdb.com/images/media/meals/k29viq1585565980.jpg',
     ingredients: [
       '1 cup quinoa',
       '2 cups vegetable broth',
@@ -203,6 +208,7 @@ export const RECIPE_DATABASE: Recipe[] = [
     cookTime: 0,
     servings: 1,
     difficulty: 'easy',
+    imageUrl: 'https://www.themealdb.com/images/media/meals/ae6clc1760524712.jpg',
     ingredients: [
       '1 whole wheat tortilla',
       '1/3 cup hummus',
@@ -240,6 +246,7 @@ export const RECIPE_DATABASE: Recipe[] = [
     cookTime: 25,
     servings: 2,
     difficulty: 'medium',
+    imageUrl: 'https://www.themealdb.com/images/media/meals/1548772327.jpg',
     ingredients: [
       '2 salmon fillets (6 oz each)',
       '2 cups broccoli florets',
@@ -275,6 +282,7 @@ export const RECIPE_DATABASE: Recipe[] = [
     cookTime: 15,
     servings: 2,
     difficulty: 'easy',
+    imageUrl: 'https://www.themealdb.com/images/media/meals/kyuxew1763479470.jpg',
     ingredients: [
       '1 lb ground turkey',
       '2 cups mixed stir-fry vegetables',
@@ -312,6 +320,7 @@ export const RECIPE_DATABASE: Recipe[] = [
     cookTime: 30,
     servings: 4,
     difficulty: 'easy',
+    imageUrl: 'https://www.themealdb.com/images/media/meals/sstssx1487349585.jpg',
     ingredients: [
       '1 cup red lentils',
       '1 can coconut milk (light)',
@@ -352,6 +361,7 @@ export const RECIPE_DATABASE: Recipe[] = [
     cookTime: 0,
     servings: 12,
     difficulty: 'easy',
+    imageUrl: 'https://www.themealdb.com/images/media/meals/1544384070.jpg',
     ingredients: [
       '1 cup rolled oats',
       '1/2 cup natural peanut butter',
@@ -383,6 +393,7 @@ export const RECIPE_DATABASE: Recipe[] = [
     cookTime: 0,
     servings: 1,
     difficulty: 'easy',
+    imageUrl: 'https://www.themealdb.com/images/media/meals/rpvptu1511641092.jpg',
     ingredients: [
       '1 cup Greek yogurt',
       '1/2 cup mixed berries',

@@ -7,19 +7,47 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
+  Easing,
   Dimensions,
   Modal,
   Alert,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialIcons } from '@expo/vector-icons';
+import ReAnimated, { FadeInDown } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import {
-  BottomNavigation,
-  BackgroundDecorations,
-} from '../components';
-import { colors, spacing, fontSizes, borderRadius, shadows, gradients } from '../constants/theme';
+  Wind, Square, Moon, Sun, FlowerLotus, MoonStars, PersonArmsSpread,
+  Timer, Heart, Leaf, Clock, Play, Pause, Stop, Lightbulb, MusicNote,
+  PlayCircle, Sparkle, Fire, CheckCircle, X, Trophy, ChartLineUp, Smiley,
+  PencilSimple, Plus,
+} from 'phosphor-react-native';
 import { useMindfulnessSessions, useMoodLogs } from '../hooks';
+
+const MC = {
+  bg: '#FAFAFA',
+  card: '#FFFFFF',
+  cardDark: '#111111',
+  text: '#1A1A1A',
+  textDim: '#8C8C8C',
+  border: '#EEEEEE',
+  surfaceMuted: '#F5F0EB',
+  accent: '#10B981',
+  accentSoft: 'rgba(16, 185, 129, 0.12)',
+  warmBg: '#F5F0EB',
+  sky: '#38BDF8',
+  warm: '#F59E0B',
+  lime: '#D4F940',
+  green: '#10B981',
+  teal: '#14B8A6',
+  amber: '#F59E0B',
+  blue: '#3B82F6',
+};
+
+const MF = {
+  bold: 'PlusJakartaSans_700Bold',
+  semi: 'PlusJakartaSans_600SemiBold',
+  medium: 'PlusJakartaSans_500Medium',
+  regular: 'PlusJakartaSans_400Regular',
+} as const;
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,8 +57,8 @@ const breathingExercises = [
     title: 'Deep Breathing',
     duration: 5,
     description: 'Calm your mind with slow, deep breaths',
-    icon: 'air' as const,
-    gradient: gradients.primary,
+    bg: '#ECFDF5',
+    tint: '#10B981',
     difficulty: 'Beginner',
     instructions: [
       'Breathe in slowly through your nose for 4 seconds',
@@ -44,8 +72,8 @@ const breathingExercises = [
     title: 'Box Breathing',
     duration: 10,
     description: 'Balance your nervous system',
-    icon: 'crop-square' as const,
-    gradient: gradients.secondary,
+    bg: '#F5F0EB',
+    tint: '#92400E',
     difficulty: 'Intermediate',
     instructions: [
       'Breathe in for 4 seconds',
@@ -60,8 +88,8 @@ const breathingExercises = [
     title: '4-7-8 Technique',
     duration: 8,
     description: 'Reduce anxiety and promote sleep',
-    icon: 'bedtime' as const,
-    gradient: gradients.purple,
+    bg: '#111111',
+    tint: '#FFFFFF',
     difficulty: 'Advanced',
     instructions: [
       'Breathe in through your nose for 4 seconds',
@@ -78,8 +106,8 @@ const meditationSessions = [
     title: 'Morning Focus',
     duration: 15,
     type: 'Guided',
-    icon: 'wb-sunny' as const,
-    color: colors.primary,
+    bg: '#FFFBEB',
+    tint: '#D97706',
     description: 'Start your day with clarity and intention',
   },
   {
@@ -87,8 +115,8 @@ const meditationSessions = [
     title: 'Stress Relief',
     duration: 10,
     type: 'Ambient',
-    icon: 'spa' as const,
-    color: colors.secondary,
+    bg: '#ECFDF5',
+    tint: '#059669',
     description: 'Release tension and find inner peace',
   },
   {
@@ -96,8 +124,8 @@ const meditationSessions = [
     title: 'Sleep Meditation',
     duration: 20,
     type: 'Guided',
-    icon: 'nightlight' as const,
-    color: colors.purple,
+    bg: '#111111',
+    tint: '#FFFFFF',
     description: 'Drift into restful sleep naturally',
   },
   {
@@ -105,35 +133,66 @@ const meditationSessions = [
     title: 'Body Scan',
     duration: 12,
     type: 'Guided',
-    icon: 'accessibility-new' as const,
-    color: colors.accent,
+    bg: '#F5F0EB',
+    tint: '#78350F',
     description: 'Connect with your physical sensations',
   },
 ];
 
 const quickPractices = [
-  { 
-    id: '1', 
-    title: 'One Minute Calm', 
-    duration: 1, 
-    icon: 'timer' as const,
+  {
+    id: '1',
+    title: 'One Minute Calm',
+    duration: 1,
+    bg: '#EFF6FF',
+    tint: '#2563EB',
     description: 'Quick reset for busy moments',
   },
-  { 
-    id: '2', 
-    title: 'Gratitude Moment', 
-    duration: 3, 
-    icon: 'favorite' as const,
+  {
+    id: '2',
+    title: 'Gratitude Moment',
+    duration: 3,
+    bg: '#FFF1F2',
+    tint: '#E11D48',
     description: 'Appreciate the good in your life',
   },
-  { 
-    id: '3', 
-    title: 'Body Check-in', 
-    duration: 2, 
-    icon: 'self-improvement' as const,
+  {
+    id: '3',
+    title: 'Body Check-in',
+    duration: 2,
+    bg: '#ECFDF5',
+    tint: '#059669',
     description: 'Notice how you feel right now',
   },
 ];
+
+const getBreathIcon = (id: string, size: number, color: string) => {
+  switch (id) {
+    case '1': return <Wind size={size} color={color} weight="duotone" />;
+    case '2': return <Square size={size} color={color} weight="duotone" />;
+    case '3': return <Moon size={size} color={color} weight="duotone" />;
+    default: return <Wind size={size} color={color} weight="duotone" />;
+  }
+};
+
+const getMeditationIcon = (id: string, size: number, color: string) => {
+  switch (id) {
+    case '1': return <Sun size={size} color={color} weight="duotone" />;
+    case '2': return <FlowerLotus size={size} color={color} weight="duotone" />;
+    case '3': return <MoonStars size={size} color={color} weight="duotone" />;
+    case '4': return <PersonArmsSpread size={size} color={color} weight="duotone" />;
+    default: return <FlowerLotus size={size} color={color} weight="duotone" />;
+  }
+};
+
+const getQuickIcon = (id: string, size: number, color: string) => {
+  switch (id) {
+    case '1': return <Timer size={size} color={color} weight="duotone" />;
+    case '2': return <Heart size={size} color={color} weight="duotone" />;
+    case '3': return <Leaf size={size} color={color} weight="duotone" />;
+    default: return <Timer size={size} color={color} weight="duotone" />;
+  }
+};
 
 interface MindfulnessScreenProps {
   onNavigate?: (screen: string) => void;
@@ -144,7 +203,7 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
   const { sessions, stats, startSession: dbStartSession, completeSession, loading: sessionsLoading } = useMindfulnessSessions();
   const { moodLog, logMood, loading: moodLoading } = useMoodLogs();
 
-  const [activeTab, setActiveTab] = useState<'breathe' | 'meditate' | 'quick'>('breathe');
+  const [activeFilter, setActiveFilter] = useState<'breathe' | 'meditate' | 'quick'>('breathe');
   const [sessionActive, setSessionActive] = useState(false);
   const [activeSession, setActiveSession] = useState<any>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -152,7 +211,7 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [showStats, setShowStats] = useState(openStats || false);
-  const [breathingPhase, setBreathingPhase] = useState<'in' | 'out'>('in');
+  const [breathingPhase, setBreathingPhase] = useState<'in' | 'hold' | 'out'>('in');
   const [showMoodSelector, setShowMoodSelector] = useState(false);
   const [selectedMood, setSelectedMood] = useState<'great' | 'good' | 'okay' | 'bad' | 'terrible' | null>(null);
 
@@ -183,16 +242,16 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 600,
-        useNativeDriver: false,
+        useNativeDriver: true,
       }),
       Animated.spring(slideAnim, {
         toValue: 0,
         tension: 40,
         friction: 8,
-        useNativeDriver: false,
+        useNativeDriver: true,
       }),
     ]).start();
-  }, [activeTab]);
+  }, [activeFilter]);
 
   useEffect(() => {
     if (sessionActive && !isPaused) {
@@ -272,45 +331,34 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
     isBreathingActiveRef.current = true;
     
     const runBreathingCycle = () => {
-      if (!isBreathingActiveRef.current) {
-        return;
-      }
+      if (!isBreathingActiveRef.current) return;
       
       setBreathingPhase('in');
       
       const inhaleAnim = Animated.timing(breatheAnim, {
         toValue: 1,
         duration: 4000,
-        useNativeDriver: false,
+        useNativeDriver: true,
       });
       
       breathingAnimationRef.current = inhaleAnim;
       
       inhaleAnim.start(({ finished }) => {
-        if (!finished || !isBreathingActiveRef.current) {
-          return;
-        }
+        if (!finished || !isBreathingActiveRef.current) return;
         
         setBreathingPhase('out');
         
         const exhaleAnim = Animated.timing(breatheAnim, {
           toValue: 0,
           duration: 6000,
-          useNativeDriver: false,
+          useNativeDriver: true,
         });
         
         breathingAnimationRef.current = exhaleAnim;
         
         exhaleAnim.start(({ finished }) => {
-          if (!finished || !isBreathingActiveRef.current) {
-            return;
-          }
-          
-          breathingLoopRef.current = setTimeout(() => {
-            if (isBreathingActiveRef.current) {
-              runBreathingCycle();
-            }
-          }, 100);
+          if (!finished || !isBreathingActiveRef.current) return;
+          runBreathingCycle();
         });
       });
     };
@@ -324,12 +372,14 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
         Animated.timing(pulseAnim, {
           toValue: 1.1,
           duration: 1000,
-          useNativeDriver: false,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
           duration: 1000,
-          useNativeDriver: false,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
         }),
       ])
     ).start();
@@ -499,12 +549,12 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
 
   const getMoodEmoji = (mood: string) => {
     switch (mood) {
-      case 'great': return '😄';
-      case 'good': return '🙂';
-      case 'okay': return '😐';
-      case 'bad': return '😔';
-      case 'terrible': return '😢';
-      default: return '😐';
+      case 'great': return '🤩';
+      case 'good': return '😊';
+      case 'okay': return '🫤';
+      case 'bad': return '😮‍💨';
+      case 'terrible': return '🥺';
+      default: return '🫤';
     }
   };
 
@@ -516,599 +566,482 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
 
   const breathScale = breatheAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 1.5],
+    outputRange: [0.7, 1],
   });
 
   const breathOpacity = breatheAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.3, 0.8],
+    outputRange: [0.4, 0.9],
   });
 
+  const PAD = 20;
+
+  const showBreathing = activeFilter === 'breathe';
+  const showMeditation = activeFilter === 'meditate';
+  const showQuick = activeFilter === 'quick';
+
+  const weekGoal = 7;
+  const weekPct = Math.min(Math.round((completedSessions / weekGoal) * 100), 100);
+
   return (
-    <SafeAreaView style={styles.container}>
-      <BackgroundDecorations />
-      
+    <SafeAreaView style={S.container}>
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        style={S.scrollView}
+        contentContainerStyle={S.scrollContent}
         showsVerticalScrollIndicator={false}
-        bounces={false}
-        alwaysBounceVertical={false}
-        overScrollMode="never"
       >
-        <View style={styles.header}>
+        {/* ── HEADER — compact like Nutrition ── */}
+        <ReAnimated.View entering={FadeInDown.duration(600).springify()} style={S.header}>
           <View>
-            <Text style={styles.subtitle}>Find Your Peace</Text>
-            <Text style={styles.title}>Mindfulness</Text>
+            <Text style={S.headerSub}>Mindfulness</Text>
+            <Text style={S.headerTitle}>Find Your Peace</Text>
           </View>
-          <TouchableOpacity 
-            style={styles.statsButton}
-            onPress={() => setShowStats(true)}
-          >
-            <MaterialIcons name="insights" size={24} color={colors.primary} />
+          <TouchableOpacity style={S.headerBtn} onPress={() => setShowStats(true)}>
+            <ChartLineUp size={20} color={MC.text} weight="bold" />
           </TouchableOpacity>
-        </View>
+        </ReAnimated.View>
 
-        <View style={[styles.moodCard, shadows.sm]}>
-          <View style={styles.moodCardHeader}>
-            <MaterialIcons name="emoji-emotions" size={24} color={colors.primary} />
-            <Text style={styles.moodCardTitle}>How are you feeling today?</Text>
-          </View>
-          {moodLoading ? (
-            <Text style={styles.moodLoggedText}>Loading...</Text>
-          ) : moodLog ? (
-            <View style={styles.moodLoggedContainer}>
-              <Text style={styles.moodLoggedText}>
-                Today's mood: <Text style={styles.moodLoggedEmoji}>{getMoodEmoji(moodLog.mood)}</Text>
-              </Text>
-              <TouchableOpacity onPress={() => {
-                setSelectedMood(null);
-                setShowMoodSelector(true);
-              }}>
-                <Text style={styles.changeMoodText}>Change</Text>
-              </TouchableOpacity>
+        {/* ── HERO — warm card with breathing circle + stats ── */}
+        <ReAnimated.View entering={FadeInDown.delay(50).duration(600).springify()}>
+          <TouchableOpacity
+            style={S.heroCard}
+            activeOpacity={0.9}
+            onPress={() => startSession({ id: 'featured', title: 'Mindful Walking', duration: 15, type: 'Guided', description: 'Connect with movement and awareness' }, 'meditation')}
+          >
+            <View style={S.heroRow}>
+              {/* Breathing ring */}
+              <View style={S.heroRingWrap}>
+                <Svg width={120} height={120}>
+                  <Circle cx={60} cy={60} r={50} stroke="rgba(0,0,0,0.06)" strokeWidth={10} fill="none" />
+                  <Circle cx={60} cy={60} r={50} stroke={MC.accent} strokeWidth={10} fill="none"
+                    strokeDasharray={2 * Math.PI * 50}
+                    strokeDashoffset={2 * Math.PI * 50 - (2 * Math.PI * 50 * weekPct) / 100}
+                    strokeLinecap="round"
+                    transform="rotate(-90 60 60)"
+                  />
+                </Svg>
+                <View style={S.heroRingCenter}>
+                  <FlowerLotus size={28} color={MC.accent} weight="duotone" />
+                </View>
+              </View>
+
+              {/* Stats beside ring */}
+              <View style={S.heroInfo}>
+                <Text style={S.heroLabel}>WEEKLY PROGRESS</Text>
+                <Text style={S.heroVal}>
+                  {sessionsLoading ? '–' : completedSessions}
+                  <Text style={S.heroValUnit}> / {weekGoal}</Text>
+                </Text>
+                <View style={S.heroRemaining}>
+                  <View style={S.heroRemDot} />
+                  <Text style={S.heroRemText}>
+                    {sessionsLoading ? '...' : `${totalMinutes} min this week`}
+                  </Text>
+                </View>
+              </View>
             </View>
-          ) : (
-            <TouchableOpacity 
-              style={[styles.logMoodButton, shadows.sm]}
-              onPress={() => {
-                setSelectedMood(null);
-                setShowMoodSelector(true);
-              }}
-            >
-              <Text style={styles.logMoodButtonText}>Log Your Mood</Text>
-            </TouchableOpacity>
-          )}
-        </View>
 
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'breathe' && styles.activeTab]}
-            onPress={() => setActiveTab('breathe')}
-          >
-            <Text style={[styles.tabText, activeTab === 'breathe' && styles.activeTabText]}>
-              Breathe
-            </Text>
+            {/* Mini stat strip */}
+            <View style={S.heroStrip}>
+              <View style={S.heroStripItem}>
+                <Text style={S.heroStripVal}>{sessionsLoading ? '–' : completedSessions}</Text>
+                <Text style={S.heroStripLabel}>sessions</Text>
+              </View>
+              <View style={S.heroStripDiv} />
+              <View style={S.heroStripItem}>
+                <Text style={S.heroStripVal}>{sessionsLoading ? '–' : totalMinutes}</Text>
+                <Text style={S.heroStripLabel}>minutes</Text>
+              </View>
+              <View style={S.heroStripDiv} />
+              <View style={S.heroStripItem}>
+                <Text style={S.heroStripVal}>{sessionsLoading ? '–' : currentStreak}</Text>
+                <Text style={S.heroStripLabel}>streak</Text>
+              </View>
+            </View>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'meditate' && styles.activeTab]}
-            onPress={() => setActiveTab('meditate')}
-          >
-            <Text style={[styles.tabText, activeTab === 'meditate' && styles.activeTabText]}>
-              Meditate
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'quick' && styles.activeTab]}
-            onPress={() => setActiveTab('quick')}
-          >
-            <Text style={[styles.tabText, activeTab === 'quick' && styles.activeTabText]}>
-              Quick
-            </Text>
-          </TouchableOpacity>
-        </View>
+        </ReAnimated.View>
 
-        {activeTab === 'breathe' && (
-          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Breathing Exercises</Text>
-              <Text style={styles.sectionSubtitle}>Regulate your breath, calm your mind</Text>
-
-              {breathingExercises.map((exercise) => (
+        {/* ── MOOD — white card like Nutrition water ── */}
+        <ReAnimated.View entering={FadeInDown.delay(100).duration(500).springify()}>
+          <View style={S.moodCard}>
+            <View style={S.moodTop}>
+              <View style={S.moodLeft}>
+                <View style={S.moodIconBadge}>
+                  <Smiley size={20} color="#F59E0B" weight="fill" />
+                </View>
+                <View>
+                  <Text style={S.moodTitle}>Mood</Text>
+                  <Text style={S.moodSub}>
+                    {moodLoading ? 'Loading...' : moodLog ? `Feeling ${moodLog.mood}` : 'How are you today?'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View style={S.moodRow}>
+              {(['great', 'good', 'okay', 'bad', 'terrible'] as const).map((mood) => (
                 <TouchableOpacity
-                  key={exercise.id}
-                  style={[styles.exerciseCard, shadows.md]}
-                  activeOpacity={0.9}
-                  onPress={() => startSession(exercise, 'breathing')}
+                  key={mood}
+                  style={[S.moodDot, moodLog?.mood === mood && S.moodDotActive]}
+                  onPress={() => { setSelectedMood(mood); setShowMoodSelector(true); }}
                 >
-                  <LinearGradient
-                    colors={exercise.gradient as [string, string, ...string[]]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.exerciseGradient}
-                  >
-                    <View style={styles.exerciseContent}>
-                      <View style={styles.exerciseLeft}>
-                        <View style={styles.exerciseIconContainer}>
-                          <MaterialIcons name={exercise.icon} size={32} color={colors.textLight} />
-                        </View>
-                        <View style={styles.exerciseInfo}>
-                          <Text style={styles.exerciseTitle}>{exercise.title}</Text>
-                          <Text style={styles.exerciseDescription}>{exercise.description}</Text>
-                          <View style={styles.exerciseMeta}>
-                            <View style={styles.metaItem}>
-                              <MaterialIcons name="schedule" size={14} color={colors.textLight} />
-                              <Text style={styles.metaText}>{exercise.duration} min</Text>
-                            </View>
-                            <View style={styles.metaBadge}>
-                              <Text style={styles.metaBadgeText}>{exercise.difficulty}</Text>
-                            </View>
-                          </View>
-                        </View>
-                      </View>
-                      <TouchableOpacity 
-                        style={styles.playButton}
-                        onPress={() => startSession(exercise, 'breathing')}
-                      >
-                        <MaterialIcons name="play-arrow" size={28} color={colors.textLight} />
-                      </TouchableOpacity>
-                    </View>
-                  </LinearGradient>
+                  <Text style={S.moodEmoji}>{getMoodEmoji(mood)}</Text>
+                  <Text style={[S.moodDotLabel, moodLog?.mood === mood && S.moodDotLabelActive]}>
+                    {mood.charAt(0).toUpperCase() + mood.slice(1)}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
+          </View>
+        </ReAnimated.View>
 
-            <View style={styles.tipsSection}>
-              <Text style={styles.tipsTitle}>Breathing Tips</Text>
-              <View style={styles.tipCard}>
-                <MaterialIcons name="lightbulb-outline" size={20} color={colors.primary} />
-                <Text style={styles.tipText}>
-                  Find a quiet space where you won't be disturbed
-                </Text>
-              </View>
-              <View style={styles.tipCard}>
-                <MaterialIcons name="lightbulb-outline" size={20} color={colors.primary} />
-                <Text style={styles.tipText}>
-                  Breathe through your nose, out through your mouth
-                </Text>
-              </View>
-            </View>
+        {/* ── TAB BAR ── */}
+        <ReAnimated.View entering={FadeInDown.delay(120).duration(500).springify()}>
+          <View style={S.tabBar}>
+            {([
+              { key: 'breathe' as const, label: 'Breathing', icon: <Wind size={16} color={activeFilter === 'breathe' ? '#FFF' : MC.textDim} weight="bold" /> },
+              { key: 'meditate' as const, label: 'Meditate', icon: <FlowerLotus size={16} color={activeFilter === 'meditate' ? '#FFF' : MC.textDim} weight="bold" /> },
+              { key: 'quick' as const, label: 'Quick', icon: <Timer size={16} color={activeFilter === 'quick' ? '#FFF' : MC.textDim} weight="bold" /> },
+            ]).map((tab) => {
+              const active = activeFilter === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={[S.tab, active && S.tabActive]}
+                  onPress={() => setActiveFilter(tab.key)}
+                  activeOpacity={0.7}
+                >
+                  {tab.icon}
+                  <Text style={[S.tabText, active && S.tabTextActive]}>{tab.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ReAnimated.View>
+
+        {/* ── BREATHING section ── */}
+        {showBreathing && (
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+            {breathingExercises.map((ex) => {
+              const isDark = ex.bg === '#111111';
+              return (
+                <TouchableOpacity
+                  key={`b-${ex.id}`}
+                  style={[S.exCard, { backgroundColor: ex.bg }]}
+                  activeOpacity={0.85}
+                  onPress={() => startSession(ex, 'breathing')}
+                >
+                  <View style={[S.exIconBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : `${ex.tint}18` }]}>
+                    {getBreathIcon(ex.id, 22, ex.tint)}
+                  </View>
+                  <View style={S.exInfo}>
+                    <Text style={[S.exTitle, { color: isDark ? '#FFF' : MC.text }]}>{ex.title}</Text>
+                    <Text style={[S.exDesc, { color: isDark ? 'rgba(255,255,255,0.5)' : MC.textDim }]}>{ex.description}</Text>
+                    <View style={S.exMeta}>
+                      <View style={[S.exPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
+                        <Clock size={12} color={isDark ? 'rgba(255,255,255,0.4)' : MC.textDim} />
+                        <Text style={[S.exPillText, { color: isDark ? 'rgba(255,255,255,0.5)' : MC.textDim }]}>{ex.duration} min</Text>
+                      </View>
+                      <View style={[S.exPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
+                        <Text style={[S.exPillText, { color: isDark ? 'rgba(255,255,255,0.5)' : MC.textDim }]}>{ex.difficulty}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={[S.exPlayBtn, { backgroundColor: isDark ? MC.lime : ex.tint }]}>
+                    <Play size={16} color={isDark ? MC.text : '#FFF'} weight="fill" />
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </Animated.View>
         )}
 
-        {activeTab === 'meditate' && (
+        {/* ── MEDITATION section ── */}
+        {showMeditation && (
           <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Meditation Sessions</Text>
-              <Text style={styles.sectionSubtitle}>Guided journeys for inner peace</Text>
-
-              <View style={styles.sessionGrid}>
-                {meditationSessions.map((session) => (
-                  <TouchableOpacity
-                    key={session.id}
-                    style={[styles.sessionCard, shadows.sm]}
-                    activeOpacity={0.9}
-                    onPress={() => startSession(session, 'meditation')}
-                  >
-                    <View style={[styles.sessionIconContainer, { backgroundColor: `${session.color}20` }]}>
-                      <MaterialIcons name={session.icon} size={32} color={session.color} />
-                    </View>
-                    <Text style={styles.sessionTitle} numberOfLines={2}>{session.title}</Text>
-                    <Text style={styles.sessionType}>{session.type}</Text>
-                    <View style={styles.sessionFooter}>
-                      <View style={styles.sessionDuration}>
-                        <MaterialIcons name="schedule" size={14} color={colors.textSecondary} />
-                        <Text style={styles.sessionDurationText}>{session.duration} min</Text>
+            {meditationSessions.map((s) => {
+              const isDark = s.bg === '#111111';
+              return (
+                <TouchableOpacity
+                  key={`m-${s.id}`}
+                  style={[S.exCard, { backgroundColor: s.bg }]}
+                  activeOpacity={0.85}
+                  onPress={() => startSession(s, 'meditation')}
+                >
+                  <View style={[S.exIconBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : `${s.tint}18` }]}>
+                    {getMeditationIcon(s.id, 22, s.tint)}
+                  </View>
+                  <View style={S.exInfo}>
+                    <Text style={[S.exTitle, { color: isDark ? '#FFF' : MC.text }]}>{s.title}</Text>
+                    <Text style={[S.exDesc, { color: isDark ? 'rgba(255,255,255,0.5)' : MC.textDim }]}>{s.description}</Text>
+                    <View style={S.exMeta}>
+                      <View style={[S.exPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
+                        <Clock size={12} color={isDark ? 'rgba(255,255,255,0.4)' : MC.textDim} />
+                        <Text style={[S.exPillText, { color: isDark ? 'rgba(255,255,255,0.5)' : MC.textDim }]}>{s.duration} min</Text>
                       </View>
-                      <TouchableOpacity 
-                        style={[styles.sessionPlayButton, { backgroundColor: session.color }]}
-                        onPress={() => startSession(session, 'meditation')}
-                      >
-                        <MaterialIcons name="play-arrow" size={18} color={colors.textLight} />
-                      </TouchableOpacity>
+                      <View style={[S.exPill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
+                        <Text style={[S.exPillText, { color: isDark ? 'rgba(255,255,255,0.5)' : MC.textDim }]}>{s.type}</Text>
+                      </View>
                     </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Relaxing Songs</Text>
-              <Text style={styles.sectionSubtitle}>Soothing sounds to calm your mind</Text>
-
-              <View style={styles.songsGrid}>
-                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.8}>
-                  <View style={[styles.songIconContainer, { backgroundColor: `${colors.primary}15` }]}>
-                    <MaterialIcons name="music-note" size={32} color={colors.primary} />
                   </View>
-                  <View style={styles.songInfo}>
-                    <Text style={styles.songTitle}>Ocean Waves</Text>
-                    <Text style={styles.songArtist}>Nature Sounds · 15 min</Text>
+                  <View style={[S.exPlayBtn, { backgroundColor: isDark ? MC.lime : s.tint }]}>
+                    <Play size={16} color={isDark ? MC.text : '#FFF'} weight="fill" />
                   </View>
-                  <TouchableOpacity style={styles.songPlayIcon}>
-                    <MaterialIcons name="play-circle-filled" size={36} color={colors.primary} />
-                  </TouchableOpacity>
                 </TouchableOpacity>
+              );
+            })}
+          </Animated.View>
+        )}
 
-                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.8}>
-                  <View style={[styles.songIconContainer, { backgroundColor: `${colors.secondary}15` }]}>
-                    <MaterialIcons name="music-note" size={32} color={colors.secondary} />
-                  </View>
-                  <View style={styles.songInfo}>
-                    <Text style={styles.songTitle}>Forest Rain</Text>
-                    <Text style={styles.songArtist}>Ambient Nature · 20 min</Text>
-                  </View>
-                  <TouchableOpacity style={styles.songPlayIcon}>
-                    <MaterialIcons name="play-circle-filled" size={36} color={colors.secondary} />
-                  </TouchableOpacity>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.8}>
-                  <View style={[styles.songIconContainer, { backgroundColor: `${colors.purple}15` }]}>
-                    <MaterialIcons name="music-note" size={32} color={colors.purple} />
-                  </View>
-                  <View style={styles.songInfo}>
-                    <Text style={styles.songTitle}>Peaceful Piano</Text>
-                    <Text style={styles.songArtist}>Instrumental Calm · 12 min</Text>
-                  </View>
-                  <TouchableOpacity style={styles.songPlayIcon}>
-                    <MaterialIcons name="play-circle-filled" size={36} color={colors.purple} />
-                  </TouchableOpacity>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={[styles.songCard, shadows.sm]} activeOpacity={0.8}>
-                  <View style={[styles.songIconContainer, { backgroundColor: `${colors.accent}15` }]}>
-                    <MaterialIcons name="music-note" size={32} color={colors.accent} />
-                  </View>
-                  <View style={styles.songInfo}>
-                    <Text style={styles.songTitle}>Tibetan Bowls</Text>
-                    <Text style={styles.songArtist}>Healing Sounds · 25 min</Text>
-                  </View>
-                  <TouchableOpacity style={styles.songPlayIcon}>
-                    <MaterialIcons name="play-circle-filled" size={36} color={colors.accent} />
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.featuredSection}
-              activeOpacity={0.9}
-              onPress={() => startSession({
-                id: 'featured',
-                title: 'Mindful Walking',
-                duration: 15,
-                type: 'Guided',
-                description: 'Connect with movement and awareness',
-              }, 'meditation')}
-            >
-              <LinearGradient
-                colors={gradients.greenGlow as [string, string, ...string[]]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.featuredGradient}
+        {/* ── QUICK section ── */}
+        {showQuick && (
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+            {quickPractices.map((p) => (
+              <TouchableOpacity
+                key={`q-${p.id}`}
+                style={[S.exCard, { backgroundColor: p.bg }]}
+                activeOpacity={0.85}
+                onPress={() => startSession(p, 'quick')}
               >
-                <View style={styles.featuredContent}>
-                  <MaterialIcons name="auto-awesome" size={32} color={colors.textLight} />
-                  <View style={styles.featuredText}>
-                    <Text style={styles.featuredTitle}>Today's Featured</Text>
-                    <Text style={styles.featuredSubtitle}>Mindful Walking Meditation</Text>
-                  </View>
-                  <View style={styles.featuredButton}>
-                    <Text style={styles.featuredButtonText}>Start</Text>
+                <View style={[S.exIconBox, { backgroundColor: `${p.tint}18` }]}>
+                  {getQuickIcon(p.id, 22, p.tint)}
+                </View>
+                <View style={S.exInfo}>
+                  <Text style={S.exTitle}>{p.title}</Text>
+                  <Text style={[S.exDesc, { color: MC.textDim }]}>{p.description}</Text>
+                  <View style={S.exMeta}>
+                    <View style={[S.exPill, { backgroundColor: 'rgba(0,0,0,0.05)' }]}>
+                      <Clock size={12} color={MC.textDim} />
+                      <Text style={[S.exPillText, { color: MC.textDim }]}>{p.duration} min</Text>
+                    </View>
                   </View>
                 </View>
-              </LinearGradient>
-            </TouchableOpacity>
+                <View style={[S.exPlayBtn, { backgroundColor: p.tint }]}>
+                  <Play size={16} color="#FFF" weight="fill" />
+                </View>
+              </TouchableOpacity>
+            ))}
           </Animated.View>
         )}
 
-        {activeTab === 'quick' && (
-          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Quick Practices</Text>
-              <Text style={styles.sectionSubtitle}>Instant calm, anytime, anywhere</Text>
-
-              {quickPractices.map((practice) => (
-                <TouchableOpacity
-                  key={practice.id}
-                  style={[styles.quickCard, shadows.sm]}
-                  activeOpacity={0.9}
-                  onPress={() => startSession(practice, 'quick')}
-                >
-                  <View style={styles.quickLeft}>
-                    <View style={styles.quickIconContainer}>
-                      <MaterialIcons name={practice.icon} size={24} color={colors.primary} />
-                    </View>
-                    <View>
-                      <Text style={styles.quickTitle}>{practice.title}</Text>
-                      <Text style={styles.quickDuration}>{practice.duration} minute{practice.duration > 1 ? 's' : ''}</Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity 
-                    style={styles.quickStartButton}
-                    onPress={() => startSession(practice, 'quick')}
-                  >
-                    <MaterialIcons name="play-circle-filled" size={40} color={colors.primary} />
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.streakSection}>
-              <View style={[styles.streakCard, shadows.md]}>
-                <View style={styles.streakHeader}>
-                  <MaterialIcons name="local-fire-department" size={32} color={colors.accent} />
-                  <Text style={styles.streakNumber}>{currentStreak}</Text>
-                </View>
-                <Text style={styles.streakTitle}>Day Streak</Text>
-                <Text style={styles.streakText}>Keep going! You're building a great habit</Text>
-              </View>
-            </View>
-
-            <View style={styles.benefitsSection}>
-              <Text style={styles.benefitsTitle}>Benefits of Quick Practice</Text>
-              <View style={styles.benefitItem}>
-                <MaterialIcons name="check-circle" size={20} color={colors.primary} />
-                <Text style={styles.benefitText}>Reduces stress in moments</Text>
-              </View>
-              <View style={styles.benefitItem}>
-                <MaterialIcons name="check-circle" size={20} color={colors.primary} />
-                <Text style={styles.benefitText}>Improves focus and clarity</Text>
-              </View>
-              <View style={styles.benefitItem}>
-                <MaterialIcons name="check-circle" size={20} color={colors.primary} />
-                <Text style={styles.benefitText}>Easy to fit into busy schedules</Text>
-              </View>
-            </View>
-          </Animated.View>
-        )}
+        <View style={{ height: 110 }} />
       </ScrollView>
 
+      {/* Session Modal */}
       <Modal
         visible={sessionActive}
         animationType="slide"
         presentationStyle="fullScreen"
       >
-        <LinearGradient
-          colors={
-            sessionType === 'breathing' && activeSession?.gradient
-              ? (activeSession.gradient as [string, string, ...string[]])
-              : [colors.primary, colors.primaryDark] as [string, string, ...string[]]
-          }
-          style={styles.sessionModal}
-        >
-          <SafeAreaView style={styles.sessionContainer}>
-            <ScrollView 
-              contentContainerStyle={styles.sessionScrollContent}
+        <View style={S.sessModal}>
+          <SafeAreaView style={S.sessSafe}>
+            {/* Top bar */}
+            <View style={S.sessTopBar}>
+              <TouchableOpacity onPress={stopSession} style={S.sessBackBtn}>
+                <X size={20} color="#FFF" weight="bold" />
+              </TouchableOpacity>
+              <View style={S.sessTopCenter}>
+                <Text style={S.sessTopLabel}>{activeSession?.title}</Text>
+                <View style={S.sessProgressTrack}>
+                  <View style={[S.sessProgressFill, { width: `${activeSession?.duration ? ((activeSession.duration * 60 - timeRemaining) / (activeSession.duration * 60)) * 100 : 0}%` }]} />
+                </View>
+              </View>
+              <TouchableOpacity onPress={pauseSession} style={S.sessPauseBtn}>
+                {isPaused
+                  ? <Play size={18} color={MC.cardDark} weight="fill" />
+                  : <Pause size={18} color={MC.cardDark} weight="fill" />
+                }
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={S.sessScroll}
               showsVerticalScrollIndicator={false}
               bounces={false}
             >
-              <View style={styles.sessionHeader}>
-                <TouchableOpacity onPress={stopSession} style={styles.closeButton}>
-                  <MaterialIcons name="close" size={28} color={colors.textLight} />
-                </TouchableOpacity>
-                <Text style={styles.sessionHeaderTitle}>{activeSession?.title}</Text>
-                <TouchableOpacity onPress={pauseSession} style={styles.pauseButton}>
-                  <MaterialIcons 
-                    name={isPaused ? 'play-arrow' : 'pause'} 
-                    size={28} 
-                    color={colors.textLight} 
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.sessionBody}>
+              <View style={S.sessBody}>
                 {sessionType === 'breathing' && (
-                  <View style={styles.breathingContainer}>
-                    <Animated.View 
+                  <View style={S.breathAnimContainer}>
+                    <Animated.View
                       style={[
-                        styles.breathingCircle,
+                        S.breathAnimCircle,
                         {
                           transform: [{ scale: breathScale }],
                           opacity: breathOpacity,
                         },
                       ]}
                     >
-                      <View style={styles.breathingInner}>
-                        <MaterialIcons name="air" size={48} color={colors.textLight} />
+                      <View style={S.breathAnimInner}>
+                        <Wind size={48} color={MC.cardDark} weight="duotone" />
                       </View>
                     </Animated.View>
-                    
-                    <Text style={styles.breathingText}>
-                      {breathingPhase === 'in' ? 'Breathe In' : 'Breathe Out'}
-                    </Text>
 
-                    {activeSession?.instructions && (
-                      <View style={styles.instructionsContainer}>
-                        {activeSession.instructions.map((instruction: string, index: number) => (
-                          <View key={index} style={styles.instructionItem}>
-                            <View style={styles.instructionDot} />
-                            <Text style={styles.instructionText}>{instruction}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
+                    <Text style={S.breathPhaseText}>
+                      {breathingPhase === 'in' ? 'Breathe In' : breathingPhase === 'hold' ? 'Hold' : 'Breathe Out'}
+                    </Text>
+                    <Text style={S.breathPhaseSub}>
+                      {breathingPhase === 'in' ? 'Slowly through your nose' : breathingPhase === 'hold' ? 'Keep your lungs full' : 'Gently through your mouth'}
+                    </Text>
                   </View>
                 )}
 
                 {(sessionType === 'meditation' || sessionType === 'quick') && (
-                  <View style={styles.meditationContainer}>
+                  <View style={S.meditAnimContainer}>
                     <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                      <Svg width={200} height={200}>
-                        <Circle
-                          cx={100}
-                          cy={100}
-                          r={90}
-                          stroke={colors.textLight}
-                          strokeWidth={3}
-                          fill="transparent"
-                          opacity={0.3}
-                        />
-                        <Circle
-                          cx={100}
-                          cy={100}
-                          r={70}
-                          stroke={colors.textLight}
-                          strokeWidth={2}
-                          fill="transparent"
-                          opacity={0.5}
-                        />
-                        <Circle
-                          cx={100}
-                          cy={100}
-                          r={50}
-                          fill={colors.textLight}
-                          opacity={0.2}
-                        />
-                      </Svg>
+                      <View style={S.meditOrb}>
+                        <View style={S.meditOrbMid}>
+                          <View style={S.meditOrbCore}>
+                            <FlowerLotus size={36} color={MC.cardDark} weight="duotone" />
+                          </View>
+                        </View>
+                      </View>
                     </Animated.View>
-                    
-                    <Text style={styles.meditationText}>
+
+                    <Text style={S.meditFocusText}>
                       {activeSession?.description || 'Focus on your breath'}
                     </Text>
                   </View>
                 )}
 
-                <View style={styles.timerContainer}>
-                  <Text style={styles.timerText}>{formatTime(timeRemaining)}</Text>
-                  <Text style={styles.timerLabel}>Remaining</Text>
+                {/* Timer */}
+                <View style={S.timerBox}>
+                  <Text style={S.timerText}>{formatTime(timeRemaining)}</Text>
+                  <Text style={S.timerLabel}>remaining</Text>
                 </View>
 
-                <View style={styles.sessionControls}>
-                  <TouchableOpacity 
-                    style={styles.controlButton}
-                    onPress={pauseSession}
-                  >
-                    <MaterialIcons 
-                      name={isPaused ? 'play-arrow' : 'pause'} 
-                      size={32} 
-                      color={colors.textLight} 
-                    />
-                    <Text style={styles.controlButtonText}>
-                      {isPaused ? 'Resume' : 'Pause'}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={styles.controlButton}
-                    onPress={stopSession}
-                  >
-                    <MaterialIcons name="stop" size={32} color={colors.textLight} />
-                    <Text style={styles.controlButtonText}>End</Text>
-                  </TouchableOpacity>
-                </View>
+                {/* Instructions (for breathing) */}
+                {sessionType === 'breathing' && activeSession?.instructions && (
+                  <View style={S.instrCard}>
+                    <Text style={S.instrTitle}>How to</Text>
+                    {activeSession.instructions.map((instruction: string, index: number) => (
+                      <View key={index} style={S.instrRow}>
+                        <View style={S.instrNum}>
+                          <Text style={S.instrNumText}>{index + 1}</Text>
+                        </View>
+                        <Text style={S.instrText}>{instruction}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
             </ScrollView>
-          </SafeAreaView>
-        </LinearGradient>
-      </Modal>
 
-      <Modal
-        visible={showStats}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowStats(false)}
-      >
-        <View style={styles.statsModalOverlay}>
-          <SafeAreaView style={styles.statsModalSafeArea}>
-            <View style={[styles.statsModal, shadows.lg]}>
-              <View style={styles.statsHeader}>
-                <Text style={styles.statsTitle}>Your Progress</Text>
-                <TouchableOpacity onPress={() => setShowStats(false)}>
-                  <MaterialIcons name="close" size={28} color={colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.statsGrid}>
-                <View style={[styles.statCard, shadows.sm]}>
-                  <MaterialIcons name="check-circle" size={32} color={colors.primary} />
-                  <Text style={styles.statNumber}>
-                    {sessionsLoading ? '...' : completedSessions}
-                  </Text>
-                  <Text style={styles.statLabel}>Sessions</Text>
-                </View>
-
-                <View style={[styles.statCard, shadows.sm]}>
-                  <MaterialIcons name="schedule" size={32} color={colors.secondary} />
-                  <Text style={styles.statNumber}>
-                    {sessionsLoading ? '...' : totalMinutes}
-                  </Text>
-                  <Text style={styles.statLabel}>Minutes</Text>
-                </View>
-
-                <View style={[styles.statCard, shadows.sm]}>
-                  <MaterialIcons name="local-fire-department" size={32} color={colors.accent} />
-                  <Text style={styles.statNumber}>
-                    {sessionsLoading ? '...' : currentStreak}
-                  </Text>
-                  <Text style={styles.statLabel}>Day Streak</Text>
-                </View>
-
-                <View style={[styles.statCard, shadows.sm]}>
-                  <MaterialIcons name="emoji-events" size={32} color={colors.purple} />
-                  <Text style={styles.statNumber}>
-                    {sessionsLoading ? '...' : Math.floor(completedSessions / 5)}
-                  </Text>
-                  <Text style={styles.statLabel}>Achievements</Text>
-                </View>
-              </View>
-
-              <TouchableOpacity 
-                style={[styles.closeStatsButton, shadows.sm]}
-                onPress={() => setShowStats(false)}
-              >
-                <Text style={styles.closeStatsButtonText}>Close</Text>
+            {/* Bottom controls */}
+            <View style={S.sessBottomBar}>
+              <TouchableOpacity style={S.ctrlBtnPause} onPress={pauseSession}>
+                {isPaused
+                  ? <Play size={22} color={MC.cardDark} weight="fill" />
+                  : <Pause size={22} color={MC.cardDark} weight="fill" />
+                }
+                <Text style={S.ctrlBtnPauseText}>{isPaused ? 'Resume' : 'Pause'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={S.ctrlBtnEnd} onPress={stopSession}>
+                <Stop size={22} color="#FFF" weight="fill" />
+                <Text style={S.ctrlBtnEndText}>End</Text>
               </TouchableOpacity>
             </View>
           </SafeAreaView>
         </View>
       </Modal>
 
+      {/* Stats Modal */}
+      <Modal
+        visible={showStats}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowStats(false)}
+      >
+        <View style={S.overlay}>
+          <TouchableOpacity
+            style={S.overlayBg}
+            activeOpacity={1}
+            onPress={() => setShowStats(false)}
+          />
+          <View style={S.sheet}>
+            <View style={S.sheetHandle} />
+            <View style={S.sheetHead}>
+              <Text style={S.sheetTitle}>Your Progress</Text>
+              <TouchableOpacity onPress={() => setShowStats(false)} style={S.sheetCloseX}>
+                <X size={18} color={MC.textDim} weight="bold" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Hero stat */}
+            <View style={S.progressHero}>
+              <View style={S.progressHeroIcon}>
+                <Leaf size={28} color={MC.cardDark} weight="fill" />
+              </View>
+              <Text style={S.progressHeroNum}>{sessionsLoading ? '...' : completedSessions}</Text>
+              <Text style={S.progressHeroLabel}>Total Sessions</Text>
+              <View style={S.progressHeroBar}>
+                <View style={[S.progressHeroFill, { width: `${Math.min(100, (completedSessions / 50) * 100)}%` }]} />
+              </View>
+              <Text style={S.progressHeroGoal}>Goal: 50 sessions</Text>
+            </View>
+
+            {/* Stat rows */}
+            <View style={S.progressRows}>
+              {[
+                { icon: <Clock size={22} color={MC.lime} weight="bold" />, value: sessionsLoading ? '...' : totalMinutes, label: 'Minutes Practiced', suffix: 'min' },
+                { icon: <Fire size={22} color={MC.amber} weight="fill" />, value: sessionsLoading ? '...' : currentStreak, label: 'Day Streak', suffix: 'days' },
+                { icon: <Trophy size={22} color={MC.blue} weight="fill" />, value: sessionsLoading ? '...' : Math.floor(completedSessions / 5), label: 'Achievements Earned', suffix: '' },
+              ].map((s, i) => (
+                <View key={i} style={S.progressRow}>
+                  <View style={S.progressRowIcon}>{s.icon}</View>
+                  <View style={S.progressRowInfo}>
+                    <Text style={S.progressRowLabel}>{s.label}</Text>
+                  </View>
+                  <Text style={S.progressRowValue}>{s.value}<Text style={S.progressRowSuffix}> {s.suffix}</Text></Text>
+                </View>
+              ))}
+            </View>
+
+            <TouchableOpacity style={S.sheetCloseBtn} onPress={() => setShowStats(false)}>
+              <Text style={S.sheetCloseBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Mood Selector Modal */}
       <Modal
         visible={showMoodSelector}
-        animationType="fade"
+        animationType="slide"
         transparent={true}
         onRequestClose={() => setShowMoodSelector(false)}
       >
-        <View style={styles.moodSelectorModal}>
-          <View style={[styles.moodSelectorContent, shadows.lg]}>
-            <Text style={styles.moodSelectorTitle}>How are you feeling?</Text>
-            <Text style={styles.debugText}>
-              Selected: {selectedMood ? selectedMood : 'None'}
-            </Text>
-            
-            <View style={styles.moodOptionsContainer}>
+        <View style={S.overlay}>
+          <TouchableOpacity
+            style={S.overlayBg}
+            activeOpacity={1}
+            onPress={() => {
+              setSelectedMood(null);
+              setShowMoodSelector(false);
+            }}
+          />
+          <View style={S.sheet}>
+            <View style={S.sheetHandle} />
+            <View style={S.sheetHead}>
+              <Text style={S.sheetTitle}>How are you feeling?</Text>
+              <TouchableOpacity onPress={() => { setSelectedMood(null); setShowMoodSelector(false); }} style={S.sheetCloseX}>
+                <X size={18} color={MC.textDim} weight="bold" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={S.moodGrid}>
               {(['great', 'good', 'okay', 'bad', 'terrible'] as const).map((mood) => {
-                const isSelected = selectedMood === mood;
+                const selected = selectedMood === mood;
+                const moodColors: Record<string, string> = { great: MC.lime, good: MC.accent, okay: MC.amber, bad: '#F97316', terrible: '#EF4444' };
                 return (
                   <TouchableOpacity
                     key={mood}
-                    style={[
-                      styles.moodOption, 
-                      shadows.sm,
-                      isSelected && styles.moodOptionSelected
-                    ]}
-                    onPress={() => {
-                      console.log('Selecting mood:', mood, 'Current selected:', selectedMood);
-                      setSelectedMood(mood);
-                    }}
+                    style={[S.moodSelCard, selected && { backgroundColor: MC.cardDark }]}
+                    onPress={() => setSelectedMood(mood)}
                   >
-                    <Text style={styles.moodOptionEmoji}>{getMoodEmoji(mood)}</Text>
-                    <Text style={[
-                      styles.moodOptionText,
-                      isSelected && styles.moodOptionTextSelected
-                    ]}>
+                    <Text style={S.moodCardEmoji}>{getMoodEmoji(mood)}</Text>
+                    <Text style={[S.moodCardText, selected && { color: '#FFF' }]}>
                       {mood.charAt(0).toUpperCase() + mood.slice(1)}
                     </Text>
-                    {isSelected && (
-                      <MaterialIcons 
-                        name="check-circle" 
-                        size={24} 
-                        color={colors.primary} 
-                        style={styles.moodOptionCheck}
-                      />
-                    )}
+                    <View style={[S.moodSelDot, { backgroundColor: selected ? moodColors[mood] : MC.border }]} />
                   </TouchableOpacity>
                 );
               })}
@@ -1116,832 +1049,424 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
 
             {selectedMood ? (
               <TouchableOpacity
-                style={[styles.confirmMoodButton, shadows.sm]}
+                style={S.moodConfirmBtn}
                 onPress={() => handleMoodLog(selectedMood)}
               >
-                <Text style={styles.confirmMoodButtonText}>
-                  Confirm - I'm feeling {selectedMood}
-                </Text>
+                <Text style={S.moodConfirmText}>Log Mood</Text>
               </TouchableOpacity>
             ) : (
-              <View style={styles.selectPrompt}>
-                <Text style={styles.selectPromptText}>Select a mood above</Text>
+              <View style={S.moodPrompt}>
+                <Text style={S.moodPromptText}>Tap how you feel</Text>
               </View>
             )}
-
-            <TouchableOpacity
-              style={styles.closeMoodSelectorButton}
-              onPress={() => {
-                setSelectedMood(null);
-                setShowMoodSelector(false);
-              }}
-            >
-              <Text style={styles.closeMoodSelectorText}>Cancel</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
-
-      <BottomNavigation activeTab="mindfulness" onTabChange={onNavigate} />
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: 100,
-    maxWidth: 500,
-    alignSelf: 'center',
-    width: '100%',
-  },
+const PAD_H = 20;
+
+const S = StyleSheet.create({
+  container: { flex: 1, backgroundColor: MC.bg },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingBottom: 110 },
+
+  /* Header — compact like Nutrition */
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xl,
-    marginTop: spacing.xl,
+    paddingHorizontal: PAD_H,
+    paddingTop: 20,
+    paddingBottom: 12,
   },
-  subtitle: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-    marginBottom: 4,
+  headerSub: { fontFamily: MF.medium, fontSize: 13, color: MC.textDim, marginBottom: 2 },
+  headerTitle: { fontFamily: MF.bold, fontSize: 22, color: MC.text, letterSpacing: -0.5 },
+  headerBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#F2F2F2',
+    justifyContent: 'center', alignItems: 'center',
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
+
+  /* Hero card — warm beige with ring like Nutrition calorie hero */
+  heroCard: {
+    backgroundColor: MC.warmBg,
+    marginHorizontal: PAD_H,
+    borderRadius: 28,
+    padding: 24,
+    marginBottom: 16,
   },
-  statsButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.sm,
-  },
-  tabContainer: {
+  heroRow: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  heroRingWrap: { position: 'relative' as const },
+  heroRingCenter: {
+    position: 'absolute' as const,
+    top: 0, left: 0, right: 0, bottom: 0,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  heroInfo: { flex: 1, marginLeft: 24 },
+  heroLabel: {
+    fontFamily: MF.medium, fontSize: 11, color: MC.textDim,
+    textTransform: 'uppercase' as const, letterSpacing: 0.8, marginBottom: 2,
+  },
+  heroVal: { fontFamily: MF.bold, fontSize: 28, color: MC.text, letterSpacing: -0.5, marginBottom: 10 },
+  heroValUnit: { fontFamily: MF.regular, fontSize: 16, color: MC.textDim },
+  heroRemaining: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: MC.accent + '14',
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 20, alignSelf: 'flex-start' as const,
+  },
+  heroRemDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: MC.accent },
+  heroRemText: { fontFamily: MF.semi, fontSize: 12, color: MC.accent },
+
+  heroStrip: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
+    backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 16,
+    paddingVertical: 14, paddingHorizontal: 8,
+  },
+  heroStripItem: { alignItems: 'center', gap: 3 },
+  heroStripVal: { fontFamily: MF.bold, fontSize: 16, color: MC.text },
+  heroStripLabel: { fontFamily: MF.medium, fontSize: 11, color: MC.textDim },
+  heroStripDiv: { width: 1, height: 28, backgroundColor: 'rgba(0,0,0,0.08)' },
+
+  /* Mood card — white card like Nutrition water */
+  moodCard: {
+    backgroundColor: MC.card,
+    marginHorizontal: PAD_H,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  moodTop: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 16,
+  },
+  moodLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  moodIconBadge: {
+    width: 40, height: 40, borderRadius: 14,
+    backgroundColor: '#F59E0B' + '15',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  moodTitle: { fontFamily: MF.bold, fontSize: 17, color: MC.text, letterSpacing: -0.3 },
+  moodSub: { fontFamily: MF.medium, fontSize: 12, color: MC.textDim, marginTop: 1 },
+  moodRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+  },
+  moodDot: {
+    flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 16,
+    backgroundColor: '#F8F8F8',
+    marginHorizontal: 3,
+  },
+  moodDotActive: { backgroundColor: MC.accent + '15' },
+  moodEmoji: { fontSize: 24, marginBottom: 4 },
+  moodDotLabel: { fontFamily: MF.medium, fontSize: 10, color: MC.textDim },
+  moodDotLabelActive: { color: MC.accent, fontFamily: MF.semi },
+
+  /* Tab Bar */
+  tabBar: {
+    flexDirection: 'row',
+    marginHorizontal: PAD_H,
+    marginBottom: 16,
+    marginTop: 4,
+    backgroundColor: '#F2F2F2',
+    borderRadius: 16,
     padding: 4,
-    marginBottom: spacing.xl,
-    ...shadows.sm,
   },
   tab: {
     flex: 1,
-    paddingVertical: spacing.sm,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 13,
   },
-  activeTab: {
-    backgroundColor: colors.primary,
+  tabActive: {
+    backgroundColor: MC.cardDark,
   },
   tabText: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_600SemiBold',
+    fontFamily: MF.semi,
+    fontSize: 13,
+    color: MC.textDim,
   },
-  activeTabText: {
-    color: colors.textLight,
+  tabTextActive: {
+    color: '#FFF',
   },
-  section: {
-    marginBottom: spacing.xl,
+
+  /* Section headers */
+  secHead: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: PAD_H, marginBottom: 12, marginTop: 8,
   },
-  sectionTitle: {
-    fontSize: fontSizes.lg,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-    marginBottom: spacing.xs,
+  secHeadLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  secIconBadge: {
+    width: 36, height: 36, borderRadius: 12,
+    justifyContent: 'center', alignItems: 'center',
   },
-  sectionSubtitle: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-    marginBottom: spacing.lg,
+  secTitle: { fontFamily: MF.bold, fontSize: 20, color: MC.text, letterSpacing: -0.5 },
+
+  /* Exercise cards — vertical row cards like Nutrition meal cards */
+  exCard: {
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: PAD_H, marginBottom: 10,
+    borderRadius: 20, padding: 16,
   },
-  exerciseCard: {
-    borderRadius: borderRadius.xl,
-    overflow: 'hidden',
-    marginBottom: spacing.md,
+  exIconBox: {
+    width: 48, height: 48, borderRadius: 16,
+    justifyContent: 'center', alignItems: 'center',
   },
-  exerciseGradient: {
-    padding: spacing.lg,
+  exInfo: { flex: 1, marginLeft: 14 },
+  exTitle: { fontFamily: MF.bold, fontSize: 15, color: MC.text, letterSpacing: -0.3 },
+  exDesc: { fontFamily: MF.regular, fontSize: 12, color: MC.textDim, marginTop: 2 },
+  exMeta: { flexDirection: 'row', gap: 6, marginTop: 6 },
+  exPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
   },
-  exerciseContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  exPillText: { fontFamily: MF.medium, fontSize: 11 },
+  exPlayBtn: {
+    width: 40, height: 40, borderRadius: 14,
+    justifyContent: 'center', alignItems: 'center',
+    marginLeft: 10,
+  },
+
+  /* Session Modal */
+  sessModal: { flex: 1, backgroundColor: MC.cardDark },
+  sessSafe: { flex: 1 },
+  sessScroll: { flexGrow: 1, paddingBottom: 120 },
+
+  /* Top bar */
+  sessTopBar: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 12, gap: 14,
+  },
+  sessBackBtn: {
+    width: 42, height: 42, borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  sessTopCenter: { flex: 1 },
+  sessTopLabel: {
+    fontSize: 14, color: 'rgba(255,255,255,0.7)', fontFamily: MF.semi,
+    marginBottom: 6,
+  },
+  sessProgressTrack: {
+    height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.12)',
+    overflow: 'hidden' as const,
+  },
+  sessProgressFill: {
+    height: 4, borderRadius: 2, backgroundColor: MC.lime,
+  },
+  sessPauseBtn: {
+    width: 42, height: 42, borderRadius: 14,
+    backgroundColor: MC.lime,
+    justifyContent: 'center', alignItems: 'center',
+  },
+
+  sessBody: {
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 20, width: '100%',
+  },
+
+  /* Breathing Animation */
+  breathAnimContainer: {
     alignItems: 'center',
-  },
-  exerciseLeft: {
-    flexDirection: 'row',
-    flex: 1,
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  exerciseIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 0,
-  },
-  exerciseInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  exerciseTitle: {
-    fontSize: fontSizes.lg,
-    fontWeight: '700',
-    color: colors.textLight,
-    fontFamily: 'Poppins_700Bold',
-    marginBottom: 4,
-  },
-  exerciseDescription: {
-    fontSize: fontSizes.sm,
-    color: colors.textLight,
-    opacity: 0.9,
-    fontFamily: 'Quicksand_500Medium',
-    marginBottom: spacing.sm,
-  },
-  exerciseMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metaText: {
-    fontSize: fontSizes.xs,
-    color: colors.textLight,
-    opacity: 0.9,
-    fontFamily: 'Quicksand_500Medium',
-  },
-  metaBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: borderRadius.sm,
-  },
-  metaBadgeText: {
-    fontSize: 10,
-    color: colors.textLight,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  playButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 0,
-  },
-  tipsSection: {
-    backgroundColor: colors.primaryPale,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  tipsTitle: {
-    fontSize: fontSizes.md,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-    marginBottom: spacing.md,
-  },
-  tipCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  tipText: {
-    flex: 1,
-    fontSize: fontSizes.sm,
-    color: colors.textPrimary,
-    fontFamily: 'Quicksand_500Medium',
-    lineHeight: 20,
-  },
-  sessionGrid: {
-    gap: spacing.md,
-  },
-  sessionCard: {
-    width: '100%',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(100, 150, 255, 0.08)',
-  },
-  sessionIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  sessionTitle: {
-    fontSize: fontSizes.md,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-    marginBottom: 4,
-    minHeight: 42,
-  },
-  sessionType: {
-    fontSize: fontSizes.xs,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-    marginBottom: spacing.sm,
-    minHeight: 16,
-  },
-  sessionFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.xs,
-    minHeight: 32,
-  },
-  sessionDuration: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  sessionDurationText: {
-    fontSize: fontSizes.xs,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-  },
-  sessionPlayButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  featuredSection: {
-    marginBottom: spacing.xl,
-  },
-  featuredGradient: {
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-  },
-  featuredContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  featuredText: {
-    flex: 1,
-  },
-  featuredTitle: {
-    fontSize: fontSizes.sm,
-    color: colors.textLight,
-    opacity: 0.9,
-    fontFamily: 'Quicksand_600SemiBold',
-    marginBottom: 4,
-  },
-  featuredSubtitle: {
-    fontSize: fontSizes.lg,
-    fontWeight: '700',
-    color: colors.textLight,
-    fontFamily: 'Poppins_700Bold',
-  },
-  featuredButton: {
-    backgroundColor: colors.textLight,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-  },
-  featuredButtonText: {
-    fontSize: fontSizes.sm,
-    color: colors.primary,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  quickCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  quickLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    flex: 1,
-  },
-  quickIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: colors.primaryPale,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  quickTitle: {
-    fontSize: fontSizes.md,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-    marginBottom: 2,
-  },
-  quickDuration: {
-    fontSize: fontSizes.xs,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-  },
-  quickStartButton: {
-    flexShrink: 0,
-  },
-  streakSection: {
-    marginBottom: spacing.xl,
-  },
-  streakCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  streakHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  streakNumber: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-  },
-  streakTitle: {
-    fontSize: fontSizes.lg,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-    marginBottom: spacing.xs,
-  },
-  streakText: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-    textAlign: 'center',
-  },
-  benefitsSection: {
-    marginBottom: spacing.xl,
-    alignItems: 'center',
-  },
-  benefitsTitle: {
-    fontSize: fontSizes.md,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  benefitItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  benefitText: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-    textAlign: 'center',
-  },
-  sessionModal: {
-    flex: 1,
-  },
-  sessionContainer: {
-    flex: 1,
-  },
-  sessionScrollContent: {
-    flexGrow: 1,
-    paddingBottom: spacing.xl,
-  },
-  sessionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  closeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sessionHeaderTitle: {
-    fontSize: fontSizes.lg,
-    fontWeight: '700',
-    color: colors.textLight,
-    fontFamily: 'Poppins_700Bold',
-  },
-  pauseButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sessionBody: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    marginBottom: 20,
     width: '100%',
   },
-  breathingContainer: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-    width: '100%',
-  },
-  breathingCircle: {
+  breathAnimCircle: {
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(212, 249, 64, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: 24,
   },
-  breathingInner: {
+  breathAnimInner: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(212, 249, 64, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  breathingText: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.textLight,
-    fontFamily: 'Poppins_700Bold',
-    marginBottom: spacing.lg,
+  breathPhaseText: {
+    fontSize: 30,
+    color: '#FFF',
+    fontFamily: MF.bold,
+    marginBottom: 6,
     textAlign: 'center',
-    width: '100%',
   },
-  instructionsContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginTop: spacing.md,
-    width: '90%',
-    alignSelf: 'center',
-  },
-  instructionItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: spacing.sm,
-    width: '100%',
-  },
-  instructionDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.textLight,
-    marginRight: spacing.md,
-    marginTop: 6,
-    flexShrink: 0,
-  },
-  instructionText: {
-    fontSize: fontSizes.md,
-    color: colors.textLight,
-    fontFamily: 'Quicksand_500Medium',
-    flex: 1,
-    flexWrap: 'wrap',
-    includeFontPadding: false,
-    textAlignVertical: 'top',
-  },
-  meditationContainer: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  meditationText: {
-    fontSize: fontSizes.lg,
-    color: colors.textLight,
-    fontFamily: 'Quicksand_600SemiBold',
+  breathPhaseSub: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: MF.medium,
     textAlign: 'center',
-    marginTop: spacing.xl,
-    paddingHorizontal: spacing.xl,
+    marginBottom: 8,
   },
-  timerContainer: {
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-    marginTop: spacing.lg,
+
+  /* Instruction card */
+  instrCard: {
+    backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 20,
+    padding: 20, marginTop: 20, width: '100%',
   },
+  instrTitle: {
+    fontSize: 15, color: 'rgba(255,255,255,0.5)', fontFamily: MF.semi,
+    marginBottom: 14, textTransform: 'uppercase' as const, letterSpacing: 1,
+  },
+  instrRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  instrNum: {
+    width: 26, height: 26, borderRadius: 9,
+    backgroundColor: MC.lime + '20',
+    justifyContent: 'center', alignItems: 'center', marginRight: 14,
+  },
+  instrNumText: { fontSize: 12, color: MC.lime, fontFamily: MF.bold },
+  instrText: {
+    fontSize: 14, color: 'rgba(255,255,255,0.8)', fontFamily: MF.medium,
+    flex: 1, lineHeight: 20,
+  },
+
+  /* Meditation Animation */
+  meditAnimContainer: { alignItems: 'center', marginBottom: 20 },
+  meditOrb: {
+    width: 200, height: 200, borderRadius: 100,
+    backgroundColor: MC.accent + '18',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  meditOrbMid: {
+    width: 140, height: 140, borderRadius: 70,
+    backgroundColor: MC.accent + '30',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  meditOrbCore: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: MC.accent,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  meditFocusText: {
+    fontSize: 17, color: 'rgba(255,255,255,0.7)', fontFamily: MF.semi,
+    textAlign: 'center', marginTop: 28, paddingHorizontal: 24, lineHeight: 24,
+  },
+
+  /* Timer */
+  timerBox: { alignItems: 'center', marginBottom: 8, marginTop: 24 },
   timerText: {
-    fontSize: 64,
-    fontWeight: '700',
-    color: colors.textLight,
-    fontFamily: 'Poppins_700Bold',
+    fontSize: 56, color: '#FFF', fontFamily: MF.bold, letterSpacing: -2,
   },
   timerLabel: {
-    fontSize: fontSizes.md,
-    color: colors.textLight,
-    fontFamily: 'Quicksand_500Medium',
-    opacity: 0.8,
+    fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: MF.medium,
+    textTransform: 'uppercase' as const, letterSpacing: 1, marginTop: 4,
   },
-  sessionControls: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-  },
-  controlButton: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.lg,
-    minWidth: 120,
-  },
-  controlButtonText: {
-    fontSize: fontSizes.sm,
-    color: colors.textLight,
-    fontFamily: 'Quicksand_600SemiBold',
-    marginTop: spacing.xs,
-  },
-  statsModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statsModalSafeArea: {
-    width: '100%',
-    maxWidth: 450,
-    paddingHorizontal: spacing.lg,
-  },
-  statsModal: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xxl,
-    padding: spacing.xl,
-    width: '100%',
-  },
-  statsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-  },
-  statsTitle: {
-    fontSize: fontSizes.xl,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    marginBottom: spacing.xl,
-  },
-  statCard: {
-    width: '47%',
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    alignItems: 'center',
-    minHeight: 120,
-  },
-  statNumber: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-    marginVertical: spacing.xs,
-  },
-  statLabel: {
-    fontSize: fontSizes.xs,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-    textAlign: 'center',
-  },
-  closeStatsButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-    alignItems: 'center',
-  },
-  closeStatsButtonText: {
-    fontSize: fontSizes.md,
-    color: colors.textLight,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  moodCard: {
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  moodCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  moodCardTitle: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textPrimary,
-  },
-  moodLoggedContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  moodLoggedText: {
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-  },
-  moodLoggedEmoji: {
-    fontSize: fontSizes.xl,
-  },
-  changeMoodText: {
-    fontSize: fontSizes.sm,
-    color: colors.primary,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  logMoodButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-  },
-  logMoodButtonText: {
-    fontSize: fontSizes.md,
-    color: colors.textLight,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  moodSelectorModal: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  moodSelectorContent: {
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.lg,
-    padding: spacing.xl,
-    width: '80%',
-    maxWidth: 400,
-  },
-  moodSelectorTitle: {
-    fontSize: fontSizes.lg,
-    fontFamily: 'Quicksand_700Bold',
-    color: colors.textPrimary,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  moodOptionsContainer: {
-    gap: spacing.md,
-  },
-  moodOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
-    gap: spacing.md,
-  },
-  moodOptionEmoji: {
-    fontSize: 32,
-  },
-  moodOptionText: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  moodOptionSelected: {
-    backgroundColor: colors.primary,
-    borderWidth: 3,
-    borderColor: colors.primaryDark,
-    transform: [{ scale: 1.05 }],
-  },
-  moodOptionTextSelected: {
-    color: colors.textLight,
-    fontFamily: 'Quicksand_700Bold',
-  },
-  moodOptionCheck: {
-    marginLeft: spacing.sm,
-  },
-  confirmMoodButton: {
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-  },
-  confirmMoodButtonText: {
-    fontSize: fontSizes.md,
-    color: colors.textLight,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  selectPrompt: {
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    alignItems: 'center',
-  },
-  selectPromptText: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-    fontStyle: 'italic',
-  },
-  debugText: {
-    fontSize: fontSizes.sm,
-    color: colors.primary,
-    fontFamily: 'Quicksand_600SemiBold',
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-    backgroundColor: colors.background,
-    padding: spacing.xs,
-    borderRadius: borderRadius.sm,
-  },
-  closeMoodSelectorButton: {
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-  },
-  closeMoodSelectorText: {
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  songsGrid: {
-    gap: spacing.sm,
-  },
-  songCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(100, 150, 255, 0.12)',
-    marginBottom: spacing.md,
-  },
-  songIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.lg,
-  },
-  songInfo: {
-    flex: 1,
-  },
-  songTitle: {
-    fontSize: fontSizes.md + 1,
-    fontFamily: 'Poppins_700Bold',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  songArtist: {
-    fontSize: fontSizes.sm,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-    opacity: 0.8,
-  },
-  songPlayIcon: {
-    marginLeft: spacing.md,
-  },
-});
 
+  /* Bottom controls */
+  sessBottomBar: {
+    position: 'absolute' as const, bottom: 0, left: 0, right: 0,
+    flexDirection: 'row', gap: 12, paddingHorizontal: 20,
+    paddingBottom: 40, paddingTop: 16,
+    backgroundColor: MC.cardDark,
+  },
+  ctrlBtnPause: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 10, backgroundColor: MC.lime, paddingVertical: 16, borderRadius: 16,
+  },
+  ctrlBtnPauseText: { fontSize: 15, color: MC.cardDark, fontFamily: MF.bold },
+  ctrlBtnEnd: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 10, backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 16, paddingHorizontal: 28, borderRadius: 16,
+  },
+  ctrlBtnEndText: { fontSize: 15, color: '#FFF', fontFamily: MF.semi },
+
+  /* Shared Overlay & Bottom Sheet */
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  overlayBg: { ...StyleSheet.absoluteFillObject },
+  sheet: {
+    backgroundColor: MC.card, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingHorizontal: 20, paddingBottom: 36, paddingTop: 12, maxHeight: '85%',
+  },
+  sheetHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: MC.border, alignSelf: 'center', marginBottom: 16,
+  },
+  sheetHead: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20,
+  },
+  sheetTitle: { fontSize: 22, color: MC.text, fontFamily: MF.bold },
+  sheetCloseX: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: MC.surfaceMuted,
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  /* Progress Hero */
+  progressHero: {
+    backgroundColor: MC.cardDark, borderRadius: 24, padding: 28,
+    alignItems: 'center', marginBottom: 16,
+  },
+  progressHeroIcon: {
+    width: 56, height: 56, borderRadius: 28, backgroundColor: MC.lime,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+  },
+  progressHeroNum: { fontSize: 48, color: '#FFF', fontFamily: MF.bold },
+  progressHeroLabel: { fontSize: 14, color: 'rgba(255,255,255,0.6)', fontFamily: MF.medium, marginTop: 2 },
+  progressHeroBar: {
+    width: '100%', height: 6, borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.1)', marginTop: 18,
+  },
+  progressHeroFill: {
+    height: 6, borderRadius: 3, backgroundColor: MC.lime,
+  },
+  progressHeroGoal: { fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: MF.medium, marginTop: 8 },
+
+  /* Progress Rows */
+  progressRows: { gap: 10, marginBottom: 20 },
+  progressRow: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: MC.surfaceMuted,
+    borderRadius: 16, padding: 16, gap: 14,
+  },
+  progressRowIcon: {
+    width: 44, height: 44, borderRadius: 14, backgroundColor: MC.cardDark,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  progressRowInfo: { flex: 1 },
+  progressRowLabel: { fontSize: 14, color: MC.text, fontFamily: MF.medium },
+  progressRowValue: { fontSize: 20, color: MC.text, fontFamily: MF.bold },
+  progressRowSuffix: { fontSize: 13, color: MC.textDim, fontFamily: MF.medium },
+
+  sheetCloseBtn: {
+    backgroundColor: MC.cardDark, paddingVertical: 16, borderRadius: 16,
+    alignItems: 'center',
+  },
+  sheetCloseBtnText: { fontSize: 15, color: '#FFF', fontFamily: MF.semi },
+
+  /* Mood Selector */
+  moodGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between',
+    gap: 10, marginBottom: 8,
+  },
+  moodSelCard: {
+    width: '47%', backgroundColor: MC.surfaceMuted, borderRadius: 20,
+    padding: 18, alignItems: 'center', gap: 6,
+  },
+  moodCardEmoji: { fontSize: 36 },
+  moodCardText: { fontSize: 14, fontFamily: MF.semi, color: MC.text },
+  moodSelDot: { width: 8, height: 8, borderRadius: 4, marginTop: 4 },
+  moodConfirmBtn: {
+    marginTop: 14, padding: 16, backgroundColor: MC.cardDark,
+    borderRadius: 16, alignItems: 'center',
+  },
+  moodConfirmText: { fontSize: 15, color: '#FFF', fontFamily: MF.semi },
+  moodPrompt: { marginTop: 14, padding: 16, alignItems: 'center' },
+  moodPromptText: { fontSize: 13, color: MC.textDim, fontFamily: MF.medium },
+});

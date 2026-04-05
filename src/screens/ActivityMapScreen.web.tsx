@@ -1,29 +1,44 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
-import { MaterialIcons, FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { CaretLeft, PersonSimpleRun, PersonSimpleWalk, Bicycle, Timer, Flame, Gauge, Crosshair, Play, Pause, Stop, Sparkle, ListNumbers, CaretUp, CaretDown, ArrowRight, Heart, TrendUp, MapPin, NavigationArrow } from 'phosphor-react-native';
+import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { analyzeWorkoutWithGemini } from '../lib/gemini';
-import { MAPBOX_TOKEN, getWebMapStylePath } from '../lib/mapStyle';
+import { MAPBOX_TOKEN } from '../lib/mapStyle';
 
 const { width, height } = Dimensions.get('window');
 
+const F = {
+  bold: 'PlusJakartaSans_700Bold',
+  semi: 'PlusJakartaSans_600SemiBold',
+  medium: 'PlusJakartaSans_500Medium',
+  regular: 'PlusJakartaSans_400Regular',
+} as const;
+
 const S_COLORS = {
-  bg: '#F4F6FB',
+  bg: '#FAFAFA',
   card: '#FFFFFF',
-  accent: '#FF477E',
-  accentSecondary: '#7C3AED',
-  accentCyan: '#00F0FF',
-  text: '#1A1A24',
-  textDim: '#8A8A9D',
-  border: '#EAEDF4',
+  text: '#1A1A1A',
+  textDim: '#8C8C8C',
+  border: '#EEEEEE',
+  dark: '#111111',
+  lime: '#D4F940',
+  green: '#10B981',
 };
 
 type ActivityType = 'run' | 'walk' | 'cycle';
-const ACTIVITY_CONFIG: Record<ActivityType, { icon: string; label: string; caloriesPerKm: number; iconFamily: 'MaterialIcons' | 'MaterialCommunityIcons' }> = {
-  run: { icon: 'directions-run', label: 'Run', caloriesPerKm: 65, iconFamily: 'MaterialIcons' },
-  walk: { icon: 'walk', label: 'Walk', caloriesPerKm: 45, iconFamily: 'MaterialCommunityIcons' },
-  cycle: { icon: 'bike', label: 'Cycle', caloriesPerKm: 30, iconFamily: 'MaterialCommunityIcons' },
+
+const ACTIVITY_CONFIG: Record<ActivityType, { label: string; caloriesPerKm: number }> = {
+  run: { label: 'Run', caloriesPerKm: 65 },
+  walk: { label: 'Walk', caloriesPerKm: 45 },
+  cycle: { label: 'Cycle', caloriesPerKm: 30 },
+};
+
+const ACTIVITY_ICONS: Record<ActivityType, React.ComponentType<any>> = {
+  run: PersonSimpleRun,
+  walk: PersonSimpleWalk,
+  cycle: Bicycle,
 };
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -35,33 +50,40 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
   return R * c;
 }
 
-// Build the interactive Mapbox GL JS map HTML
-function buildMapHtml(token: string, stylePath: string, lat: number, lon: number) {
+function getMapStyle() {
+  const hour = new Date().getHours();
+  return (hour >= 6 && hour < 18) ? 'mapbox://styles/mapbox/light-v11' : 'mapbox://styles/mapbox/dark-v11';
+}
+
+function buildMapHtml(token: string, lat: number, lon: number) {
+  const style = getMapStyle();
+  const isDark = style.includes('dark');
+  const dotBg = isDark ? '#111' : '#FFF';
+  const dotBorder = '#D4F940';
   return `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
 <style>body{margin:0;padding:0}#map{position:absolute;top:0;bottom:0;width:100%}
-.user-dot{width:16px;height:16px;border-radius:50%;background:#7C3AED;border:3px solid #FFF;box-shadow:0 0 8px rgba(124,58,237,0.5)}
+.user-dot{width:16px;height:16px;border-radius:50%;background:${dotBg};border:3px solid ${dotBorder};box-shadow:0 0 8px rgba(212,249,64,0.4)}
 .user-dot.tracking{animation:pulse 1.5s infinite}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(124,58,237,0.4)}70%{box-shadow:0 0 0 12px rgba(124,58,237,0)}100%{box-shadow:0 0 0 0 rgba(124,58,237,0)}}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(212,249,64,0.35)}70%{box-shadow:0 0 0 12px rgba(212,249,64,0)}100%{box-shadow:0 0 0 0 rgba(212,249,64,0)}}
 .start-marker{width:24px;height:24px;border-radius:50%;background:#4CAF50;border:3px solid #FFF;display:flex;align-items:center;justify-content:center;font-size:12px;color:#FFF;font-weight:bold}
-.end-marker{width:24px;height:24px;border-radius:50%;background:#FF477E;border:3px solid #FFF;display:flex;align-items:center;justify-content:center}
+.end-marker{width:24px;height:24px;border-radius:50%;background:#111;border:3px solid #FFF;display:flex;align-items:center;justify-content:center}
 .end-marker svg{width:12px;height:12px;fill:#FFF}
 </style>
 </head><body>
 <div id="map"></div>
 <script>
 mapboxgl.accessToken='${token}';
-if(mapboxgl.config)mapboxgl.config.EVENTS_URL='';
-const map=new mapboxgl.Map({container:'map',style:'mapbox://styles/${stylePath}',center:[${lon},${lat}],zoom:15,attributionControl:false,collectResourceTiming:false});
+const map=new mapboxgl.Map({container:'map',style:'${style}',center:[${lon},${lat}],zoom:15,attributionControl:false,collectResourceTiming:false,transformRequest:(url,resourceType)=>{if(url.includes('events.mapbox.com')){return{url:'data:,'};}return{url};}});
 let userMarker=null,startMarker=null,endMarker=null,isTracking=false;
 
 map.on('load',()=>{
   map.addSource('route',{type:'geojson',data:{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[]}}});
-  map.addLayer({id:'route-glow',type:'line',source:'route',paint:{'line-color':'#7C3AED','line-width':12,'line-opacity':0.15}});
-  map.addLayer({id:'route-line',type:'line',source:'route',paint:{'line-color':'#7C3AED','line-width':5,'line-opacity':1},layout:{'line-cap':'round','line-join':'round'}});
+  map.addLayer({id:'route-glow',type:'line',source:'route',paint:{'line-color':'#D4F940','line-width':12,'line-opacity':0.12}});
+  map.addLayer({id:'route-line',type:'line',source:'route',paint:{'line-color':'#D4F940','line-width':4,'line-opacity':0.9},layout:{'line-cap':'round','line-join':'round'}});
   
   const el=document.createElement('div');el.className='user-dot';
   userMarker=new mapboxgl.Marker({element:el}).setLngLat([${lon},${lat}]).addTo(map);
@@ -91,7 +113,7 @@ window.addEventListener('message',(e)=>{
   
   if(d.type==='addStartMarker'){
     if(startMarker)startMarker.remove();
-    const el=document.createElement('div');el.className='start-marker';el.innerHTML='▶';
+    const el=document.createElement('div');el.className='start-marker';el.innerHTML='\u25B6';
     startMarker=new mapboxgl.Marker({element:el}).setLngLat([d.lon,d.lat]).addTo(map);
   }
   
@@ -134,6 +156,7 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showSplits, setShowSplits] = useState(false);
+  const [sheetExpanded, setSheetExpanded] = useState(false);
 
   const postToMap = useCallback((msg: any) => {
     iframeRef.current?.contentWindow?.postMessage(msg, '*');
@@ -159,7 +182,6 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
     return () => clearInterval(interval);
   }, [isTracking, isPaused]);
 
-  // Splits
   useEffect(() => {
     const currentWholeKm = Math.floor(distanceKm);
     const lastWholeKm = Math.floor(lastSplitKm);
@@ -239,6 +261,25 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
     if (subscription !== null) { navigator.geolocation.clearWatch(subscription); setSubscription(null); }
     postToMap({ type: 'setTracking', value: false });
 
+    // Save session
+    if (distanceKm > 0.01) {
+      const session = {
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        distanceKm: parseFloat(distanceKm.toFixed(3)),
+        durationSec,
+        calories,
+        avgPace: calculatePace(),
+        activityType,
+        splits: splits.length > 0 ? splits : undefined,
+      };
+      AsyncStorage.getItem('run_sessions').then(raw => {
+        const list = raw ? JSON.parse(raw) : [];
+        list.unshift(session);
+        AsyncStorage.setItem('run_sessions', JSON.stringify(list.slice(0, 100)));
+      }).catch(() => {});
+    }
+
     if (routeCoordinates.length >= 2) {
       const last = routeCoordinates[routeCoordinates.length - 1];
       postToMap({ type: 'addEndMarker', lat: last[1], lon: last[0] });
@@ -269,7 +310,9 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
     if (h > 0) return `${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
+
   const formatSplitTime = (seconds: number) => { const m = Math.floor(seconds / 60); const s = seconds % 60; return `${m}'${s < 10 ? '0' : ''}${s}"`; };
+
   const calculatePace = () => {
     if (distanceKm < 0.01 || durationSec < 10) return "0'00\"";
     const totalMinutes = durationSec / 60; const paceVal = totalMinutes / distanceKm;
@@ -279,13 +322,11 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
 
   const lat = currentLocation?.latitude || 37.79050;
   const lon = currentLocation?.longitude || -122.4344;
-  const stylePath = getWebMapStylePath();
-  const mapHtml = buildMapHtml(MAPBOX_TOKEN, stylePath, lat, lon);
+  const mapHtml = buildMapHtml(MAPBOX_TOKEN, lat, lon);
 
   const ActivityIcon = ({ type, size, color }: { type: ActivityType; size: number; color: string }) => {
-    const cfg = ACTIVITY_CONFIG[type];
-    if (cfg.iconFamily === 'MaterialCommunityIcons') return <MaterialCommunityIcons name={cfg.icon as any} size={size} color={color} />;
-    return <MaterialIcons name={cfg.icon as any} size={size} color={color} />;
+    const Icon = ACTIVITY_ICONS[type];
+    return <Icon size={size} color={color} weight="fill" />;
   };
 
   return (
@@ -295,6 +336,7 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
           ref={iframeRef}
           width="100%" height="100%" frameBorder="0" scrolling="no"
           srcDoc={mapHtml}
+          sandbox="allow-scripts allow-same-origin"
           style={{ border: 0 }}
           title="Activity Map"
         />
@@ -302,181 +344,255 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
 
       {/* Top header */}
       <View style={styles.topHeader}>
-        <TouchableOpacity style={styles.backButton} onPress={() => onNavigate('home')}>
-          <Ionicons name="chevron-back" size={24} color={S_COLORS.text} style={{ marginLeft: -2 }} />
+        <TouchableOpacity style={styles.backButton} onPress={() => onNavigate('running')}>
+          <CaretLeft size={22} color={S_COLORS.text} weight="bold" />
         </TouchableOpacity>
         {isTracking && (
           <View style={[styles.trackingIndicator, isPaused && styles.trackingPaused]}>
-            <View style={[styles.trackingDot, isPaused && { backgroundColor: '#FF8A00' }]} />
-            <Text style={styles.trackingText}>{isPaused ? 'PAUSED' : 'TRACKING'}</Text>
+            <View style={[styles.trackingDot, isPaused && { backgroundColor: '#F59E0B' }]} />
+            <Text style={[styles.trackingText, isPaused && { color: '#F59E0B' }]}>{isPaused ? 'Paused' : 'Recording'}</Text>
           </View>
         )}
       </View>
 
-      {/* Activity type selector */}
-      {!isTracking && distanceKm === 0 && (
-        <View style={styles.activitySelector}>
-          {(Object.keys(ACTIVITY_CONFIG) as ActivityType[]).map(type => (
-            <TouchableOpacity
-              key={type}
-              style={[styles.activityChip, activityType === type && styles.activityChipActive]}
-              onPress={() => setActivityType(type)}
-              activeOpacity={0.8}
-            >
-              <ActivityIcon type={type} size={18} color={activityType === type ? '#FFF' : S_COLORS.textDim} />
-              <Text style={[styles.activityChipText, activityType === type && styles.activityChipTextActive]}>
-                {ACTIVITY_CONFIG[type].label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
       {/* Center on me */}
       {isTracking && !isFollowing && (
         <TouchableOpacity style={styles.centerButton} onPress={centerOnMe} activeOpacity={0.85}>
-          <MaterialIcons name="my-location" size={22} color={S_COLORS.accentSecondary} />
+          <Crosshair size={22} color={S_COLORS.text} weight="bold" />
         </TouchableOpacity>
       )}
 
       {/* Live pace badge */}
       {isTracking && !isPaused && (
         <View style={styles.livePaceBadge}>
-          <LinearGradient colors={['#7C3AED', '#FF477E']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.livePaceGradient}>
-            <MaterialIcons name="speed" size={16} color="#FFF" />
-            <Text style={styles.livePaceText}>{currentSpeedKmh.toFixed(1)} km/h</Text>
-          </LinearGradient>
+          <View style={styles.livePaceChip}>
+            <Gauge size={14} color="#10B981" weight="fill" />
+            <Text style={styles.livePaceText}>{currentSpeedKmh.toFixed(1)}</Text>
+            <Text style={styles.livePaceUnit}>km/h</Text>
+          </View>
         </View>
       )}
 
-      {/* Bottom Sheet */}
-      <View style={styles.bottomSheet}>
-        <View style={styles.handleBar} />
+      {/* ── Bottom Sheet (compact by default, expand on tap) ── */}
+      <View style={[styles.bottomSheet, sheetExpanded && styles.bottomSheetExpanded]}>
+        {/* Pull handle — tap to toggle */}
+        <TouchableOpacity style={styles.handleArea} onPress={() => setSheetExpanded(!sheetExpanded)} activeOpacity={0.9}>
+          <View style={styles.handleBar} />
+        </TouchableOpacity>
 
-        <View style={styles.distanceHero}>
-          <View style={{ alignItems: 'center' }}>
-            <Text style={styles.distanceNumber}>{distanceKm.toFixed(2)}</Text>
-            <View style={styles.distanceUnitRow}>
-              <View style={styles.distanceDot} />
-              <Text style={styles.distanceUnit}>km</Text>
+        {/* ─── COMPACT VIEW (always visible) ─── */}
+        <View style={styles.compactRow}>
+          {/* Distance */}
+          <View style={styles.compactMain}>
+            <Text style={styles.compactDistance}>{distanceKm.toFixed(2)}</Text>
+            <Text style={styles.compactDistUnit}>km</Text>
+          </View>
+          {/* 3 inline stats */}
+          <View style={styles.compactStats}>
+            <View style={styles.compactStat}>
+              <Timer size={13} color="#8C8C8C" weight="bold" />
+              <Text style={styles.compactStatVal}>{formatTime(durationSec)}</Text>
             </View>
-          </View>
-          {isTracking && (
-            <View style={styles.liveTimerBox}>
-              <MaterialIcons name="timer" size={16} color={isPaused ? '#FF8A00' : '#0088FF'} />
-              <Text style={[styles.liveTimerText, isPaused && { color: '#FF8A00' }]}>{formatTime(durationSec)}</Text>
+            <View style={styles.compactDivider} />
+            <View style={styles.compactStat}>
+              <Gauge size={13} color="#8C8C8C" weight="bold" />
+              <Text style={styles.compactStatVal}>{calculatePace()}</Text>
             </View>
-          )}
-        </View>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statPill}>
-            <LinearGradient colors={['rgba(0,136,255,0.12)', 'rgba(0,136,255,0.04)']} style={styles.statPillGrad}>
-              <MaterialIcons name="timer" size={16} color="#0088FF" />
-              <Text style={styles.statPillValue}>{formatTime(durationSec)}</Text>
-              <Text style={styles.statPillLabel}>Time</Text>
-            </LinearGradient>
-          </View>
-          <View style={styles.statPill}>
-            <LinearGradient colors={['rgba(124,58,237,0.12)', 'rgba(124,58,237,0.04)']} style={styles.statPillGrad}>
-              <MaterialIcons name="speed" size={16} color={S_COLORS.accentSecondary} />
-              <Text style={styles.statPillValue}>{calculatePace()}</Text>
-              <Text style={styles.statPillLabel}>Avg Pace</Text>
-            </LinearGradient>
-          </View>
-          <View style={styles.statPill}>
-            <LinearGradient colors={['rgba(255,138,0,0.12)', 'rgba(255,138,0,0.04)']} style={styles.statPillGrad}>
-              <MaterialIcons name="local-fire-department" size={16} color="#FF8A00" />
-              <Text style={styles.statPillValue}>{calories}</Text>
-              <Text style={styles.statPillLabel}>Cal</Text>
-            </LinearGradient>
+            <View style={styles.compactDivider} />
+            <View style={styles.compactStat}>
+              <Flame size={13} color="#8C8C8C" weight="bold" />
+              <Text style={styles.compactStatVal}>{calories}</Text>
+            </View>
           </View>
         </View>
 
-        {/* Splits */}
-        {!isTracking && splits.length > 0 && (
-          <TouchableOpacity style={styles.splitsToggle} onPress={() => setShowSplits(!showSplits)} activeOpacity={0.7}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <MaterialIcons name="format-list-numbered" size={18} color={S_COLORS.accentSecondary} />
-              <Text style={styles.splitsToggleText}>Km Splits ({splits.length})</Text>
-            </View>
-            <MaterialIcons name={showSplits ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={22} color={S_COLORS.textDim} />
-          </TouchableOpacity>
-        )}
-        {showSplits && splits.length > 0 && (
-          <ScrollView style={styles.splitsList} nestedScrollEnabled>
-            {splits.map((time, i) => (
-              <View key={i} style={styles.splitRow}>
-                <Text style={styles.splitKm}>Km {i + 1}</Text>
-                <Text style={styles.splitTime}>{formatSplitTime(time)}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        )}
-
-        {/* AI */}
-        {!isTracking && distanceKm > 0 && (
-          <View style={styles.aiSection}>
-            {!aiInsight && !isAnalyzing && (
-              <TouchableOpacity style={{ width: '100%' }} activeOpacity={0.85} onPress={generateGeminiInsight}>
-                <LinearGradient colors={['#7C3AED', '#FF477E']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.aiButton}>
-                  <View style={styles.aiButtonIcon}><FontAwesome5 name="magic" size={14} color="#FFF" /></View>
-                  <Text style={styles.aiButtonText}>AI Coach Analysis</Text>
-                  <MaterialIcons name="arrow-forward" size={18} color="rgba(255,255,255,0.7)" />
-                </LinearGradient>
-              </TouchableOpacity>
-            )}
-            {isAnalyzing && (
-              <View style={styles.aiLoader}>
-                <ActivityIndicator color={S_COLORS.accentSecondary} />
-                <Text style={styles.aiLoaderText}>Gemini is analyzing your {ACTIVITY_CONFIG[activityType].label.toLowerCase()}...</Text>
-              </View>
-            )}
-            {aiInsight && (
-              <View style={styles.aiInsightBox}>
-                <View style={styles.aiHeader}>
-                  <View style={styles.aiHeaderIcon}><FontAwesome5 name="robot" size={14} color={S_COLORS.accentSecondary} /></View>
-                  <Text style={styles.aiTitle}>Coach Insight</Text>
-                </View>
-                <Text style={styles.aiInsightText}>{aiInsight}</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Action Buttons */}
+        {/* Action buttons — always visible */}
         {isTracking ? (
           <View style={styles.trackingActions}>
-            <TouchableOpacity style={styles.secondaryActionBtn} activeOpacity={0.85} onPress={isPaused ? resumeTracking : pauseTracking}>
-              <View style={[styles.secondaryActionInner, { backgroundColor: isPaused ? 'rgba(0,136,255,0.12)' : 'rgba(255,138,0,0.12)' }]}>
-                <MaterialIcons name={isPaused ? "play-arrow" : "pause"} size={26} color={isPaused ? '#0088FF' : '#FF8A00'} />
+            <TouchableOpacity style={styles.ctrlBtn} activeOpacity={0.85} onPress={isPaused ? resumeTracking : pauseTracking}>
+              <View style={styles.ctrlBtnSide}>
+                {isPaused ? <Play size={20} color="#111" weight="fill" /> : <Pause size={20} color="#111" weight="fill" />}
               </View>
-              <Text style={styles.secondaryActionLabel}>{isPaused ? 'Resume' : 'Pause'}</Text>
+              <Text style={styles.ctrlLabel}>{isPaused ? 'Resume' : 'Pause'}</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity style={styles.stopActionBtn} activeOpacity={0.85} onPress={stopTracking}>
-              <LinearGradient colors={['#FF477E', '#FF512F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.stopActionGrad}>
-                <MaterialIcons name="stop" size={28} color="#FFF" />
-              </LinearGradient>
-              <Text style={styles.secondaryActionLabel}>Finish</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.secondaryActionBtn} activeOpacity={0.85} onPress={centerOnMe}>
-              <View style={[styles.secondaryActionInner, { backgroundColor: 'rgba(124,58,237,0.12)' }]}>
-                <MaterialIcons name="my-location" size={22} color={S_COLORS.accentSecondary} />
+            <TouchableOpacity style={styles.ctrlBtn} activeOpacity={0.85} onPress={stopTracking}>
+              <View style={styles.stopCircle}>
+                <Stop size={18} color="#FFF" weight="fill" />
               </View>
-              <Text style={styles.secondaryActionLabel}>Center</Text>
+              <Text style={styles.ctrlLabel}>Finish</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.ctrlBtn} activeOpacity={0.85} onPress={centerOnMe}>
+              <View style={styles.ctrlBtnSide}>
+                <NavigationArrow size={18} color="#111" weight="fill" />
+              </View>
+              <Text style={styles.ctrlLabel}>Center</Text>
+            </TouchableOpacity>
+          </View>
+        ) : distanceKm === 0 ? (
+          <View style={styles.preStartArea}>
+            <View style={styles.activityPickerRow}>
+              {(Object.keys(ACTIVITY_CONFIG) as ActivityType[]).map(type => {
+                const Icon = ACTIVITY_ICONS[type];
+                const active = activityType === type;
+                return (
+                  <TouchableOpacity key={type} style={[styles.activityPick, active && styles.activityPickActive]} onPress={() => setActivityType(type)} activeOpacity={0.8}>
+                    <Icon size={16} color={active ? '#FFF' : '#999'} weight={active ? 'fill' : 'regular'} />
+                    <Text style={[styles.activityPickText, active && styles.activityPickTextActive]}>{ACTIVITY_CONFIG[type].label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TouchableOpacity activeOpacity={0.85} onPress={startTracking}>
+              <View style={styles.startButton}>
+                <Text style={styles.startButtonText}>Start {ACTIVITY_CONFIG[activityType].label}</Text>
+                <View style={styles.startButtonIcon}><Play size={14} color="#111" weight="fill" /></View>
+              </View>
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity style={styles.actionShadow} activeOpacity={0.85} onPress={startTracking}>
-            <LinearGradient colors={['#7C3AED', '#FF477E'] as [string, string]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.actionButton}>
-              <ActivityIcon type={activityType} size={22} color="#FFF" />
-              <Text style={styles.actionButtonText}>
-                {distanceKm > 0 ? `New ${ACTIVITY_CONFIG[activityType].label}` : `Start ${ACTIVITY_CONFIG[activityType].label}`}
-              </Text>
-            </LinearGradient>
+          <TouchableOpacity activeOpacity={0.85} onPress={startTracking}>
+            <View style={styles.startButton}>
+              <Text style={styles.startButtonText}>New {ACTIVITY_CONFIG[activityType].label}</Text>
+              <View style={styles.startButtonIcon}><Play size={14} color="#111" weight="fill" /></View>
+            </View>
           </TouchableOpacity>
+        )}
+
+        {/* ─── EXPANDED VIEW (swipe up for more detail) ─── */}
+        {sheetExpanded && (
+          <ScrollView style={styles.expandedScroll} showsVerticalScrollIndicator={false}>
+            <View style={styles.expandSep} />
+
+            {/* Detail stats 2x2 */}
+            <View style={styles.detailGrid}>
+              <View style={[styles.detailCard, { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#EEEEEE' }]}>
+                <View style={styles.detailCardTop}>
+                  <Timer size={14} color="#8C8C8C" weight="bold" />
+                  <Text style={styles.detailLabel}>Duration</Text>
+                </View>
+                <Text style={styles.detailValue}>{formatTime(durationSec)}</Text>
+              </View>
+              <View style={[styles.detailCard, { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#EEEEEE' }]}>
+                <View style={styles.detailCardTop}>
+                  <Gauge size={14} color="#8C8C8C" weight="bold" />
+                  <Text style={styles.detailLabel}>Avg Pace</Text>
+                </View>
+                <Text style={styles.detailValue}>{calculatePace()}<Text style={styles.detailSm}>/km</Text></Text>
+              </View>
+              <View style={[styles.detailCard, { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#EEEEEE' }]}>
+                <View style={styles.detailCardTop}>
+                  <Flame size={14} color="#8C8C8C" weight="bold" />
+                  <Text style={styles.detailLabel}>Calories</Text>
+                </View>
+                <Text style={styles.detailValue}>{calories}<Text style={styles.detailSm}> kcal</Text></Text>
+              </View>
+              <View style={[styles.detailCard, { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#EEEEEE' }]}>
+                <View style={styles.detailCardTop}>
+                  <TrendUp size={14} color="#8C8C8C" weight="bold" />
+                  <Text style={styles.detailLabel}>Speed</Text>
+                </View>
+                <Text style={styles.detailValue}>{currentSpeedKmh.toFixed(1)}<Text style={styles.detailSm}> km/h</Text></Text>
+              </View>
+            </View>
+
+            {/* Goal ring row */}
+            <View style={styles.goalRow}>
+              <Svg width={44} height={44}>
+                <SvgCircle cx={22} cy={22} r={18} stroke="#F0F0F0" strokeWidth={3.5} fill="none" />
+                <SvgCircle cx={22} cy={22} r={18} stroke="#111" strokeWidth={3.5} fill="none"
+                  strokeDasharray={`${2 * Math.PI * 18}`}
+                  strokeDashoffset={`${2 * Math.PI * 18 * (1 - Math.min(distanceKm / 5, 1))}`}
+                  strokeLinecap="round" rotation="-90" origin="22,22"
+                />
+              </Svg>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.goalTitle}>{Math.min(Math.round((distanceKm / 5) * 100), 100)}% of 5K goal</Text>
+                <Text style={styles.goalSub}>{Math.max(0, (5 - distanceKm)).toFixed(2)} km remaining</Text>
+              </View>
+            </View>
+
+            {/* Pace trend */}
+            {(splits.length > 0 || distanceKm > 0) && (
+              <View style={styles.paceBar}>
+                <View style={styles.paceBarHead}>
+                  <TrendUp size={13} color="#999" />
+                  <Text style={styles.paceBarLabel}>Pace Trend</Text>
+                </View>
+                <View style={styles.paceBarTrack}>
+                  {splits.length > 0 ? splits.slice(-8).map((s, i) => {
+                    const maxS = Math.max(...splits.slice(-8));
+                    const h = Math.max(6, (s / maxS) * 24);
+                    return <View key={i} style={[styles.paceBarSeg, { height: h, backgroundColor: i === splits.slice(-8).length - 1 ? '#111' : '#D4D4D4' }]} />;
+                  }) : [0.6, 0.8, 0.5, 0.9, 0.7, 0.4].map((v, i) => (
+                    <View key={i} style={[styles.paceBarSeg, { height: v * 24, backgroundColor: '#EEE' }]} />
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Splits */}
+            {!isTracking && splits.length > 0 && (
+              <>
+                <TouchableOpacity style={styles.splitsToggle} onPress={() => setShowSplits(!showSplits)} activeOpacity={0.7}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <ListNumbers size={15} color="#111" weight="bold" />
+                    <Text style={styles.splitsToggleText}>Splits</Text>
+                    <View style={styles.splitsCount}><Text style={styles.splitsCountText}>{splits.length}</Text></View>
+                  </View>
+                  {showSplits ? <CaretUp size={16} color="#999" /> : <CaretDown size={16} color="#999" />}
+                </TouchableOpacity>
+                {showSplits && (
+                  <View style={styles.splitsList}>
+                    {splits.map((time, i) => (
+                      <View key={i} style={[styles.splitRow, i === splits.length - 1 && { borderBottomWidth: 0 }]}>
+                        <View style={styles.splitLeft}>
+                          <View style={[styles.splitDot, i === 0 && { backgroundColor: '#10B981' }, i === splits.length - 1 && { backgroundColor: '#EF4444' }]} />
+                          <Text style={styles.splitKm}>Km {i + 1}</Text>
+                        </View>
+                        <Text style={styles.splitTime}>{formatSplitTime(time)}</Text>
+                        {i > 0 && (
+                          <Text style={[styles.splitDiff, time < splits[i - 1] ? { color: '#10B981' } : { color: '#EF4444' }]}>
+                            {time < splits[i - 1] ? '↓' : '↑'}{Math.abs(time - splits[i - 1])}s
+                          </Text>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+
+            {/* AI */}
+            {!isTracking && distanceKm > 0 && (
+              <View style={styles.aiSection}>
+                {!aiInsight && !isAnalyzing && (
+                  <TouchableOpacity style={styles.aiButton} activeOpacity={0.85} onPress={generateGeminiInsight}>
+                    <View style={styles.aiGrad}>
+                      <Sparkle size={14} color="#FFF" weight="fill" />
+                      <Text style={styles.aiGradText}>Get AI Coaching</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                {isAnalyzing && (
+                  <View style={styles.aiLoader}>
+                    <ActivityIndicator color="#111" />
+                    <Text style={styles.aiLoaderText}>Analyzing...</Text>
+                  </View>
+                )}
+                {aiInsight && (
+                  <View style={styles.aiInsightBox}>
+                    <View style={styles.aiHeader}>
+                      <View style={styles.aiHeaderIcon}><Sparkle size={12} color="#111" weight="fill" /></View>
+                      <Text style={styles.aiTitle}>AI Coach</Text>
+                    </View>
+                    <Text style={styles.aiInsightText}>{aiInsight}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            <View style={{ height: 20 }} />
+          </ScrollView>
         )}
       </View>
     </View>
@@ -484,77 +600,111 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: S_COLORS.bg },
-  topHeader: { position: 'absolute', top: 40, left: 24, right: 24, flexDirection: 'row', justifyContent: 'space-between', zIndex: 10 },
-  backButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: S_COLORS.card, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 5 },
+  container: { flex: 1, backgroundColor: '#1A1A24' },
+  topHeader: { position: 'absolute', top: 56, left: 24, right: 24, flexDirection: 'row', justifyContent: 'space-between', zIndex: 10 },
+  backButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: S_COLORS.card, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 5 },
 
-  trackingIndicator: { flexDirection: 'row', alignItems: 'center', backgroundColor: S_COLORS.card, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 5 },
-  trackingPaused: { borderWidth: 1.5, borderColor: '#FF8A00' },
-  trackingDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: S_COLORS.accent, marginRight: 8 },
-  trackingText: { fontFamily: 'Poppins_700Bold', fontSize: 13, color: S_COLORS.text, letterSpacing: 1 },
+  trackingIndicator: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 5 },
+  trackingPaused: { backgroundColor: '#1A1A1A' },
+  trackingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#D4F940', marginRight: 7 },
+  trackingText: { fontFamily: F.semi, fontSize: 12, color: '#FFF', letterSpacing: 0.3 },
 
-  activitySelector: { position: 'absolute', top: 98, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 10, zIndex: 10 },
-  activityChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: S_COLORS.card, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
-  activityChipActive: { backgroundColor: S_COLORS.accentSecondary },
-  activityChipText: { fontFamily: 'Quicksand_600SemiBold', fontSize: 14, color: S_COLORS.textDim },
-  activityChipTextActive: { color: '#FFF' },
+  centerButton: { position: 'absolute', right: 24, bottom: 220, width: 48, height: 48, borderRadius: 24, backgroundColor: S_COLORS.card, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5, zIndex: 10 },
 
-  centerButton: { position: 'absolute', right: 24, bottom: 370, width: 48, height: 48, borderRadius: 24, backgroundColor: S_COLORS.card, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5, zIndex: 10 },
+  livePaceBadge: { position: 'absolute', left: 24, bottom: 220, zIndex: 10 },
+  livePaceChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#EEEEEE', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
+  livePaceText: { fontFamily: F.bold, fontSize: 15, color: '#111' },
+  livePaceUnit: { fontFamily: F.medium, fontSize: 11, color: '#999', marginLeft: -2 },
 
-  livePaceBadge: { position: 'absolute', left: 24, bottom: 370, zIndex: 10 },
-  livePaceGradient: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
-  livePaceText: { fontFamily: 'Poppins_700Bold', fontSize: 14, color: '#FFF' },
-
+  /* ── Bottom Sheet ── */
   bottomSheet: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: S_COLORS.card, borderTopLeftRadius: 32, borderTopRightRadius: 32,
-    paddingTop: 10, paddingBottom: 24, paddingHorizontal: 24,
-    shadowColor: '#000', shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.10, shadowRadius: 24, elevation: 24,
+    backgroundColor: '#FAFAFA', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingBottom: 28, paddingHorizontal: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 12,
+    maxHeight: 210,
   },
-  handleBar: { width: 40, height: 5, backgroundColor: S_COLORS.border, borderRadius: 3, alignSelf: 'center', marginBottom: 14 },
+  bottomSheetExpanded: {
+    maxHeight: height * 0.65,
+  },
+  handleArea: { paddingTop: 10, paddingBottom: 8, alignItems: 'center' },
+  handleBar: { width: 32, height: 4, backgroundColor: '#D4D4D4', borderRadius: 2 },
 
-  distanceHero: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 16, gap: 20 },
-  distanceNumber: { fontFamily: 'Poppins_700Bold', fontSize: 48, color: S_COLORS.text, letterSpacing: -2, lineHeight: 52 },
-  distanceUnitRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: -4 },
-  distanceDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: S_COLORS.accent, marginRight: 4 },
-  distanceUnit: { fontFamily: 'Poppins_600SemiBold', fontSize: 14, color: S_COLORS.textDim, textTransform: 'uppercase', letterSpacing: 2 },
+  /* Compact row — always visible */
+  compactRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  compactMain: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
+  compactDistance: { fontFamily: F.bold, fontSize: 38, color: '#111', letterSpacing: -1.5, lineHeight: 42 },
+  compactDistUnit: { fontFamily: F.medium, fontSize: 15, color: '#999' },
+  compactStats: { flexDirection: 'row', alignItems: 'center', gap: 0, backgroundColor: '#FFF', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: '#EEEEEE' },
+  compactStat: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8 },
+  compactStatVal: { fontFamily: F.semi, fontSize: 13, color: '#1A1A1A' },
+  compactDivider: { width: 1, height: 14, backgroundColor: '#EBEBEB' },
 
-  liveTimerBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: S_COLORS.bg, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16 },
-  liveTimerText: { fontFamily: 'Poppins_700Bold', fontSize: 20, color: '#0088FF' },
+  /* Tracking controls */
+  trackingActions: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 24 },
+  ctrlBtn: { alignItems: 'center', gap: 5 },
+  ctrlBtnSide: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#F0F0F0', alignItems: 'center', justifyContent: 'center' },
+  ctrlLabel: { fontFamily: F.medium, fontSize: 11, color: '#999' },
+  stopCircle: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
 
-  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
-  statPill: { flex: 1 },
-  statPillGrad: { alignItems: 'center', paddingVertical: 12, borderRadius: 18, gap: 2 },
-  statPillValue: { fontFamily: 'Poppins_700Bold', fontSize: 15, color: S_COLORS.text, marginTop: 4 },
-  statPillLabel: { fontFamily: 'Quicksand_500Medium', fontSize: 10, color: S_COLORS.textDim, textTransform: 'uppercase', letterSpacing: 0.5 },
+  /* Pre-start */
+  preStartArea: { gap: 10 },
+  activityPickerRow: { flexDirection: 'row', gap: 6 },
+  activityPick: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, borderRadius: 12, backgroundColor: '#F0F0F0' },
+  activityPickActive: { backgroundColor: '#111' },
+  activityPickText: { fontFamily: F.semi, fontSize: 13, color: '#999' },
+  activityPickTextActive: { color: '#FFF' },
+  startButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#111', paddingVertical: 16, borderRadius: 100, gap: 8 },
+  startButtonText: { fontFamily: F.bold, color: '#FFF', fontSize: 16 },
+  startButtonIcon: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#D4F940', alignItems: 'center', justifyContent: 'center' },
 
-  splitsToggle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: S_COLORS.bg, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, marginBottom: 10 },
-  splitsToggleText: { fontFamily: 'Poppins_700Bold', fontSize: 14, color: S_COLORS.text },
-  splitsList: { maxHeight: 120, backgroundColor: S_COLORS.bg, borderRadius: 16, paddingHorizontal: 16, marginBottom: 10 },
-  splitRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: S_COLORS.border },
-  splitKm: { fontFamily: 'Quicksand_600SemiBold', fontSize: 14, color: S_COLORS.text },
-  splitTime: { fontFamily: 'Poppins_700Bold', fontSize: 14, color: S_COLORS.accentSecondary },
+  /* ── Expanded section ── */
+  expandedScroll: { marginTop: 4 },
+  expandSep: { height: 1, backgroundColor: '#EBEBEB', marginBottom: 14 },
 
-  aiSection: { marginBottom: 14 },
-  aiButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 20, gap: 10 },
-  aiButtonIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  aiButtonText: { fontFamily: 'Poppins_700Bold', color: '#FFF', fontSize: 14, flex: 1 },
-  aiLoader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, gap: 10, backgroundColor: S_COLORS.bg, borderRadius: 20 },
-  aiLoaderText: { fontFamily: 'Quicksand_500Medium', color: S_COLORS.textDim, fontSize: 12 },
-  aiInsightBox: { backgroundColor: S_COLORS.bg, padding: 18, borderRadius: 20, borderWidth: 1, borderColor: S_COLORS.border },
-  aiHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  aiHeaderIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(124,58,237,0.1)', alignItems: 'center', justifyContent: 'center' },
-  aiTitle: { fontFamily: 'Poppins_700Bold', color: S_COLORS.text, fontSize: 15 },
-  aiInsightText: { fontFamily: 'Quicksand_500Medium', color: S_COLORS.text, fontSize: 12, lineHeight: 19 },
+  /* Detail grid 2x2 */
+  detailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  detailCard: { width: (width - 32 - 8) / 2, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 14 },
+  detailCardTop: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
+  detailLabel: { fontFamily: F.medium, fontSize: 11, color: '#888' },
+  detailValue: { fontFamily: F.bold, fontSize: 20, color: '#111', letterSpacing: -0.5 },
+  detailSm: { fontFamily: F.regular, fontSize: 12, color: '#999' },
 
-  trackingActions: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 24 },
-  secondaryActionBtn: { alignItems: 'center', gap: 6 },
-  secondaryActionInner: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  secondaryActionLabel: { fontFamily: 'Quicksand_600SemiBold', fontSize: 12, color: S_COLORS.textDim },
-  stopActionBtn: { alignItems: 'center', gap: 6 },
-  stopActionGrad: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
+  /* Goal ring */
+  goalRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFF', borderRadius: 14, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#EEEEEE' },
+  goalTitle: { fontFamily: F.semi, fontSize: 14, color: '#111' },
+  goalSub: { fontFamily: F.regular, fontSize: 12, color: '#999', marginTop: 1 },
 
-  actionShadow: { shadowColor: S_COLORS.accentSecondary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 12 },
-  actionButton: { width: '100%', paddingVertical: 18, borderRadius: 100, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10 },
-  actionButtonText: { fontFamily: 'Poppins_700Bold', color: '#FFFFFF', fontSize: 15, letterSpacing: 0.5 },
+  /* Pace bar */
+  paceBar: { backgroundColor: '#FFF', borderRadius: 14, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#EEEEEE' },
+  paceBarHead: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8 },
+  paceBarLabel: { fontFamily: F.medium, fontSize: 11, color: '#999' },
+  paceBarTrack: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 26 },
+  paceBarSeg: { flex: 1, borderRadius: 3, minHeight: 4 },
+
+  /* Splits */
+  splitsToggle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFF', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, marginBottom: 8, borderWidth: 1, borderColor: '#EEEEEE' },
+  splitsToggleText: { fontFamily: F.semi, fontSize: 13, color: '#111' },
+  splitsCount: { backgroundColor: '#111', width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  splitsCountText: { fontFamily: F.bold, fontSize: 9, color: '#FFF' },
+  splitsList: { backgroundColor: '#FFF', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 2, marginBottom: 10, borderWidth: 1, borderColor: '#EEEEEE' },
+  splitRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  splitLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  splitDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#D4D4D4' },
+  splitKm: { fontFamily: F.semi, fontSize: 12, color: '#333' },
+  splitTime: { fontFamily: F.bold, fontSize: 13, color: '#111', marginRight: 8 },
+  splitDiff: { fontFamily: F.semi, fontSize: 10 },
+
+  /* AI */
+  aiSection: { marginBottom: 10 },
+  aiButton: { overflow: 'hidden', borderRadius: 14, backgroundColor: '#111' },
+  aiGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, gap: 7 },
+  aiGradText: { fontFamily: F.semi, color: '#FFF', fontSize: 13 },
+  aiLoader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, gap: 8, backgroundColor: '#FFF', borderRadius: 14, borderWidth: 1, borderColor: '#EEEEEE' },
+  aiLoaderText: { fontFamily: F.medium, color: '#8C8C8C', fontSize: 12 },
+  aiInsightBox: { backgroundColor: '#FFF', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#EEEEEE' },
+  aiHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  aiHeaderIcon: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#F0F0F0', alignItems: 'center', justifyContent: 'center' },
+  aiTitle: { fontFamily: F.bold, color: '#111', fontSize: 13 },
+  aiInsightText: { fontFamily: F.regular, color: '#555', fontSize: 12, lineHeight: 18 },
 });

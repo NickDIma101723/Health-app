@@ -14,7 +14,7 @@ import {
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
-import { BackgroundDecorations, CoachBottomNavigation } from '../components';
+import { BackgroundDecorations } from '../components';
 import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { useCoachRequests } from '../hooks/useCoachRequests';
@@ -378,10 +378,6 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
         )}
       </ScrollView>
       
-      <CoachBottomNavigation 
-        activeTab="dashboard" 
-        onTabChange={(tab) => onNavigate?.(tab)} 
-      />
 
       {}
       <Modal
@@ -476,7 +472,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.lg,
-    paddingBottom: 40,
+    paddingBottom: 110,
   },
   statsContainer: {
     flexDirection: 'row',

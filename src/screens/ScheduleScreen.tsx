@@ -1,28 +1,70 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  Animated,
   Dimensions,
   Modal,
   TextInput,
   Alert,
+  StatusBar,
+  Animated,
+  Easing,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialIcons } from '@expo/vector-icons';
 import {
-  BottomNavigation,
-  BackgroundDecorations,
-} from '../components';
-import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
+  Plus,
+  X,
+  CheckCircle,
+  XCircle,
+  Trash,
+  CaretLeft,
+  CaretRight,
+  Barbell,
+  ForkKnife,
+  Flower,
+  VideoCamera,
+  Drop,
+  PersonSimpleRun,
+  PersonSimpleWalk,
+  Clock,
+  CalendarBlank,
+  Lightning,
+  ArrowRight,
+  SunHorizon,
+  Moon,
+  Sun,
+  Timer,
+} from 'phosphor-react-native';
+import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { Activity, ActivityTemplate, ActivityType } from '../contexts/ScheduleContext';
 import { useScheduleAdapter } from '../hooks/useScheduleAdapter';
 
 const { width } = Dimensions.get('window');
+
+const F = {
+  bold: 'PlusJakartaSans_700Bold',
+  semi: 'PlusJakartaSans_600SemiBold',
+  medium: 'PlusJakartaSans_500Medium',
+  regular: 'PlusJakartaSans_400Regular',
+} as const;
+
+const S = {
+  bg: '#FAFAFA',
+  card: '#FFFFFF',
+  dark: '#111111',
+  lime: '#D4F940',
+  text: '#1A1A1A',
+  dim: '#8C8C8C',
+  border: '#EEEEEE',
+  green: '#10B981',
+  red: '#EF4444',
+  amber: '#F59E0B',
+  blue: '#3B82F6',
+  purple: '#8B5CF6',
+  warmBg: '#F5F0EB',
+} as const;
 
 interface DayData {
   date: string;
@@ -40,9 +82,71 @@ interface ScheduleScreenProps {
 const formatTime = (time: string): string => {
   const parts = time.split(':');
   if (parts.length >= 2) {
-    return `${parts[0]}:${parts[1]}`;
+    const h = parseInt(parts[0]);
+    const m = parts[1];
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `${h12}:${m} ${ampm}`;
   }
   return time;
+};
+
+const getTimeOfDay = (time: string): 'morning' | 'afternoon' | 'evening' => {
+  const h = parseInt(time.split(':')[0] || '12');
+  if (h < 12) return 'morning';
+  if (h < 18) return 'afternoon';
+  return 'evening';
+};
+
+const TIME_ICONS = { morning: SunHorizon, afternoon: Sun, evening: Moon };
+const TIME_LABELS = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
+
+const ICON_MAP: Record<string, any> = {
+  'directions-run': PersonSimpleRun,
+  'directions-walk': PersonSimpleWalk,
+  'self-improvement': Flower,
+  'spa': Flower,
+  'restaurant': ForkKnife,
+  'lunch-dining': ForkKnife,
+  'dinner-dining': ForkKnife,
+  'fitness-center': Barbell,
+  'video-call': VideoCamera,
+  'local-drink': Drop,
+  'event': CalendarBlank,
+};
+
+const TYPE_META: Record<string, { icon: any; color: string; bg: string; darkBg: string }> = {
+  workout:     { icon: Barbell,       color: '#10B981', bg: '#ECFDF5', darkBg: '#065F46' },
+  meal:        { icon: ForkKnife,     color: '#F59E0B', bg: '#FFFBEB', darkBg: '#78350F' },
+  mindfulness: { icon: Flower,        color: '#8B5CF6', bg: '#F5F3FF', darkBg: '#4C1D95' },
+  appointment: { icon: VideoCamera,   color: '#3B82F6', bg: '#EFF6FF', darkBg: '#1E3A8A' },
+  habit:       { icon: Drop,          color: '#3B82F6', bg: '#EFF6FF', darkBg: '#1E3A8A' },
+  custom:      { icon: CalendarBlank, color: '#8C8C8C', bg: '#F5F5F5', darkBg: '#374151' },
+};
+
+// Triple ring component for goals
+const TripleRing = ({ goals }: { goals: { workouts: { current: number; target: number }; meals: { current: number; target: number }; meditation: { current: number; target: number } } }) => {
+  const size = 110;
+  const rings = [
+    { pct: goals.workouts.target > 0 ? goals.workouts.current / goals.workouts.target : 0, color: S.green, r: 48 },
+    { pct: goals.meals.target > 0 ? goals.meals.current / goals.meals.target : 0, color: S.amber, r: 38 },
+    { pct: goals.meditation.target > 0 ? goals.meditation.current / goals.meditation.target : 0, color: S.purple, r: 28 },
+  ];
+  return (
+    <Svg width={size} height={size}>
+      {rings.map((ring, i) => {
+        const circ = 2 * Math.PI * ring.r;
+        const offset = circ - Math.min(ring.pct, 1) * circ;
+        return (
+          <React.Fragment key={i}>
+            <SvgCircle cx={size / 2} cy={size / 2} r={ring.r} stroke="rgba(255,255,255,0.08)" strokeWidth={7} fill="none" />
+            <SvgCircle cx={size / 2} cy={size / 2} r={ring.r} stroke={ring.color} strokeWidth={7} fill="none"
+              strokeDasharray={`${circ}`} strokeDashoffset={offset} strokeLinecap="round" rotation={-90} origin={`${size / 2}, ${size / 2}`} />
+          </React.Fragment>
+        );
+      })}
+    </Svg>
+  );
 };
 
 export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) => {
@@ -65,1095 +169,649 @@ export const ScheduleScreen: React.FC<ScheduleScreenProps> = ({ onNavigate }) =>
   const [customTitle, setCustomTitle] = useState('');
   const [customTime, setCustomTime] = useState('');
   const [customDuration, setCustomDuration] = useState('30');
-  
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const scrollViewRef = useRef<ScrollView>(null);
-
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
+  const [filterCat, setFilterCat] = useState('All');
 
-  useEffect(() => {
-    const generateWeekDays = () => {
-      const days: DayData[] = [];
-      const today = new Date();
-      const todayStr = today.toISOString().split('T')[0];
-      
-      const current = new Date(today);
-      current.setDate(current.getDate() + (currentWeekOffset * 7)); 
-      const dayOfWeek = current.getDay();
-      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-      current.setDate(current.getDate() + diff);
+  /* ── Modal Animation Refs ── */
+  const overlayAnim = useRef(new Animated.Value(0)).current;
+  const sheetAnim = useRef(new Animated.Value(300)).current;
+  const detailAnim = useRef(new Animated.Value(0)).current;
 
-      for (let i = 0; i < 7; i++) {
-        const dateStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
-        const isToday = dateStr === todayStr;
-        
-        days.push({
-          date: dateStr,
-          dayName: current.toLocaleDateString('en-US', { weekday: 'short' }),
-          dayNum: current.getDate(),
-          month: current.getMonth(),
-          year: current.getFullYear(),
-          isToday,
-        });
-        
-        current.setDate(current.getDate() + 1);
-      }
-      
-      setWeekDays(days);
-    };
-
-    generateWeekDays();
-  }, [currentWeekOffset]);
-
-  useEffect(() => {
+  const openSheet = (setVisible: (v: boolean) => void) => {
+    setVisible(true);
+    overlayAnim.setValue(0);
+    sheetAnim.setValue(300);
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: false,
-      }),
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        tension: 40,
-        friction: 8,
-        useNativeDriver: false,
-      }),
+      Animated.timing(overlayAnim, { toValue: 1, duration: 280, useNativeDriver: false, easing: Easing.out(Easing.ease) }),
+      Animated.spring(sheetAnim, { toValue: 0, tension: 65, friction: 11, useNativeDriver: false }),
     ]).start();
-  }, []);
-
-  const formatDateString = (day: DayData): string => {
-    return `${day.year}-${String(day.month + 1).padStart(2, '0')}-${String(day.dayNum).padStart(2, '0')}`;
   };
+
+  const closeSheet = (setVisible: (v: boolean) => void) => {
+    Animated.parallel([
+      Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: false, easing: Easing.in(Easing.ease) }),
+      Animated.timing(sheetAnim, { toValue: 300, duration: 220, useNativeDriver: false, easing: Easing.in(Easing.ease) }),
+    ]).start(() => setVisible(false));
+  };
+
+  const openDetail = () => {
+    detailAnim.setValue(0);
+    setShowActivityDetail(true);
+    Animated.spring(detailAnim, { toValue: 1, tension: 65, friction: 10, useNativeDriver: false }).start();
+  };
+
+  const closeDetail = () => {
+    Animated.timing(detailAnim, { toValue: 0, duration: 180, useNativeDriver: false, easing: Easing.in(Easing.ease) }).start(() => setShowActivityDetail(false));
+  };
+
+  useEffect(() => {
+    const days: DayData[] = [];
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const current = new Date(today);
+    current.setDate(current.getDate() + (currentWeekOffset * 7));
+    const dayOfWeek = current.getDay();
+    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    current.setDate(current.getDate() + diff);
+    for (let i = 0; i < 7; i++) {
+      const dateStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
+      days.push({ date: dateStr, dayName: current.toLocaleDateString('en-US', { weekday: 'short' }), dayNum: current.getDate(), month: current.getMonth(), year: current.getFullYear(), isToday: dateStr === todayStr });
+      current.setDate(current.getDate() + 1);
+    }
+    setWeekDays(days);
+  }, [currentWeekOffset]);
 
   const dayActivities = getActivitiesForDate(selectedDate);
   const completedCount = dayActivities.filter(a => a.status === 'completed').length;
-  const failedCount = dayActivities.filter(a => a.status === 'failed').length;
   const totalCount = dayActivities.length;
-  const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+  const progressPct = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+
+  // Group activities by time of day
+  const grouped = useMemo(() => {
+    const g: Record<string, Activity[]> = { morning: [], afternoon: [], evening: [] };
+    dayActivities.forEach(a => { g[getTimeOfDay(a.time)].push(a); });
+    return g;
+  }, [dayActivities]);
+
+  // Up next: first incomplete activity
+  const upNext = dayActivities.find(a => a.status === 'incomplete');
 
   const handleAddFromTemplate = async (template: ActivityTemplate) => {
-    const existingActivity = activities.find(
-      (activity) => activity.title === template.title && activity.date === selectedDate
-    );
-    if (existingActivity) {
-      Alert.alert('Duplicate Activity', 'An activity with this title already exists for this date.');
-      return;
-    }
-    await addActivity({
-      title: template.title,
-      description: template.description,
-      time: template.defaultTime || '12:00',
-      duration: template.duration,
-      type: template.type,
-      color: template.color,
-      icon: template.icon,
-      status: 'incomplete',
-      date: selectedDate,
-    });
-    setShowQuickAdd(false);
+    const exists = activities.find(a => a.title === template.title && a.date === selectedDate);
+    if (exists) { Alert.alert('Duplicate', 'This activity already exists for this date.'); return; }
+    const result = await addActivity({ title: template.title, description: template.description, time: template.defaultTime || '12:00', duration: template.duration, type: template.type, color: template.color, icon: template.icon, status: 'incomplete', date: selectedDate });
+    if (result?.error) { Alert.alert('Error', String(result.error)); return; }
+    closeSheet(setShowQuickAdd);
   };
 
   const handleAddCustomActivity = async () => {
-    if (!customTitle.trim() || !customTime.trim()) {
-      Alert.alert('Missing Information', 'Please enter a title and time for the activity.');
-      return;
-    }
-    const existingActivity = activities.find(
-      (activity) => activity.title === customTitle.trim() && activity.date === selectedDate
-    );
-    if (existingActivity) {
-      Alert.alert('Duplicate Activity', 'An activity with this title already exists for this date.');
-      return;
-    }
-
-    await addActivity({
-      title: customTitle,
-      time: customTime,
-      duration: parseInt(customDuration) || 30,
-      type: 'custom',
-      color: colors.primary,
-      icon: 'event',
-      status: 'incomplete',
-      date: selectedDate,
-    });
-
-    setCustomTitle('');
-    setCustomTime('');
-    setCustomDuration('30');
-    setShowAddCustom(false);
-    setShowQuickAdd(false);
+    if (!customTitle.trim() || !customTime.trim()) { Alert.alert('Missing Info', 'Enter a title and time.'); return; }
+    const exists = activities.find(a => a.title === customTitle.trim() && a.date === selectedDate);
+    if (exists) { Alert.alert('Duplicate', 'This activity already exists for this date.'); return; }
+    const result = await addActivity({ title: customTitle, time: customTime, duration: parseInt(customDuration) || 30, type: 'custom', color: '#8C8C8C', icon: 'event', status: 'incomplete', date: selectedDate });
+    if (result?.error) { Alert.alert('Error', String(result.error)); return; }
+    setCustomTitle(''); setCustomTime(''); setCustomDuration('30');
+    closeSheet(setShowAddCustom);
+    setTimeout(() => closeSheet(setShowQuickAdd), 50);
   };
 
-  const handleActivityPress = (activity: Activity) => {
-    toggleActivityStatus(activity.id);
-  };
-
-  const handleActivityLongPress = (activity: Activity) => {
-    setSelectedActivity(activity);
-    setShowActivityDetail(true);
-  };
-
+  const handleActivityPress = (activity: Activity) => { toggleActivityStatus(activity.id); };
+  const handleActivityLongPress = (activity: Activity) => { setSelectedActivity(activity); openDetail(); };
   const handleDeleteActivity = () => {
     if (selectedActivity) {
-      Alert.alert(
-        'Delete Activity',
-        `Are you sure you want to delete "${selectedActivity.title}"?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: () => {
-              deleteActivity(selectedActivity.id);
-              setShowActivityDetail(false);
-              setSelectedActivity(null);
-            },
-          },
-        ]
-      );
+      Alert.alert('Delete Activity', `Delete "${selectedActivity.title}"?`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => { deleteActivity(selectedActivity.id); closeDetail(); setSelectedActivity(null); } },
+      ]);
     }
   };
 
-  const renderDayCard = (day: DayData) => {
-    const dateStr = formatDateString(day);
-    const isSelected = dateStr === selectedDate;
-    const dayActivities = getActivitiesForDate(dateStr);
-    const hasActivities = dayActivities.length > 0;
-    
-    return (
-      <TouchableOpacity
-        key={dateStr}
-        style={[
-          styles.dayCard,
-          isSelected && styles.dayCardSelected,
-          day.isToday && !isSelected && styles.dayCardToday,
-        ]}
-        onPress={() => setSelectedDate(dateStr)}
-        activeOpacity={0.7}
-      >
-        {isSelected && (
-          <LinearGradient
-            colors={[colors.primary, colors.primaryDark]}
-            style={styles.dayCardGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          />
-        )}
-        <View style={styles.dayCardContent}>
-          <Text style={[
-            styles.dayDate,
-            isSelected && styles.dayDateSelected,
-          ]}>
-            {day.dayName}
-          </Text>
-          <Text style={[
-            styles.dayNum,
-            isSelected && styles.dayNumSelected,
-          ]}>
-            {day.dayNum}
-          </Text>
-          {hasActivities && !isSelected && (
-            <View style={styles.activityDot} />
-          )}
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  const getIcon = (iconName: string, type: string) => ICON_MAP[iconName] || TYPE_META[type]?.icon || CalendarBlank;
 
-  const getStatusIcon = (status: Activity['status']) => {
-    if (status === 'completed') return 'check-circle';
-    if (status === 'failed') return 'cancel';
-    return 'radio-button-unchecked';
-  };
+  const selectedDateObj = new Date(selectedDate + 'T12:00:00');
+  const isToday = selectedDate === new Date().toISOString().split('T')[0];
+  const dateLabel = isToday ? 'Today' : selectedDateObj.toLocaleDateString('en-US', { weekday: 'long' });
+  const fullDate = selectedDateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
-  const getStatusColor = (status: Activity['status'], activityColor: string) => {
-    if (status === 'completed') return activityColor;
-    if (status === 'failed') return colors.error;
-    return colors.border;
-  };
-
-  const renderActivity = (activity: Activity) => {
-    return (
-      <TouchableOpacity
-        key={activity.id}
-        style={[
-          styles.activityCard,
-          activity.status === 'failed' && styles.activityCardFailed,
-        ]}
-        onPress={() => handleActivityPress(activity)}
-        onLongPress={() => handleActivityLongPress(activity)}
-        activeOpacity={0.7}
-      >
-        <View style={[
-          styles.activityIndicator,
-          { backgroundColor: activity.status === 'failed' ? colors.error : activity.color }
-        ]} />
-        
-        <View style={styles.activityContent}>
-          <View style={styles.activityHeader}>
-            <View style={[
-              styles.activityIconContainer,
-              { backgroundColor: `${(activity.status === 'failed' ? colors.error : activity.color)}20` }
-            ]}>
-              <MaterialIcons
-                name={activity.icon as any}
-                size={20}
-                color={activity.status === 'failed' ? colors.error : activity.color}
-              />
-            </View>
-            <View style={styles.activityInfo}>
-              <Text style={[
-                styles.activityTitle,
-                activity.status === 'completed' && styles.activityTitleCompleted,
-                activity.status === 'failed' && styles.activityTitleFailed,
-              ]}>
-                {activity.title}
-              </Text>
-              <Text style={styles.activityTime}>{formatTime(activity.time)} · {activity.duration} min</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.activityStatusIcon}>
-          <MaterialIcons
-            name={getStatusIcon(activity.status) as any}
-            size={28}
-            color={getStatusColor(activity.status, activity.color)}
-          />
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  const totalMinutes = dayActivities.reduce((sum, a) => sum + a.duration, 0);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const remainingMin = totalMinutes % 60;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <BackgroundDecorations />
+    <View style={st.container}>
+      <StatusBar barStyle="dark-content" />
 
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerSubtitle}>Your Schedule</Text>
-          <Text style={styles.headerTitle}>
-            {weekDays.length > 0 
-              ? new Date(weekDays[0].year, weekDays[0].month).toLocaleDateString('en-US', { 
-                  month: 'long', 
-                  year: 'numeric' 
-                })
-              : new Date().toLocaleDateString('en-US', { 
-                  month: 'long', 
-                  year: 'numeric' 
-                })
-            }
-          </Text>
+      <ScrollView style={st.scroll} contentContainerStyle={st.scrollContent} showsVerticalScrollIndicator={false}>
+
+        {/* ── HERO HEADER ── */}
+        <View style={st.heroSection}>
+          <View style={st.heroTop}>
+            <View style={st.heroDateChip}>
+              <Text style={st.heroDateChipText}>{fullDate}</Text>
+            </View>
+            <TouchableOpacity style={st.addBtn} onPress={() => { setFilterCat('All'); openSheet(setShowQuickAdd); }} activeOpacity={0.7}>
+              <Plus size={20} weight="bold" color="#FFF" />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={st.heroTitle}>{dateLabel}'s{'\n'}Schedule</Text>
+
+          {/* Quick stats row */}
+          <View style={st.quickStats}>
+            <View style={st.quickStat}>
+              <Lightning size={14} weight="fill" color={S.lime} />
+              <Text style={st.quickStatText}>{totalCount} activities</Text>
+            </View>
+            <View style={st.quickStatDivider} />
+            <View style={st.quickStat}>
+              <Timer size={14} weight="fill" color={S.amber} />
+              <Text style={st.quickStatText}>{totalHours > 0 ? `${totalHours}h ${remainingMin}m` : `${remainingMin}m`}</Text>
+            </View>
+            <View style={st.quickStatDivider} />
+            <View style={st.quickStat}>
+              <CheckCircle size={14} weight="fill" color={S.green} />
+              <Text style={st.quickStatText}>{completedCount} done</Text>
+            </View>
+          </View>
         </View>
-        <TouchableOpacity 
-          style={styles.settingsButton}
-          onPress={() => setShowQuickAdd(true)}
-        >
-          <MaterialIcons name="add-circle" size={28} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
 
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-      >
-        <Animated.View
-          style={{
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          }}
-        >
-          <View style={styles.calendarSection}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.weekDaysContainer}
-            >
-              {weekDays.map(renderDayCard)}
-            </ScrollView>
-          </View>
+        {/* ── WEEK NAV + DAY SELECTOR ── */}
+        <View style={st.weekNav}>
+          <TouchableOpacity onPress={() => setCurrentWeekOffset(o => o - 1)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <CaretLeft size={18} weight="bold" color={S.dim} />
+          </TouchableOpacity>
+          <Text style={st.weekNavLabel}>
+            {weekDays.length >= 7 ? `${weekDays[0].dayName} ${weekDays[0].dayNum} – ${weekDays[6].dayName} ${weekDays[6].dayNum}` : ''}
+          </Text>
+          <TouchableOpacity onPress={() => setCurrentWeekOffset(o => o + 1)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <CaretRight size={18} weight="bold" color={S.dim} />
+          </TouchableOpacity>
+        </View>
 
-          <View style={styles.progressSection}>
-            <LinearGradient
-              colors={[colors.primaryLight, colors.primaryPale]}
-              style={styles.progressCard}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.progressHeader}>
-                <View>
-                  <Text style={styles.progressTitle}>Today's Progress</Text>
-                  <Text style={styles.progressSubtitle}>
-                    {completedCount} completed · {failedCount} failed · {totalCount - completedCount - failedCount} pending
-                  </Text>
-                </View>
-                <View style={styles.progressPercentage}>
-                  <Text style={styles.progressPercentageText}>
-                    {Math.round(progressPercentage)}%
-                  </Text>
+        <View style={st.dayRow}>
+          {weekDays.map(day => {
+            const isSel = day.date === selectedDate;
+            const dayActs = getActivitiesForDate(day.date);
+            const hasActs = dayActs.length > 0;
+            const dayCompleted = dayActs.filter(a => a.status === 'completed').length;
+            const dayPct = dayActs.length > 0 ? dayCompleted / dayActs.length : 0;
+            return (
+              <TouchableOpacity key={day.date} style={[st.dayChip, isSel && st.dayChipSel]} onPress={() => setSelectedDate(day.date)} activeOpacity={0.7}>
+                <Text style={[st.dayChipName, isSel && st.dayChipNameSel]}>{day.dayName.slice(0, 2)}</Text>
+                <Text style={[st.dayChipNum, isSel && st.dayChipNumSel]}>{day.dayNum}</Text>
+                {hasActs && !isSel && (
+                  <View style={[st.dayDot, dayPct >= 1 && { backgroundColor: S.green }]} />
+                )}
+                {day.isToday && !isSel && <View style={st.todayBar} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* ── UP NEXT CARD ── */}
+        {upNext && (() => {
+          const meta = TYPE_META[upNext.type] || TYPE_META.custom;
+          const Icon = getIcon(upNext.icon, upNext.type);
+          return (
+            <TouchableOpacity style={st.upNextCard} onPress={() => handleActivityPress(upNext)} onLongPress={() => handleActivityLongPress(upNext)} activeOpacity={0.8}>
+              <View style={st.upNextLeft}>
+                <Text style={st.upNextLabel}>UP NEXT</Text>
+                <Text style={st.upNextTitle}>{upNext.title}</Text>
+                <View style={st.upNextMeta}>
+                  <Clock size={13} color="rgba(255,255,255,0.5)" />
+                  <Text style={st.upNextTime}>{formatTime(upNext.time)} · {upNext.duration} min</Text>
                 </View>
               </View>
-              
-              <View style={styles.progressBarContainer}>
-                <View style={styles.progressBarBackground}>
-                  <LinearGradient
-                    colors={[colors.primary, colors.primaryDark]}
-                    style={[styles.progressBarFill, { width: `${progressPercentage}%` }]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  />
-                </View>
+              <View style={[st.upNextIcon, { backgroundColor: meta.color }]}>
+                <Icon size={22} weight="fill" color="#FFF" />
               </View>
+            </TouchableOpacity>
+          );
+        })()}
 
-              <Text style={styles.progressHint}>
-                Tap to mark complete, twice for failed, three times to reset
-              </Text>
-            </LinearGradient>
+        {/* ── WEEKLY GOALS — Triple Ring Card ── */}
+        <View style={st.goalsCard}>
+          <View style={st.goalsCardLeft}>
+            <TripleRing goals={weeklyGoals} />
           </View>
+          <View style={st.goalsCardRight}>
+            <Text style={st.goalsCardTitle}>Weekly Goals</Text>
+            {[
+              { label: 'Workouts', data: weeklyGoals.workouts, color: S.green, icon: Barbell },
+              { label: 'Meals', data: weeklyGoals.meals, color: S.amber, icon: ForkKnife },
+              { label: 'Meditation', data: weeklyGoals.meditation, color: S.purple, icon: Flower },
+            ].map(g => {
+              const GoalIcon = g.icon;
+              const pct = g.data.target > 0 ? Math.min((g.data.current / g.data.target) * 100, 100) : 0;
+              return (
+                <View key={g.label} style={st.goalRow}>
+                  <View style={[st.goalIconMini, { backgroundColor: g.color + '25' }]}>
+                    <GoalIcon size={12} weight="fill" color={g.color} />
+                  </View>
+                  <View style={st.goalMid}>
+                    <View style={st.goalLabelRow}>
+                      <Text style={st.goalRowLabel}>{g.label}</Text>
+                      <Text style={st.goalRowNum}>{g.data.current}<Text style={st.goalRowDenom}>/{g.data.target}</Text></Text>
+                    </View>
+                    <View style={st.goalMiniBar}>
+                      <View style={[st.goalMiniBarFill, { width: `${pct}%`, backgroundColor: g.color }]} />
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
 
-          <View style={styles.activitiesSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Activities</Text>
-              <Text style={styles.sectionCount}>{dayActivities.length}</Text>
+        {/* ── PROGRESS BAR ── */}
+        {totalCount > 0 && (
+          <View style={st.progressRow}>
+            <View style={st.progressBarTrack}>
+              <View style={[st.progressBarFill, { width: `${Math.min(progressPct, 100)}%` }]} />
             </View>
-
-            {dayActivities.length === 0 ? (
-              <View style={styles.emptyState}>
-                <MaterialIcons name="event-available" size={48} color={colors.textSecondary} />
-                <Text style={styles.emptyStateText}>No activities scheduled</Text>
-                <Text style={styles.emptyStateSubtext}>Tap the + button to add one</Text>
-              </View>
-            ) : (
-              <View style={styles.activitiesList}>
-                {dayActivities.map(renderActivity)}
-              </View>
-            )}
+            <Text style={st.progressPct}>{Math.round(progressPct)}%</Text>
           </View>
+        )}
 
-          <View style={styles.goalsSection}>
-            <Text style={styles.sectionTitle}>Weekly Goals</Text>
-            
-            <View style={styles.goalsGrid}>
-              <View style={styles.goalCard}>
-                <View style={[styles.goalIcon, { backgroundColor: `${colors.primary}20` }]}>
-                  <MaterialIcons name="fitness-center" size={24} color={colors.primary} />
-                </View>
-                <Text style={styles.goalValue}>{weeklyGoals.workouts.current}/{weeklyGoals.workouts.target}</Text>
-                <Text style={styles.goalLabel}>Workouts</Text>
-              </View>
-
-              <View style={styles.goalCard}>
-                <View style={[styles.goalIcon, { backgroundColor: `${colors.accent}20` }]}>
-                  <MaterialIcons name="restaurant" size={24} color={colors.accent} />
-                </View>
-                <Text style={styles.goalValue}>{weeklyGoals.meals.current}/{weeklyGoals.meals.target}</Text>
-                <Text style={styles.goalLabel}>Meals</Text>
-              </View>
-
-              <View style={styles.goalCard}>
-                <View style={[styles.goalIcon, { backgroundColor: `${colors.purple}20` }]}>
-                  <MaterialIcons name="spa" size={24} color={colors.purple} />
-                </View>
-                <Text style={styles.goalValue}>{weeklyGoals.meditation.current}/{weeklyGoals.meditation.target}</Text>
-                <Text style={styles.goalLabel}>Meditation</Text>
-              </View>
+        {/* ── TIMELINE ACTIVITIES ── */}
+        {dayActivities.length === 0 ? (
+          <View style={st.empty}>
+            <View style={st.emptyCircle}>
+              <CalendarBlank size={32} weight="light" color={S.dim} />
             </View>
+            <Text style={st.emptyText}>No activities</Text>
+            <Text style={st.emptySub}>Add your first activity for this day</Text>
+            <TouchableOpacity style={st.emptyBtn} onPress={() => { setFilterCat('All'); openSheet(setShowQuickAdd); }} activeOpacity={0.7}>
+              <Plus size={16} weight="bold" color="#FFF" />
+              <Text style={st.emptyBtnText}>Add activity</Text>
+            </TouchableOpacity>
           </View>
+        ) : (
+          <>
+            {(['morning', 'afternoon', 'evening'] as const).map(period => {
+              const items = grouped[period];
+              if (items.length === 0) return null;
+              const PeriodIcon = TIME_ICONS[period];
+              return (
+                <View key={period} style={st.timeSection}>
+                  <View style={st.timeSectionHead}>
+                    <PeriodIcon size={16} weight="fill" color={S.dim} />
+                    <Text style={st.timeSectionLabel}>{TIME_LABELS[period]}</Text>
+                    <View style={st.timeSectionLine} />
+                  </View>
 
-          <View style={{ height: 100 }} />
-        </Animated.View>
+                  {items.map((activity, idx) => {
+                    const meta = TYPE_META[activity.type] || TYPE_META.custom;
+                    const Icon = getIcon(activity.icon, activity.type);
+                    const done = activity.status === 'completed';
+                    const failed = activity.status === 'failed';
+                    return (
+                      <View key={activity.id} style={st.timelineRow}>
+                        {/* Timeline line */}
+                        <View style={st.timelineTrack}>
+                          <View style={[st.timelineDot, done && { backgroundColor: S.green }, failed && { backgroundColor: S.red }]} />
+                          {idx < items.length - 1 && <View style={st.timelineLine} />}
+                        </View>
+
+                        {/* Activity card */}
+                        <TouchableOpacity
+                          style={[st.actCard, failed && { opacity: 0.5 }]}
+                          onPress={() => handleActivityPress(activity)}
+                          onLongPress={() => handleActivityLongPress(activity)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[st.actIconWrap, { backgroundColor: meta.bg }]}>
+                            <Icon size={18} weight="fill" color={failed ? S.red : meta.color} />
+                          </View>
+                          <View style={st.actInfo}>
+                            <Text style={[st.actTitle, done && st.actTitleDone, failed && { color: S.red }]}>{activity.title}</Text>
+                            <Text style={st.actTimeDur}>{formatTime(activity.time)} · {activity.duration} min</Text>
+                          </View>
+                          {done ? (
+                            <CheckCircle size={24} weight="fill" color={S.green} />
+                          ) : failed ? (
+                            <XCircle size={24} weight="fill" color={S.red} />
+                          ) : (
+                            <CheckCircle size={24} weight="regular" color="#DDD" />
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })}
+            <Text style={st.hint}>Tap to complete · Long press for details</Text>
+          </>
+        )}
+
+        <View style={{ height: 100 }} />
       </ScrollView>
 
-      <Modal
-        visible={showQuickAdd}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowQuickAdd(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Activity</Text>
-              <TouchableOpacity onPress={() => setShowQuickAdd(false)}>
-                <MaterialIcons name="close" size={24} color={colors.textPrimary} />
+      {/* ===== QUICK ADD MODAL ===== */}
+      <Modal visible={showQuickAdd} animationType="none" transparent onRequestClose={() => closeSheet(setShowQuickAdd)}>
+        <Animated.View style={[st.modalOverlay, { backgroundColor: overlayAnim.interpolate({ inputRange: [0, 1], outputRange: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.15)'] }) }]}>
+          <Animated.View style={[st.qSheet, { transform: [{ translateY: sheetAnim }] }]}>
+            {/* Drag handle */}
+            <View style={st.qHandle} />
+
+            {/* Top bar */}
+            <View style={st.qTop}>
+              <Text style={st.qTitle}>Add Activity</Text>
+              <TouchableOpacity onPress={() => closeSheet(setShowQuickAdd)} style={st.qClose} activeOpacity={0.7}>
+                <X size={18} weight="bold" color={S.dim} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.templatesScroll}>
-              <View style={styles.quickAddGrid}>
-                {templates.slice(0, 6).map((template) => (
-                  <TouchableOpacity
-                    key={template.id}
-                    style={styles.quickAddOption}
-                    onPress={() => handleAddFromTemplate(template)}
-                    activeOpacity={0.7}
-                  >
-                    <LinearGradient
-                      colors={[`${template.color}20`, `${template.color}10`]}
-                      style={styles.quickAddIconContainer}
-                    >
-                      <MaterialIcons name={template.icon as any} size={32} color={template.color} />
-                    </LinearGradient>
-                    <Text style={styles.quickAddLabel} numberOfLines={2} ellipsizeMode="tail">{template.title}</Text>
-                    <Text style={styles.quickAddDuration}>{template.duration} min</Text>
-                  </TouchableOpacity>
-                ))}
+            {/* Category chips */}
+            <View style={st.qChips}>
+              {['All', 'Workout', 'Meal', 'Mind'].map(c => (
+                <TouchableOpacity key={c} style={[st.qChip, filterCat === c && st.qChipActive]} onPress={() => setFilterCat(c)} activeOpacity={0.7}>
+                  <Text style={[st.qChipText, filterCat === c && st.qChipTextActive]}>{c}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 380 }} contentContainerStyle={{ paddingBottom: 20 }}>
+              {/* Template 2-column grid */}
+              <View style={st.qGrid}>
+                {templates.filter(t => {
+                  if (filterCat === 'All') return true;
+                  if (filterCat === 'Workout') return t.type === 'workout';
+                  if (filterCat === 'Meal') return t.type === 'meal';
+                  if (filterCat === 'Mind') return t.type === 'mindfulness';
+                  return true;
+                }).map(template => {
+                  const meta = TYPE_META[template.type] || TYPE_META.custom;
+                  const Icon = getIcon(template.icon, template.type);
+                  return (
+                    <TouchableOpacity key={template.id} style={st.qCard} onPress={() => handleAddFromTemplate(template)} activeOpacity={0.7}>
+                      <View style={st.qCardTop}>
+                        <View style={[st.qCardIcon, { backgroundColor: meta.bg }]}>
+                          <Icon size={20} weight="fill" color={meta.color} />
+                        </View>
+                        <View style={[st.qCardBadge, { backgroundColor: meta.color + '18' }]}>
+                          <Text style={[st.qCardBadgeText, { color: meta.color }]}>{template.type}</Text>
+                        </View>
+                      </View>
+                      <Text style={st.qCardTitle} numberOfLines={1}>{template.title}</Text>
+                      <View style={st.qCardFooter}>
+                        <Clock size={11} color={S.dim} />
+                        <Text style={st.qCardTime}>{template.defaultTime ? formatTime(template.defaultTime) : ''}</Text>
+                        <Text style={st.qCardDur}>{template.duration}m</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
-              <TouchableOpacity
-                style={styles.customActivityButton}
-                onPress={() => setShowAddCustom(true)}
-              >
-                <MaterialIcons name="add-circle-outline" size={24} color={colors.primary} />
-                <Text style={styles.customActivityButtonText}>Create Custom Activity</Text>
+              {/* Custom CTA */}
+              <TouchableOpacity style={st.qCustom} onPress={() => openSheet(setShowAddCustom)} activeOpacity={0.7}>
+                <View style={st.qCustomLeft}>
+                  <View style={st.qCustomIcon}>
+                    <Plus size={18} weight="bold" color="#FFF" />
+                  </View>
+                  <View>
+                    <Text style={st.qCustomTitle}>Custom Activity</Text>
+                    <Text style={st.qCustomSub}>Create your own</Text>
+                  </View>
+                </View>
+                <ArrowRight size={18} weight="bold" color="rgba(255,255,255,0.3)" />
               </TouchableOpacity>
             </ScrollView>
-          </View>
-        </View>
+          </Animated.View>
+        </Animated.View>
       </Modal>
 
-      <Modal
-        visible={showAddCustom}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowAddCustom(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Custom Activity</Text>
-              <TouchableOpacity onPress={() => setShowAddCustom(false)}>
-                <MaterialIcons name="close" size={24} color={colors.textPrimary} />
+      {/* ===== CUSTOM ACTIVITY MODAL ===== */}
+      <Modal visible={showAddCustom} animationType="none" transparent onRequestClose={() => closeSheet(setShowAddCustom)}>
+        <Animated.View style={[st.modalOverlay, { backgroundColor: overlayAnim.interpolate({ inputRange: [0, 1], outputRange: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.15)'] }) }]}>
+          <Animated.View style={[st.cSheet, { transform: [{ translateY: sheetAnim }] }]}>
+            <View style={st.qHandle} />
+
+            {/* Header with back arrow */}
+            <View style={st.cTop}>
+              <TouchableOpacity onPress={() => closeSheet(setShowAddCustom)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <CaretLeft size={22} weight="bold" color={S.text} />
               </TouchableOpacity>
+              <Text style={st.cTitle}>New Activity</Text>
+              <View style={{ width: 22 }} />
             </View>
 
-            <View style={styles.customForm}>
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Title</Text>
-                <TextInput
-                  style={styles.formInput}
-                  value={customTitle}
-                  onChangeText={setCustomTitle}
-                  placeholder="Activity name"
-                  placeholderTextColor={colors.textSecondary}
-                />
+            {/* Big icon placeholder */}
+            <View style={st.cHeroIcon}>
+              <CalendarBlank size={28} weight="duotone" color={S.lime} />
+            </View>
+
+            {/* Form fields */}
+            <View style={st.cForm}>
+              <View style={st.cField}>
+                <Text style={st.cFieldLabel}>Name</Text>
+                <TextInput style={st.cInput} value={customTitle} onChangeText={setCustomTitle} placeholder="Morning Yoga, HIIT..." placeholderTextColor="#C8C8C8" />
               </View>
 
-              <View style={styles.formRow}>
-                <View style={[styles.formGroup, { flex: 1, marginRight: spacing.sm }]}>
-                  <Text style={styles.formLabel}>Time</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    value={customTime}
-                    onChangeText={setCustomTime}
-                    placeholder="HH:MM"
-                    placeholderTextColor={colors.textSecondary}
-                  />
+              <View style={st.cFieldRow}>
+                <View style={st.cFieldHalf}>
+                  <Text style={st.cFieldLabel}>Time</Text>
+                  <View style={st.cInputRow}>
+                    <Clock size={16} weight="bold" color={S.dim} />
+                    <TextInput style={st.cInputInner} value={customTime} onChangeText={setCustomTime} placeholder="09:00" placeholderTextColor="#C8C8C8" />
+                  </View>
                 </View>
-
-                <View style={[styles.formGroup, { flex: 1 }]}>
-                  <Text style={styles.formLabel}>Duration (min)</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    value={customDuration}
-                    onChangeText={setCustomDuration}
-                    placeholder="30"
-                    keyboardType="numeric"
-                    placeholderTextColor={colors.textSecondary}
-                  />
+                <View style={st.cFieldHalf}>
+                  <Text style={st.cFieldLabel}>Duration</Text>
+                  <View style={st.cInputRow}>
+                    <Timer size={16} weight="bold" color={S.dim} />
+                    <TextInput style={st.cInputInner} value={customDuration} onChangeText={setCustomDuration} placeholder="30" keyboardType="numeric" placeholderTextColor="#C8C8C8" />
+                    <Text style={st.cUnit}>min</Text>
+                  </View>
                 </View>
               </View>
 
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={handleAddCustomActivity}
-              >
-                <LinearGradient
-                  colors={[colors.primary, colors.primaryDark]}
-                  style={styles.addButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.addButtonText}>Add Activity</Text>
-                </LinearGradient>
+              <TouchableOpacity style={st.cSubmit} onPress={handleAddCustomActivity} activeOpacity={0.7}>
+                <Text style={st.cSubmitText}>Add to Schedule</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </Animated.View>
+        </Animated.View>
       </Modal>
 
-      <Modal
-        visible={showActivityDetail}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setShowActivityDetail(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.detailModal}>
-            {selectedActivity && (
-              <>
-                <View style={[
-                  styles.detailHeader,
-                  { backgroundColor: `${selectedActivity.color}20` }
-                ]}>
-                  <MaterialIcons
-                    name={selectedActivity.icon as any}
-                    size={48}
-                    color={selectedActivity.color}
-                  />
-                  <Text style={styles.detailTitle}>{selectedActivity.title}</Text>
-                  <Text style={styles.detailTime}>
-                    {formatTime(selectedActivity.time)} · {selectedActivity.duration} minutes
-                  </Text>
-                </View>
-
-                <View style={styles.detailActions}>
-                  <TouchableOpacity
-                    style={styles.detailActionButton}
-                    onPress={() => {
-                      toggleActivityStatus(selectedActivity.id);
-                      setShowActivityDetail(false);
-                    }}
-                  >
-                    <MaterialIcons name="check-circle" size={24} color={colors.primary} />
-                    <Text style={styles.detailActionText}>Toggle Status</Text>
+      {/* ===== ACTIVITY DETAIL MODAL ===== */}
+      <Modal visible={showActivityDetail} animationType="none" transparent onRequestClose={closeDetail}>
+        <Animated.View style={[st.detailOverlay, { opacity: detailAnim }]}>
+          <Animated.View style={[st.detailCard, { transform: [{ scale: detailAnim.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }] }]}>
+            {selectedActivity && (() => {
+              const meta = TYPE_META[selectedActivity.type] || TYPE_META.custom;
+              const Icon = getIcon(selectedActivity.icon, selectedActivity.type);
+              return (
+                <>
+                  <View style={[st.detailHero, { backgroundColor: meta.darkBg }]}>
+                    <View style={st.detailHeroIcon}>
+                      <Icon size={28} weight="fill" color="#FFF" />
+                    </View>
+                    <Text style={st.detailHeroTitle}>{selectedActivity.title}</Text>
+                    <Text style={st.detailHeroTime}>{formatTime(selectedActivity.time)} · {selectedActivity.duration} min</Text>
+                  </View>
+                  <View style={st.detailBody}>
+                    <TouchableOpacity style={st.detailActionBtn} onPress={() => { toggleActivityStatus(selectedActivity.id); closeDetail(); }} activeOpacity={0.7}>
+                      <CheckCircle size={20} weight="fill" color={S.green} />
+                      <Text style={st.detailActionText}>Toggle status</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[st.detailActionBtn, { backgroundColor: '#FEF2F2' }]} onPress={handleDeleteActivity} activeOpacity={0.7}>
+                      <Trash size={20} weight="fill" color={S.red} />
+                      <Text style={[st.detailActionText, { color: S.red }]}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity style={st.detailClose} onPress={closeDetail}>
+                    <Text style={st.detailCloseText}>Close</Text>
                   </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.detailActionButton, styles.deleteButton]}
-                    onPress={handleDeleteActivity}
-                  >
-                    <MaterialIcons name="delete" size={24} color={colors.error} />
-                    <Text style={[styles.detailActionText, { color: colors.error }]}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.closeDetailButton}
-                  onPress={() => setShowActivityDetail(false)}
-                >
-                  <Text style={styles.closeDetailText}>Close</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
+                </>
+              );
+            })()}
+          </Animated.View>
+        </Animated.View>
       </Modal>
-
-      <BottomNavigation
-        activeTab="schedule"
-        onTabChange={(tab) => onNavigate?.(tab)}
-      />
-    </SafeAreaView>
+    </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  calendarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  weekNavButton: {
-    padding: spacing.sm,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.surface,
-  },
-  monthYearText: {
-    fontSize: fontSizes.lg,
-    fontFamily: 'Poppins_600SemiBold',
-    color: colors.textPrimary,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerSubtitle: {
-    fontSize: fontSizes.sm,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  headerTitle: {
-    fontSize: fontSizes.xl,
-    fontFamily: 'Poppins_700Bold',
-    color: colors.textPrimary,
-  },
-  settingsButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primaryPale,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: spacing.xxl,
-  },
-  calendarSection: {
-    paddingVertical: spacing.md,
-    paddingBottom: spacing.lg,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  weekDaysContainer: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-  },
-  dayCard: {
-    width: 70,
-    height: 90,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.surface,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  dayCardSelected: {
-    borderColor: colors.primary,
-    borderWidth: 2,
-  },
-  dayCardToday: {
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  dayCardGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  dayCardContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.sm,
-  },
-  dayDate: {
-    fontSize: fontSizes.xs,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  dayDateSelected: {
-    color: colors.textLight,
-  },
-  dayNum: {
-    fontSize: fontSizes.xl,
-    fontFamily: 'Poppins_700Bold',
-    color: colors.textPrimary,
-  },
-  dayNumSelected: {
-    color: colors.textLight,
-  },
-  activityDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
-    marginTop: 4,
-  },
-  progressSection: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  progressCard: {
-    padding: spacing.lg,
-    borderRadius: borderRadius.xl,
-    ...shadows.md,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  progressTitle: {
-    fontSize: fontSizes.lg,
-    fontFamily: 'Poppins_700Bold',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  progressSubtitle: {
-    fontSize: fontSizes.sm,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-  },
-  progressPercentage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.sm,
-  },
-  progressPercentageText: {
-    fontSize: fontSizes.lg,
-    fontFamily: 'Poppins_700Bold',
-    color: colors.primary,
-    lineHeight: fontSizes.lg * 1.2,
-    textAlignVertical: 'center',
-  },
-  progressBarContainer: {
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  progressBarBackground: {
-    height: 12,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.sm,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: borderRadius.sm,
-  },
-  progressHint: {
-    fontSize: fontSizes.xs,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  activitiesSection: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  sectionTitle: {
-    fontSize: fontSizes.lg,
-    fontFamily: 'Poppins_700Bold',
-    color: colors.textPrimary,
-  },
-  sectionCount: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.primary,
-  },
-  activitiesList: {
-    gap: spacing.sm,
-  },
-  activityCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    ...shadows.sm,
-  },
-  activityCardFailed: {
-    opacity: 0.7,
-  },
-  activityIndicator: {
-    width: 4,
-    height: 50,
-    borderRadius: 2,
-    marginRight: spacing.md,
-  },
-  activityContent: {
-    flex: 1,
-  },
-  activityHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  activityIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.sm,
-  },
-  activityInfo: {
-    flex: 1,
-  },
-  activityTitle: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  activityTitleCompleted: {
-    textDecorationLine: 'line-through',
-    color: colors.textSecondary,
-  },
-  activityTitleFailed: {
-    color: colors.error,
-  },
-  activityTime: {
-    fontSize: fontSizes.sm,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-  },
-  activityStatusIcon: {
-    marginLeft: spacing.sm,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: spacing.xxl,
-  },
-  emptyStateText: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textSecondary,
-    marginTop: spacing.md,
-  },
-  emptyStateSubtext: {
-    fontSize: fontSizes.sm,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  goalsSection: {
-    paddingHorizontal: spacing.lg,
-  },
-  goalsGrid: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  goalCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    alignItems: 'center',
-    ...shadows.sm,
-  },
-  goalIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  goalValue: {
-    fontSize: fontSizes.lg,
-    fontFamily: 'Poppins_700Bold',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  goalLabel: {
-    fontSize: fontSizes.xs,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius.xxl,
-    borderTopRightRadius: borderRadius.xxl,
-    maxHeight: '80%',
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
-    paddingHorizontal: spacing.lg,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  modalTitle: {
-    fontSize: fontSizes.xl,
-    fontFamily: 'Poppins_700Bold',
-    color: colors.textPrimary,
-  },
-  templatesScroll: {
-    maxHeight: '60%',
-  },
-  quickAddGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-    paddingHorizontal: 0,
-    justifyContent: 'space-around',
-    gap: spacing.md,
-  },
-  quickAddOption: {
-    flexBasis: '30%',
-    minHeight: 110,
-    alignItems: 'center',
-    padding: spacing.md,
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.xl,
-    marginBottom: spacing.md,
-  },
-  quickAddIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  quickAddLabel: {
-    fontSize: fontSizes.sm,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-  quickAddDuration: {
-    fontSize: fontSizes.xs,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  customActivityButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'stretch',
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
-    padding: spacing.md,
-    backgroundColor: colors.primaryPale,
-    borderRadius: borderRadius.lg,
-    gap: spacing.sm,
-  },
-  customActivityButtonText: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.primary,
-  },
-  customForm: {
-    paddingHorizontal: 0,
-    paddingBottom: spacing.lg,
-  },
-  formGroup: {
-    marginBottom: spacing.md,
-  },
-  formRow: {
-    flexDirection: 'row',
-  },
-  formLabel: {
-    fontSize: fontSizes.sm,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  formInput: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textPrimary,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  addButton: {
-    marginTop: spacing.md,
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-    alignSelf: 'stretch',
-  },
-  addButtonGradient: {
-    padding: spacing.md,
-    width: '100%',
-    alignItems: 'center',
-  },
-  addButtonText: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textLight,
-  },
-  detailModal: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xxl,
-    margin: spacing.lg,
-    marginTop: 'auto',
-    marginBottom: 'auto',
-    maxWidth: 400,
-    alignSelf: 'center',
-    width: '90%',
-  },
-  detailHeader: {
-    padding: spacing.xl,
-    alignItems: 'center',
-    borderTopLeftRadius: borderRadius.xxl,
-    borderTopRightRadius: borderRadius.xxl,
-  },
-  detailTitle: {
-    fontSize: fontSizes.xl,
-    fontFamily: 'Poppins_700Bold',
-    color: colors.textPrimary,
-    marginTop: spacing.md,
-  },
-  detailTime: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  detailActions: {
-    flexDirection: 'row',
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  detailActionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.md,
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.lg,
-    gap: spacing.xs,
-  },
-  deleteButton: {
-    backgroundColor: `${colors.error}10`,
-  },
-  detailActionText: {
-    fontSize: fontSizes.sm,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textPrimary,
-  },
-  closeDetailButton: {
-    padding: spacing.md,
-    alignItems: 'center',
-  },
-  closeDetailText: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textSecondary,
-  },
+/* ════════════════════════════════════════════════════════ */
+const st = StyleSheet.create({
+  container: { flex: 1, backgroundColor: S.bg },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 110 },
+
+  /* Hero */
+  heroSection: { paddingTop: 0 },
+  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  heroDateChip: { backgroundColor: S.warmBg, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
+  heroDateChipText: { fontFamily: F.semi, fontSize: 12, color: S.text, letterSpacing: 0.2 },
+  addBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: S.dark, justifyContent: 'center', alignItems: 'center' },
+  heroTitle: { fontFamily: F.bold, fontSize: 28, color: S.text, letterSpacing: -1, lineHeight: 32, marginBottom: 10 },
+  quickStats: { flexDirection: 'row', alignItems: 'center', backgroundColor: S.card, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 14 },
+  quickStat: { flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1, justifyContent: 'center' },
+  quickStatText: { fontFamily: F.medium, fontSize: 12, color: S.dim },
+  quickStatDivider: { width: 1, height: 16, backgroundColor: S.border },
+
+  /* Week nav */
+  weekNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 10 },
+  weekNavLabel: { fontFamily: F.semi, fontSize: 13, color: S.dim },
+
+  /* Day chips */
+  dayRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, overflow: 'hidden' },
+  dayChip: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 14, marginHorizontal: 2, backgroundColor: S.card },
+  dayChipSel: { backgroundColor: S.dark },
+  dayChipName: { fontFamily: F.medium, fontSize: 11, color: S.dim, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  dayChipNameSel: { color: 'rgba(255,255,255,0.45)' },
+  dayChipNum: { fontFamily: F.bold, fontSize: 18, color: S.text },
+  dayChipNumSel: { color: '#FFF' },
+  dayDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: S.amber, marginTop: 5 },
+  todayBar: { width: 14, height: 2.5, borderRadius: 1.5, backgroundColor: S.lime, marginTop: 5 },
+
+  /* Up Next */
+  upNextCard: { backgroundColor: S.dark, borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  upNextLeft: { flex: 1 },
+  upNextLabel: { fontFamily: F.semi, fontSize: 10, color: S.lime, letterSpacing: 1.5, marginBottom: 6 },
+  upNextTitle: { fontFamily: F.bold, fontSize: 20, color: '#FFF', letterSpacing: -0.5 },
+  upNextMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
+  upNextTime: { fontFamily: F.regular, fontSize: 13, color: 'rgba(255,255,255,0.45)' },
+  upNextIcon: { width: 50, height: 50, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+
+  /* Goals card */
+  goalsCard: { backgroundColor: S.dark, borderRadius: 20, padding: 18, flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  goalsCardLeft: { marginRight: 14, flexShrink: 0 },
+  goalsCardRight: { flex: 1 },
+  goalsCardTitle: { fontFamily: F.bold, fontSize: 15, color: '#FFF', marginBottom: 12 },
+  goalRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  goalIconMini: { width: 24, height: 24, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 10, flexShrink: 0 },
+  goalMid: { flex: 1 },
+  goalLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 },
+  goalRowLabel: { fontFamily: F.medium, fontSize: 12, color: 'rgba(255,255,255,0.5)' },
+  goalRowNum: { fontFamily: F.bold, fontSize: 13, color: '#FFF' },
+  goalRowDenom: { fontFamily: F.regular, fontSize: 11, color: 'rgba(255,255,255,0.3)' },
+  goalMiniBar: { height: 4, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 2 },
+  goalMiniBarFill: { height: 4, borderRadius: 2 },
+
+  /* Progress bar */
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 24 },
+  progressBarTrack: { flex: 1, height: 6, backgroundColor: '#EEEEEE', borderRadius: 3 },
+  progressBarFill: { height: 6, backgroundColor: S.lime, borderRadius: 3 },
+  progressPct: { fontFamily: F.bold, fontSize: 14, color: S.text, minWidth: 36 },
+
+  /* Time sections */
+  timeSection: { marginBottom: 20 },
+  timeSectionHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+  timeSectionLabel: { fontFamily: F.semi, fontSize: 13, color: S.dim },
+  timeSectionLine: { flex: 1, height: 1, backgroundColor: S.border, marginLeft: 6 },
+
+  /* Timeline row */
+  timelineRow: { flexDirection: 'row', marginBottom: 0 },
+  timelineTrack: { width: 24, alignItems: 'center', marginRight: 8 },
+  timelineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#DDD', marginTop: 16 },
+  timelineLine: { width: 2, flex: 1, backgroundColor: '#EEEEEE', marginVertical: 2 },
+
+  /* Activity card */
+  actCard: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: S.card, borderRadius: 16, padding: 14, gap: 12, marginBottom: 8 },
+  actIconWrap: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  actInfo: { flex: 1 },
+  actTitle: { fontFamily: F.semi, fontSize: 15, color: S.text, marginBottom: 2 },
+  actTitleDone: { textDecorationLine: 'line-through', color: S.dim },
+  actTimeDur: { fontFamily: F.regular, fontSize: 12, color: S.dim },
+
+  /* Hint */
+  hint: { fontFamily: F.regular, fontSize: 12, color: '#CCC', textAlign: 'center', marginTop: 4, marginBottom: 8 },
+
+  /* Empty */
+  empty: { alignItems: 'center', paddingVertical: 48 },
+  emptyCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
+  emptyText: { fontFamily: F.semi, fontSize: 17, color: S.text },
+  emptySub: { fontFamily: F.regular, fontSize: 13, color: S.dim, marginTop: 4, marginBottom: 20 },
+  emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: S.dark, borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12 },
+  emptyBtnText: { fontFamily: F.semi, fontSize: 14, color: '#FFF' },
+
+  /* ── Overlay ── */
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+
+  /* ── Quick Add Sheet ── */
+  qSheet: { backgroundColor: '#FFF', borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '88%' },
+  qHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#E0E0E0', alignSelf: 'center', marginTop: 10, marginBottom: 4 },
+  qTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 4 },
+  qTitle: { fontFamily: F.bold, fontSize: 26, color: S.text, letterSpacing: -0.8 },
+  qClose: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F2F2F2', justifyContent: 'center', alignItems: 'center' },
+  qChips: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingVertical: 14 },
+  qChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#F2F2F2' },
+  qChipActive: { backgroundColor: S.dark },
+  qChipText: { fontFamily: F.semi, fontSize: 12, color: S.dim },
+  qChipTextActive: { color: '#FFF' },
+
+  /* Template 2-col grid */
+  qGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20, gap: 10 },
+  qCard: { width: (width - 50) / 2, backgroundColor: S.bg, borderRadius: 18, padding: 14 },
+  qCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  qCardIcon: { width: 42, height: 42, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  qCardBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  qCardBadgeText: { fontFamily: F.semi, fontSize: 10, textTransform: 'capitalize' },
+  qCardTitle: { fontFamily: F.bold, fontSize: 15, color: S.text, letterSpacing: -0.3, marginBottom: 6 },
+  qCardFooter: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  qCardTime: { fontFamily: F.regular, fontSize: 11, color: S.dim },
+  qCardDur: { fontFamily: F.semi, fontSize: 11, color: S.dim, marginLeft: 'auto' },
+
+  /* Custom CTA dark card */
+  qCustom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 20, marginTop: 14, backgroundColor: S.dark, borderRadius: 18, padding: 16 },
+  qCustomLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  qCustomIcon: { width: 40, height: 40, borderRadius: 13, backgroundColor: S.lime, justifyContent: 'center', alignItems: 'center' },
+  qCustomTitle: { fontFamily: F.bold, fontSize: 15, color: '#FFF', letterSpacing: -0.3 },
+  qCustomSub: { fontFamily: F.regular, fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 1 },
+
+  /* ── Custom Activity Sheet ── */
+  cSheet: { backgroundColor: '#FFF', borderTopLeftRadius: 28, borderTopRightRadius: 28 },
+  cTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 8 },
+  cTitle: { fontFamily: F.bold, fontSize: 18, color: S.text, letterSpacing: -0.3 },
+  cHeroIcon: { width: 64, height: 64, borderRadius: 22, backgroundColor: S.dark, justifyContent: 'center', alignItems: 'center', alignSelf: 'center', marginTop: 8, marginBottom: 4 },
+
+  /* Form */
+  cForm: { paddingHorizontal: 20, paddingBottom: 34 },
+  cField: { marginTop: 18 },
+  cFieldLabel: { fontFamily: F.semi, fontSize: 12, color: S.dim, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  cInput: { backgroundColor: '#F5F5F5', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 15, fontFamily: F.medium, fontSize: 16, color: S.text },
+  cFieldRow: { flexDirection: 'row', gap: 12, marginTop: 18 },
+  cFieldHalf: { flex: 1 },
+  cInputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, gap: 8 },
+  cInputInner: { flex: 1, fontFamily: F.medium, fontSize: 16, color: S.text, padding: 0 },
+  cUnit: { fontFamily: F.medium, fontSize: 13, color: S.dim },
+  cSubmit: { marginTop: 28, backgroundColor: S.dark, borderRadius: 16, paddingVertical: 17, alignItems: 'center' },
+  cSubmitText: { fontFamily: F.bold, fontSize: 15, color: '#FFF', letterSpacing: -0.2 },
+
+  /* Detail modal */
+  detailOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.18)', justifyContent: 'center', alignItems: 'center' },
+  detailCard: { backgroundColor: '#FFF', borderRadius: 28, width: '88%', maxWidth: 400, overflow: 'hidden' },
+  detailHero: { alignItems: 'center', paddingVertical: 28, paddingHorizontal: 24 },
+  detailHeroIcon: { width: 56, height: 56, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  detailHeroTitle: { fontFamily: F.bold, fontSize: 22, color: '#FFF', letterSpacing: -0.5 },
+  detailHeroTime: { fontFamily: F.medium, fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 4 },
+  detailBody: { flexDirection: 'row', padding: 16, gap: 10 },
+  detailActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, backgroundColor: '#F5F5F5', borderRadius: 14 },
+  detailActionText: { fontFamily: F.semi, fontSize: 13, color: S.text },
+  detailClose: { padding: 14, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#F0F0F0' },
+  detailCloseText: { fontFamily: F.semi, fontSize: 14, color: S.dim },
 });

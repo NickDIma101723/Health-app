@@ -1,62 +1,77 @@
 import React, { useCallback } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, Dimensions, Platform } from 'react-native';
+import {
+  House,
+  CalendarBlank,
+  PersonSimpleRun,
+  ChatCircle,
+  ForkKnife,
+  Leaf,
+  MusicNote,
+} from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  FadeInUp,
 } from 'react-native-reanimated';
 import { PlatformPressable } from './AnimatedPressable';
 
-export type TabType = 'home' | 'schedule' | 'chat' | 'nutrition' | 'mindfulness';
+const { width } = Dimensions.get('window');
+
+export type TabType = 'home' | 'schedule' | 'running' | 'chat' | 'nutrition' | 'mindfulness' | 'music';
 
 interface BottomNavigationProps {
   activeTab?: TabType;
   onTabChange?: (tab: TabType) => void;
 }
 
-const TABS: Array<{ key: TabType; icon: keyof typeof MaterialIcons.glyphMap }> = [
-  { key: 'home', icon: 'home' },
-  { key: 'schedule', icon: 'pie-chart-outline' },
-  { key: 'chat', icon: 'chat-bubble-outline' },
-  { key: 'nutrition', icon: 'access-time' },
-  { key: 'mindfulness', icon: 'notifications-none' },
+const TABS: { key: TabType; icon: React.ComponentType<any>; label: string }[] = [
+  { key: 'home', icon: House, label: 'Home' },
+  { key: 'schedule', icon: CalendarBlank, label: 'Plan' },
+  { key: 'running', icon: PersonSimpleRun, label: 'Run' },
+  { key: 'chat', icon: ChatCircle, label: 'Chat' },
+  { key: 'nutrition', icon: ForkKnife, label: 'Food' },
+  { key: 'mindfulness', icon: Leaf, label: 'Zen' },
+  { key: 'music', icon: MusicNote, label: 'Sound' },
 ];
 
-/** Animated tab icon — scales up when active via reanimated spring */
+const LIME = '#D4F940';
+const DARK = '#111111';
+
 const TabIcon: React.FC<{
-  icon: keyof typeof MaterialIcons.glyphMap;
+  tab: (typeof TABS)[number];
   isActive: boolean;
   onPress: () => void;
-}> = ({ icon, isActive, onPress }) => {
-  const scale = useSharedValue(isActive ? 1.15 : 1);
+}> = ({ tab, isActive, onPress }) => {
+  const scale = useSharedValue(isActive ? 1.05 : 1);
 
   React.useEffect(() => {
-    scale.value = withSpring(isActive ? 1.15 : 1, { damping: 14, stiffness: 300 });
+    scale.value = withSpring(isActive ? 1.05 : 1, { damping: 14, stiffness: 300 });
   }, [isActive]);
 
-  const iconAnimStyle = useAnimatedStyle(() => ({
+  const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
+
+  const Icon = tab.icon;
 
   return (
     <PlatformPressable
       onPress={onPress}
       style={styles.tabItem}
       pressScale={0.85}
-      rippleColor="rgba(255, 255, 255, 0.15)"
+      rippleColor="rgba(212, 249, 64, 0.2)"
     >
-      <Animated.View style={iconAnimStyle}>
-        <MaterialIcons
-          name={icon}
-          size={28}
-          color={isActive ? '#FFFFFF' : '#8E8E93'}
+      <Animated.View style={[styles.iconBox, isActive && styles.activeIconBox, animStyle]}>
+        <Icon
+          size={20}
+          color={isActive ? DARK : '#71717A'}
+          weight={isActive ? 'fill' : 'regular'}
         />
       </Animated.View>
-      {isActive && <View style={styles.activeIndicator} />}
+      {isActive && <Text style={styles.tabLabel}>{tab.label}</Text>}
     </PlatformPressable>
   );
 };
@@ -72,12 +87,12 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
     [onTabChange],
   );
 
-  const pillContent = (
+  const content = (
     <>
       {TABS.map((tab) => (
         <TabIcon
           key={tab.key}
-          icon={tab.icon}
+          tab={tab}
           isActive={activeTab === tab.key}
           onPress={() => handleTabChange(tab.key)}
         />
@@ -86,21 +101,20 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   );
 
   return (
-    <Animated.View
-      entering={FadeInUp.delay(400).duration(600).springify()}
-      style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 24) }]}
+    <View
+      style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom + 16, 32), paddingTop: 32 }]}
       pointerEvents="box-none"
     >
       {Platform.OS === 'ios' ? (
-        <BlurView intensity={60} tint="dark" style={styles.pillContainer}>
-          {pillContent}
+        <BlurView intensity={60} tint="dark" style={styles.pill}>
+          {content}
         </BlurView>
       ) : (
-        <View style={[styles.pillContainer, styles.androidPill]}>
-          {pillContent}
+        <View style={[styles.pill, styles.androidPill]}>
+          {content}
         </View>
       )}
-    </Animated.View>
+    </View>
   );
 };
 
@@ -114,38 +128,52 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  pillContainer: {
+  pill: {
     flexDirection: 'row',
-    borderRadius: 50,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: 'rgba(17, 17, 17, 0.75)',
+    width: width * 0.92,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: 'space-evenly',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '85%',
+    paddingHorizontal: 6,
     overflow: 'hidden',
-    // iOS blur container — no opaque background needed
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.3,
     shadowRadius: 24,
-    elevation: 14,
+    elevation: 16,
   },
   androidPill: {
-    backgroundColor: '#000000',
+    backgroundColor: DARK,
   },
   tabItem: {
-    padding: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    height: '100%',
     borderRadius: 24,
-    overflow: 'hidden',
   },
-  activeIndicator: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#FFFFFF',
-    marginTop: 4,
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  activeIconBox: {
+    backgroundColor: LIME,
+    shadowColor: LIME,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  tabLabel: {
+    fontSize: 9.5,
+    fontWeight: '600',
+    color: LIME,
+    marginTop: 2,
+    letterSpacing: 0.3,
   },
 });

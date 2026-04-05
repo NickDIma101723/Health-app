@@ -20,16 +20,15 @@ import Animated, {
   FadeInDown,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Bell, ArrowUpRight, ArrowRight, Scales, Flame, ForkKnife, Check, X, ChatCircle, Heartbeat } from 'phosphor-react-native';
-import Svg, { Path, Circle as SvgCircle, Rect, Line, Defs, Pattern, ClipPath, G } from 'react-native-svg';
+import { Bell, ArrowUpRight, ArrowRight, Scales, Flame, ForkKnife, Check, X, ChatCircle, Heartbeat, Barbell, Timer, Lightning, CalendarBlank, TrendUp, Fire, SneakerMove, Moon, Drop, Trophy, Sparkle } from 'phosphor-react-native';
+import Svg, { Path, Circle as SvgCircle, Rect, Line, Defs, Pattern, ClipPath, G, LinearGradient as SvgLinearGradient, Stop, Text as SvgText } from 'react-native-svg';
 import { XStack, YStack, Card, Text as TText } from 'tamagui';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '../contexts/AuthContext';
-import { BottomNavigation } from '../components';
 import { PlatformPressable } from '../components/AnimatedPressable';
+import { CircularProgress } from '../components';
 import { useHealthMetrics, useUserGoals, useNotifications, useNutritionAdapter, useScheduleAdapter } from '../hooks';
 import { supabase } from '../lib/supabase';
-import { MiniMap } from '../components/MiniMap';
 import { T } from '../tamagui.config';
 
 const { width, height } = Dimensions.get('window');
@@ -60,7 +59,7 @@ const F = {
 const PAD = 16;
 const GAP = 16;
 const SCROLL_CARD_W = 230;
-const SCROLL_CARD_H = 235;
+const SCROLL_CARD_H = 225;
 
 const FILTER_CHIPS = ['All', 'Meditation', 'Sports', 'Mindfulness', 'Cardio'] as const;
 
@@ -109,7 +108,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const { user } = useAuth();
   const { metrics } = useHealthMetrics();
   const { goals } = useUserGoals();
-  const { getDailyNutrition } = useNutritionAdapter();
+  const { getDailyNutrition, goals: nutritionGoals } = useNutritionAdapter();
   const { getActivitiesForDate } = useScheduleAdapter();
   const { notifications, markAsRead, refresh: fetchNotifications, loading: notificationsLoading } = useNotifications();
 
@@ -192,53 +191,91 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
           {/* ── HEADER ── */}
           <Animated.View entering={FadeInDown.duration(600).springify()}>
             <XStack justifyContent="space-between" alignItems="center">
-              <PlatformPressable onPress={() => onNavigate?.('profile')} style={{ borderRadius: 24 }}>
-                {avatarUrl ? (
-                  <ImageBackground source={{ uri: avatarUrl }} style={st.avatar} imageStyle={{ borderRadius: 24 }} />
-                ) : (
-                  <YStack width={48} height={48} borderRadius={24} backgroundColor={C.cardDark} alignItems="center" justifyContent="center">
-                    <TText style={{ color: '#FFF', fontFamily: F.bold, fontSize: 18 }}>{profileName.charAt(0)}</TText>
+              <XStack alignItems="center" gap={12}>
+                <PlatformPressable onPress={() => onNavigate?.('profile')} style={{ borderRadius: 28 }}>
+                  <YStack width={52} height={52} borderRadius={26} backgroundColor={C.lime} alignItems="center" justifyContent="center">
+                    {avatarUrl ? (
+                      <ImageBackground source={{ uri: avatarUrl }} style={{ width: 44, height: 44, borderRadius: 22 }} imageStyle={{ borderRadius: 22 }} />
+                    ) : (
+                      <TText style={{ color: C.text, fontFamily: F.bold, fontSize: 20 }}>{profileName.charAt(0)}</TText>
+                    )}
+                  </YStack>
+                </PlatformPressable>
+                <YStack>
+                  <TText style={{ fontFamily: F.regular, fontSize: 13, color: C.dim }}>{greeting}</TText>
+                  <TText style={{ fontFamily: F.bold, fontSize: 18, color: C.text, letterSpacing: -0.3, marginTop: 1 }}>
+                    {formatName(profileName)}
+                  </TText>
+                </YStack>
+              </XStack>
+              <PlatformPressable style={st.iconBtn} onPress={() => setShowNotifications(true)}>
+                <Bell size={20} color={C.text} weight={unreadCount > 0 ? 'fill' : 'regular'} />
+                {unreadCount > 0 && (
+                  <YStack position="absolute" top={-2} right={-2} minWidth={18} height={18} borderRadius={9}
+                    backgroundColor="#EF4444" alignItems="center" justifyContent="center"
+                    paddingHorizontal={4} borderWidth={2} borderColor="#FFF"
+                  >
+                    <TText style={{ fontFamily: F.bold, fontSize: 9, color: '#FFF' }}>{unreadCount > 9 ? '9+' : unreadCount}</TText>
                   </YStack>
                 )}
               </PlatformPressable>
-              <PlatformPressable style={st.iconBtn} onPress={() => setShowNotifications(true)}>
-                <Bell size={21} color={C.text} />
-                {unreadCount > 0 && <YStack position="absolute" top={10} right={10} width={8} height={8} borderRadius={4} backgroundColor="#EF4444" borderWidth={2} borderColor="#FFF" />}
-              </PlatformPressable>
             </XStack>
-
-            <YStack marginTop={14} marginBottom={16}>
-              <TText style={{ fontFamily: F.regular, fontSize: 14, color: C.dim }}>{greeting}</TText>
-              <TText style={{ fontFamily: F.bold, fontSize: 28, color: C.text, letterSpacing: -0.8, marginTop: 2 }}>
-                {formatName(profileName)}
-              </TText>
-            </YStack>
           </Animated.View>
 
-          {/* ── WORKOUT PROGRESS ── */}
-          <Animated.View entering={FadeInDown.delay(80).duration(500).springify()} style={{ marginBottom: GAP }}>
-            <Card borderRadius={16} overflow="hidden" padding={0} backgroundColor={C.cardDark}>
-              <XStack padding={14} alignItems="center">
-                <YStack flex={1} gap={3}>
-                  <TText style={{ fontFamily: F.medium, fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>Workout Progress</TText>
-                  <TText style={{ fontFamily: F.regular, fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
-                    {Math.round(calBurned / 138)}h of 20h this week
-                  </TText>
+          {/* ── HERO SECTION ── */}
+          <Animated.View entering={FadeInDown.delay(50).duration(700).springify()} style={{ marginTop: 24, marginBottom: GAP + 4 }}>
+            {/* date chip */}
+            <YStack alignSelf="flex-start" backgroundColor="#F5F0EB" borderRadius={20} paddingHorizontal={14} paddingVertical={7} marginBottom={16}>
+              <TText style={{ fontFamily: F.semi, fontSize: 12, color: C.text, letterSpacing: 0.2 }}>
+                {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}
+              </TText>
+            </YStack>
+
+            {/* big headline */}
+            <TText style={{ fontFamily: F.bold, fontSize: 42, color: C.text, letterSpacing: -1.8, lineHeight: 46 }}>
+              Your Week{'\n'}In Motion
+            </TText>
+
+            {/* streak row */}
+            <XStack alignItems="center" marginTop={20} gap={6}>
+              {streakLabels.map((day, i) => (
+                <YStack key={i} width={38} height={38} borderRadius={19}
+                  backgroundColor={streakDays[i] ? '#EF4444' : '#EEEEEE'}
+                  alignItems="center" justifyContent="center"
+                >
+                  <TText style={{ fontFamily: F.semi, fontSize: 12, color: streakDays[i] ? '#FFF' : C.dim }}>{day}</TText>
                 </YStack>
-                <Svg width={52} height={52} viewBox="0 0 52 52">
-                  <SvgCircle cx={26} cy={26} r={22} stroke="rgba(255,255,255,0.06)" strokeWidth={4} fill="none" />
-                  <SvgCircle cx={26} cy={26} r={22} stroke={C.accent} strokeWidth={4} fill="none"
-                    strokeDasharray={`${(calPct / 100) * 138} 138`}
-                    strokeLinecap="round" transform="rotate(-90 26 26)" />
-                </Svg>
+              ))}
+              <YStack marginLeft={6}>
+                <TText style={{ fontFamily: F.bold, fontSize: 15, color: C.text }}>3 day streak</TText>
+                <TText style={{ fontFamily: F.regular, fontSize: 12, color: C.dim, marginTop: -1 }}>Keep it going!</TText>
+              </YStack>
+            </XStack>
+          </Animated.View>
+
+          {/* ── WEEKLY GOAL ── */}
+          <Animated.View entering={FadeInDown.delay(80).duration(500).springify()} style={{ marginBottom: GAP }}>
+            <Card borderRadius={20} overflow="hidden" padding={0} backgroundColor="#F5F0EB">
+              <XStack padding={16} paddingVertical={14} alignItems="center" justifyContent="space-between">
+                <YStack>
+                  <TText style={{ fontFamily: F.semi, fontSize: 11, color: 'rgba(0,0,0,0.35)', letterSpacing: 1 }}>WEEKLY GOAL</TText>
+                  <XStack marginTop={4} alignItems="baseline" gap={4}>
+                    <TText style={{ fontFamily: F.bold, fontSize: 26, color: C.text, letterSpacing: -1 }}>{Math.round(calBurned / 138)}h</TText>
+                    <TText style={{ fontFamily: F.medium, fontSize: 13, color: 'rgba(0,0,0,0.25)' }}>/ 20h</TText>
+                  </XStack>
+                </YStack>
+                <YStack alignItems="flex-end" gap={6}>
+                  <TText style={{ fontFamily: F.bold, fontSize: 22, color: C.text }}>{calPct}%</TText>
+                  <TText style={{ fontFamily: F.regular, fontSize: 11, color: 'rgba(0,0,0,0.35)' }}>5 sessions · 1,380 kcal</TText>
+                </YStack>
               </XStack>
             </Card>
           </Animated.View>
 
           {/* ── HEART RATE ── */}
           <Animated.View entering={FadeInDown.delay(160).duration(500).springify()} style={{ marginBottom: GAP }}>
-            <Card borderRadius={16} overflow="hidden" padding={0} backgroundColor={C.cardDark}>
-              <YStack padding={14}>
+            <Card borderRadius={20} overflow="hidden" padding={0} backgroundColor={C.cardDark}>
+              <YStack padding={18}>
                 <XStack justifyContent="space-between" alignItems="center">
                   <XStack alignItems="center" gap={8}>
                     <Animated.View style={[{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(239,68,68,0.1)', alignItems: 'center', justifyContent: 'center' }, pulseStyle]}>
@@ -251,18 +288,46 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                   </Animated.View>
                 </XStack>
 
-                <TText style={{ fontFamily: F.bold, fontSize: 40, color: '#FFF', letterSpacing: -2, marginTop: 6 }}>
-                  {heartRate} <TText style={{ fontSize: 14, fontFamily: F.regular, color: 'rgba(255,255,255,0.3)' }}>bpm</TText>
+                <TText style={{ fontFamily: F.bold, fontSize: 44, color: '#FFF', letterSpacing: -2, marginTop: 10 }}>
+                  {heartRate} <TText style={{ fontSize: 15, fontFamily: F.regular, color: 'rgba(255,255,255,0.3)' }}>bpm</TText>
                 </TText>
 
-                <XStack alignItems="flex-end" gap={4} height={48} marginTop={8}>
-                  {hrBars.map((h, i) => (
-                    <YStack key={i} flex={1} height={`${h}%`} borderRadius={4}
-                      backgroundColor={i === hrBars.length - 1 ? C.heartRed : 'rgba(239,68,68,0.15)'} />
-                  ))}
-                </XStack>
+                {/* wave chart */}
+                <YStack marginTop={14} height={80}>
+                  <Svg width={width - (PAD * 2) - 36} height={80} viewBox={`0 0 ${width - (PAD * 2) - 36} 80`}>
+                    <Defs>
+                      <SvgLinearGradient id="hrGrad" x1="0" y1="0" x2="0" y2="1">
+                        <Stop offset="0" stopColor="#EF4444" stopOpacity="0.3" />
+                        <Stop offset="1" stopColor="#EF4444" stopOpacity="0" />
+                      </SvgLinearGradient>
+                    </Defs>
+                    {(() => {
+                      const w = width - (PAD * 2) - 36;
+                      const pts = [62, 68, 58, 72, 90, 124, 105, 88, 95, 110, 98, 85, 78, 92, 108, 120, 124];
+                      const minV = 50, maxV = 130;
+                      const segW = w / (pts.length - 1);
+                      const toY = (v: number) => 80 - ((v - minV) / (maxV - minV)) * 70;
+                      let d = `M0,${toY(pts[0])}`;
+                      for (let i = 1; i < pts.length; i++) {
+                        const x0 = (i - 1) * segW, x1 = i * segW;
+                        const y0 = toY(pts[i - 1]), y1 = toY(pts[i]);
+                        const cx1 = x0 + segW * 0.4, cx2 = x1 - segW * 0.4;
+                        d += ` C${cx1},${y0} ${cx2},${y1} ${x1},${y1}`;
+                      }
+                      const fillD = d + ` L${w},80 L0,80 Z`;
+                      return (
+                        <>
+                          <Path d={fillD} fill="url(#hrGrad)" />
+                          <Path d={d} stroke="#EF4444" strokeWidth={2.5} fill="none" strokeLinecap="round" />
+                          <SvgCircle cx={(pts.length - 1) * segW} cy={toY(pts[pts.length - 1])} r={4} fill="#EF4444" />
+                          <SvgCircle cx={(pts.length - 1) * segW} cy={toY(pts[pts.length - 1])} r={7} fill="rgba(239,68,68,0.2)" />
+                        </>
+                      );
+                    })()}
+                  </Svg>
+                </YStack>
 
-                <XStack marginTop={6} justifyContent="space-between">
+                <XStack marginTop={8} justifyContent="space-between">
                   <TText style={{ fontFamily: F.regular, fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>Resting 62</TText>
                   <TText style={{ fontFamily: F.regular, fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>Range 56–172</TText>
                 </XStack>
@@ -270,37 +335,79 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
             </Card>
           </Animated.View>
 
-          {/* ── ACTIVITY MAP ── */}
-          <Animated.View entering={FadeInDown.delay(240).duration(500).springify()} style={{ marginBottom: GAP }}>
-            <PlatformPressable onPress={() => onNavigate?.('activity-map')} style={{ borderRadius: 16, overflow: 'hidden' }}>
-              <Card borderRadius={16} overflow="hidden" height={170} padding={0}>
-                <MiniMap />
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.8)']}
-                  style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80, paddingHorizontal: 16, paddingBottom: 14, justifyContent: 'flex-end' }}
-                >
-                  <XStack justifyContent="space-between" alignItems="flex-end">
-                    <YStack>
-                      <TText style={{ fontFamily: F.medium, color: '#FFF', fontSize: 15 }}>Morning Run</TText>
-                      <TText style={{ fontFamily: F.regular, color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 }}>5.2 km · 45 min</TText>
-                    </YStack>
-                    <ArrowUpRight size={20} color="#FFF" weight="bold" />
+          {/* ── NUTRITION WIDGET ── */}
+          <Animated.View entering={FadeInDown.delay(260).duration(500).springify()} style={{ marginBottom: GAP }}>
+            <PlatformPressable onPress={() => onNavigate?.('nutrition')}>
+              <Card borderRadius={20} overflow="hidden" padding={0} backgroundColor={C.cardDark}>
+                <YStack padding={18}>
+                  <XStack justifyContent="space-between" alignItems="center" marginBottom={24}>
+                    <XStack alignItems="center" gap={10}>
+                      <YStack width={34} height={34} borderRadius={17} backgroundColor="rgba(16,185,129,0.15)" alignItems="center" justifyContent="center">
+                        <ForkKnife size={16} color={C.accent} weight="fill" />
+                      </YStack>
+                      <TText style={{ fontFamily: F.semi, fontSize: 16, color: '#FFF' }}>Energy & Macros</TText>
+                    </XStack>
+                    <ArrowRight size={18} color="rgba(255,255,255,0.3)" weight="bold" />
                   </XStack>
-                </LinearGradient>
+
+                  <XStack alignItems="center" gap={24}>
+                    <YStack width={100} height={100} alignItems="center" justifyContent="center">
+                      <Svg width={100} height={100} viewBox="0 0 100 100" style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
+                        <SvgCircle cx={50} cy={50} r={42} stroke="rgba(255,255,255,0.06)" strokeWidth={10} fill="none" />
+                        <SvgCircle cx={50} cy={50} r={42} stroke={C.accent} strokeWidth={10} fill="none" strokeLinecap="round"
+                          strokeDasharray={2 * Math.PI * 42}
+                          strokeDashoffset={2 * Math.PI * 42 * (1 - Math.min(todayNutrition.calories / (nutritionGoals.calories || 1), 1))}
+                        />
+                      </Svg>
+                      <YStack alignItems="center" marginTop={2}>
+                        <TText style={{ fontFamily: F.bold, fontSize: 24, color: '#FFF', letterSpacing: -1 }}>
+                          {Math.round(todayNutrition.calories)}
+                        </TText>
+                        <TText style={{ fontFamily: F.medium, fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: -2 }}>
+                          / {Math.round(nutritionGoals.calories)}
+                        </TText>
+                      </YStack>
+                    </YStack>
+
+                    <YStack flex={1} gap={14}>
+                      {[
+                        { name: 'Protein', qty: todayNutrition.protein, goal: nutritionGoals.protein, color: '#F59E0B' },
+                        { name: 'Carbs', qty: todayNutrition.carbs, goal: nutritionGoals.carbs, color: '#3B82F6' },
+                        { name: 'Fats', qty: todayNutrition.fats, goal: nutritionGoals.fats, color: '#EF4444' },
+                      ].map((m, i) => (
+                        <YStack key={i} gap={6}>
+                          <XStack justifyContent="space-between" alignItems="flex-end">
+                            <TText style={{ fontFamily: F.medium, fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>{m.name}</TText>
+                            <TText style={{ fontFamily: F.semi, fontSize: 12, color: '#FFF' }}>
+                              {Math.round(m.qty)}<TText style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}> / {m.goal}g</TText>
+                            </TText>
+                          </XStack>
+                          <YStack width="100%" height={6} backgroundColor="rgba(255,255,255,0.06)" borderRadius={3} overflow="hidden">
+                            <YStack width={`${Math.min((m.qty / (m.goal || 1)) * 100, 100)}%`} height="100%" backgroundColor={m.color} borderRadius={3} />
+                          </YStack>
+                        </YStack>
+                      ))}
+                    </YStack>
+                  </XStack>
+                </YStack>
               </Card>
             </PlatformPressable>
           </Animated.View>
 
           {/* ── FILTER CHIPS ── */}
+          <Animated.View entering={FadeInDown.delay(300).duration(500).springify()} style={{ marginTop: 8, marginBottom: 4 }}>
+            <TText style={{ fontFamily: F.bold, fontSize: 20, color: C.text, letterSpacing: -0.5 }}>Discover</TText>
+          </Animated.View>
           <Animated.View entering={FadeInDown.delay(320).duration(500).springify()} style={{ marginBottom: 16, marginHorizontal: -PAD }}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: PAD }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: PAD }}>
               {FILTER_CHIPS.map((chip, idx) => (
                 <PlatformPressable key={chip} onPress={() => setActiveFilter(chip)} style={{
                   paddingHorizontal: 22, paddingVertical: 12, borderRadius: 26,
                   backgroundColor: activeFilter === chip ? C.cardDark : '#F5F5F5',
                   borderWidth: activeFilter === chip ? 0 : 1,
                   borderColor: '#D4D4D4',
-                  marginRight: idx === FILTER_CHIPS.length - 1 ? 0 : 3,
+                  marginLeft: idx === 0 ? PAD : 0,
+                  marginRight: idx === FILTER_CHIPS.length - 1 ? 0 : 6,
                 }}>
                   <TText style={{ fontFamily: activeFilter === chip ? F.semi : F.medium, fontSize: 14, color: activeFilter === chip ? '#FFF' : '#333' }}>{chip}</TText>
                 </PlatformPressable>
@@ -313,7 +420,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: PAD, paddingBottom: 120 }}
+              contentContainerStyle={{ paddingHorizontal: PAD, paddingBottom: 8 }}
             >
               {/* Running */}
               <YStack width={SCROLL_CARD_W} height={SCROLL_CARD_H} marginRight={8} borderRadius={32} backgroundColor={C.lime}
@@ -428,48 +535,90 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
 
           {/* ── NOTIFICATIONS MODAL ── */}
           <Modal visible={showNotifications} animationType="slide" transparent onRequestClose={() => setShowNotifications(false)}>
-            <YStack flex={1} backgroundColor="rgba(0,0,0,0.4)" justifyContent="flex-end">
-              <YStack backgroundColor="#FFF" borderTopLeftRadius={28} borderTopRightRadius={28} height={height * 0.65} padding={24}>
-                <XStack justifyContent="space-between" alignItems="center" marginBottom={20}>
-                  <TText style={{ fontFamily: F.bold, fontSize: 18, color: C.text }}>Notifications</TText>
-                  <TouchableOpacity onPress={() => setShowNotifications(false)}>
-                    <X size={22} color={C.dim} />
-                  </TouchableOpacity>
+            <YStack flex={1} backgroundColor="rgba(0,0,0,0.5)" justifyContent="flex-end">
+              <YStack backgroundColor="#FFF" borderTopLeftRadius={32} borderTopRightRadius={32} height={height * 0.65}>
+                {/* handle bar */}
+                <YStack alignItems="center" paddingTop={12} paddingBottom={6}>
+                  <YStack width={40} height={4} borderRadius={2} backgroundColor="#E0E0E0" />
+                </YStack>
+                <XStack justifyContent="space-between" alignItems="center" paddingHorizontal={24} paddingBottom={16}>
+                  <YStack>
+                    <TText style={{ fontFamily: F.bold, fontSize: 22, color: C.text, letterSpacing: -0.5 }}>Notifications</TText>
+                    {unreadCount > 0 && (
+                      <TText style={{ fontFamily: F.regular, fontSize: 12, color: C.dim, marginTop: 2 }}>
+                        {unreadCount} unread
+                      </TText>
+                    )}
+                  </YStack>
+                  <PlatformPressable
+                    onPress={() => setShowNotifications(false)}
+                    style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <X size={18} color={C.dim} />
+                  </PlatformPressable>
                 </XStack>
-                <ScrollView style={{ flex: 1 }}>
+                <YStack height={1} backgroundColor="#F0F0F0" />
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingTop: 16 }}>
                   {notificationsLoading ? (
-                    <TText style={{ fontFamily: F.regular, fontSize: 14, color: C.dim, textAlign: 'center', marginTop: 24 }}>Loading...</TText>
+                    <YStack alignItems="center" justifyContent="center" paddingVertical={48}>
+                      <YStack width={48} height={48} borderRadius={24} backgroundColor="#F5F5F5" alignItems="center" justifyContent="center" marginBottom={12}>
+                        <Bell size={20} color={C.dim} />
+                      </YStack>
+                      <TText style={{ fontFamily: F.medium, fontSize: 14, color: C.dim }}>Loading notifications...</TText>
+                    </YStack>
                   ) : notifications.length > 0 ? (
-                    notifications.map((notif: any) => (
-                      <TouchableOpacity
-                        key={notif.id}
-                        style={[st.notifRow, !notif.is_read && st.notifUnread]}
-                        onPress={() => { if (!notif.is_read) markAsRead(notif.id); }}
-                      >
-                        <YStack width={36} height={36} borderRadius={18} backgroundColor="#F0F1F5" justifyContent="center" alignItems="center" marginRight={14}>
-                          {notif.notification_type === 'message' ? <ChatCircle size={16} color={C.dim} /> : <Bell size={16} color={C.dim} />}
-                        </YStack>
-                        <YStack flex={1}>
-                          <TText style={{ fontFamily: F.semi, fontSize: 13, color: C.text }}>{notif.title}</TText>
-                          <TText style={{ fontFamily: F.regular, fontSize: 11, color: C.dim, marginTop: 3 }}>{notif.message}</TText>
-                        </YStack>
-                      </TouchableOpacity>
-                    ))
+                    notifications.map((notif: any, index: number) => {
+                      const isMessage = notif.notification_type === 'message';
+                      const iconBg = isMessage ? 'rgba(59,130,246,0.08)' : (!notif.is_read ? 'rgba(16,185,129,0.08)' : '#F5F5F5');
+                      const iconColor = isMessage ? '#3B82F6' : (!notif.is_read ? C.accent : C.dim);
+                      return (
+                        <PlatformPressable
+                          key={notif.id}
+                          onPress={() => { if (!notif.is_read) markAsRead(notif.id); }}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'flex-start',
+                            padding: 14,
+                            borderRadius: 16,
+                            backgroundColor: !notif.is_read ? 'rgba(16,185,129,0.04)' : 'transparent',
+                            marginBottom: 4,
+                          }}
+                        >
+                          <YStack width={40} height={40} borderRadius={14} backgroundColor={iconBg}
+                            justifyContent="center" alignItems="center" marginRight={14}
+                          >
+                            {isMessage ? <ChatCircle size={18} color={iconColor} weight="fill" /> : <Bell size={18} color={iconColor} weight={!notif.is_read ? 'fill' : 'regular'} />}
+                          </YStack>
+                          <YStack flex={1}>
+                            <XStack justifyContent="space-between" alignItems="center">
+                              <TText style={{ fontFamily: F.semi, fontSize: 14, color: C.text, flex: 1 }}>{notif.title}</TText>
+                              {!notif.is_read && <YStack width={8} height={8} borderRadius={4} backgroundColor={C.accent} marginLeft={8} />}
+                            </XStack>
+                            <TText style={{ fontFamily: F.regular, fontSize: 12, color: C.dim, marginTop: 4, lineHeight: 18 }}>{notif.message}</TText>
+                            <TText style={{ fontFamily: F.regular, fontSize: 10, color: 'rgba(0,0,0,0.2)', marginTop: 6 }}>
+                              {notif.created_at ? new Date(notif.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                            </TText>
+                          </YStack>
+                        </PlatformPressable>
+                      );
+                    })
                   ) : (
-                    <TText style={{ fontFamily: F.regular, fontSize: 14, color: C.dim, textAlign: 'center', marginTop: 24 }}>No new notifications</TText>
+                    <YStack alignItems="center" justifyContent="center" paddingVertical={48}>
+                      <YStack width={64} height={64} borderRadius={32} backgroundColor="#F5F5F5" alignItems="center" justifyContent="center" marginBottom={14}>
+                        <Bell size={26} color="#D4D4D4" />
+                      </YStack>
+                      <TText style={{ fontFamily: F.semi, fontSize: 15, color: C.text }}>All caught up!</TText>
+                      <TText style={{ fontFamily: F.regular, fontSize: 13, color: C.dim, marginTop: 4 }}>No new notifications</TText>
+                    </YStack>
                   )}
                 </ScrollView>
               </YStack>
             </YStack>
           </Modal>
 
-          <YStack height={80} />
+          <YStack height={110} />
         </ScrollView>
       </SafeAreaView>
-
-      <YStack position="absolute" bottom={0} left={0} right={0}>
-        <BottomNavigation activeTab="home" onTabChange={(tab: any) => onNavigate?.(tab)} />
-      </YStack>
     </YStack>
   );
 };
@@ -480,6 +629,4 @@ const st = StyleSheet.create({
     width: 44, height: 44, borderRadius: 22, backgroundColor: '#F5F5F5',
     alignItems: 'center', justifyContent: 'center',
   },
-  notifRow: { flexDirection: 'row', padding: 12, borderRadius: 12, backgroundColor: '#F5F5F5', marginBottom: 8, alignItems: 'center' },
-  notifUnread: { borderLeftWidth: 3, borderLeftColor: '#10B981' },
 });

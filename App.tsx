@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Animated, Dimensions, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { Quicksand_500Medium as QS500, Quicksand_600SemiBold as QS600 } from '@expo-google-fonts/quicksand';
@@ -41,13 +41,54 @@ import { ClientWorkoutPlansScreen } from './src/screens/ClientWorkoutPlansScreen
 import { CreateNutritionPlanScreen } from './src/screens/CreateNutritionPlanScreen';
 import { ClientProgressAnalyticsScreen } from './src/screens/ClientProgressAnalyticsScreen';
 import { ActivityMapScreen } from './src/screens/ActivityMapScreen';
+import { RunningScreen } from './src/screens/RunningScreen';
+import { MusicScreen } from './src/screens/MusicScreen';
+import { BarcodeScannerScreen } from './src/screens/BarcodeScannerScreen';
+import { BottomNavigation } from './src/components/BottomNavigation';
+import { CoachBottomNavigation } from './src/components/CoachBottomNavigation';
+import type { TabType } from './src/components/BottomNavigation';
 import { colors } from './src/constants/theme';
 import { TamaguiProvider } from 'tamagui';
 import tamaguiConfig from './src/tamagui.config';
 
-const { width } = Dimensions.get('window');
+const { width, height: windowHeight } = Dimensions.get('window');
 
-type Screen = 'splash' | 'login' | 'register' | 'home' | 'mindfulness' | 'mindfulness-insights' | 'chat' | 'chat-list' | 'individual-chat' | 'schedule' | 'nutrition' | 'nutrition-calculator' | 'profile' | 'coach-dashboard' | 'coach-client-detail' | 'coach-notes' | 'assign-client' | 'coach-requests' | 'coach-selection' | 'become-coach' | 'create-workout-plan' | 'client-workout-plans' | 'create-nutrition-plan' | 'client-progress-analytics' | 'activity-map';
+type Screen = 'splash' | 'login' | 'register' | 'home' | 'mindfulness' | 'mindfulness-insights' | 'chat' | 'chat-list' | 'individual-chat' | 'schedule' | 'nutrition' | 'nutrition-calculator' | 'barcode-scanner' | 'profile' | 'coach-dashboard' | 'coach-client-detail' | 'coach-notes' | 'assign-client' | 'coach-requests' | 'coach-selection' | 'become-coach' | 'create-workout-plan' | 'client-workout-plans' | 'create-nutrition-plan' | 'client-progress-analytics' | 'activity-map' | 'running' | 'music';
+
+const CLIENT_NAV_SCREENS = new Set<Screen>(['home', 'schedule', 'running', 'chat', 'chat-list', 'individual-chat', 'nutrition', 'mindfulness', 'mindfulness-insights', 'music', 'profile']);
+const COACH_NAV_SCREENS = new Set<Screen>(['coach-dashboard', 'schedule', 'coach-requests', 'chat', 'chat-list', 'individual-chat', 'profile']);
+
+const getClientActiveTab = (screen: Screen): TabType => {
+  switch (screen) {
+    case 'home': return 'home';
+    case 'schedule': return 'schedule';
+    case 'running': case 'activity-map': return 'running';
+    case 'chat': case 'chat-list': case 'individual-chat': return 'chat';
+    case 'nutrition': case 'nutrition-calculator': case 'barcode-scanner': return 'nutrition';
+    case 'mindfulness': case 'mindfulness-insights': return 'mindfulness';
+    case 'music': return 'music';
+    default: return 'home';
+  }
+};
+
+const getCoachActiveTab = (screen: Screen): 'dashboard' | 'schedule' | 'requests' | 'chat' | 'profile' => {
+  switch (screen) {
+    case 'coach-dashboard': return 'dashboard';
+    case 'schedule': return 'schedule';
+    case 'coach-requests': return 'requests';
+    case 'chat': case 'chat-list': case 'individual-chat': return 'chat';
+    case 'profile': return 'profile';
+    default: return 'dashboard';
+  }
+};
+
+const COACH_TAB_TO_SCREEN: Record<string, Screen> = {
+  'dashboard': 'coach-dashboard',
+  'schedule': 'schedule',
+  'requests': 'coach-requests',
+  'chat': 'chat',
+  'profile': 'profile',
+};
 
 function AppContent() {
   const { user, loading: authLoading, isCoach, coachStatusLoaded, canBeCoach, currentMode } = useAuth();
@@ -191,7 +232,7 @@ function AppContent() {
   if (!fontsLoaded || authLoading || (user && !coachStatusLoaded)) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color="#10B981" />
       </View>
     );
   }
@@ -203,7 +244,7 @@ function AppContent() {
   if (currentScreen === 'splash' && user) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color="#10B981" />
       </View>
     );
   }
@@ -249,6 +290,9 @@ function AppContent() {
         )}
         {displayScreen === 'nutrition-calculator' && (
           <NutritionCalculatorScreen onNavigate={(screen) => navigateWithTransition(screen as Screen)} />
+        )}
+        {displayScreen === 'barcode-scanner' && (
+          <BarcodeScannerScreen onNavigate={(screen) => navigateWithTransition(screen as Screen)} />
         )}
         {displayScreen === 'profile' && (
           <ProfileScreen onNavigate={(screen) => navigateWithTransition(screen as Screen)} />
@@ -322,7 +366,33 @@ function AppContent() {
         {displayScreen === 'activity-map' && (
           <ActivityMapScreen onNavigate={(screen) => navigateWithTransition(screen as Screen)} />
         )}
+        {displayScreen === 'running' && (
+          <RunningScreen onNavigate={(screen) => navigateWithTransition(screen as Screen)} />
+        )}
+        {displayScreen === 'music' && (
+          <MusicScreen onNavigate={(screen) => navigateWithTransition(screen as Screen)} />
+        )}
       </View>
+
+      {/* Persistent Navigation Bar */}
+      {user && (() => {
+        const isCoachNav = currentMode === 'coach';
+        const showNav = isCoachNav
+          ? COACH_NAV_SCREENS.has(displayScreen)
+          : CLIENT_NAV_SCREENS.has(displayScreen);
+        if (!showNav) return null;
+        return isCoachNav ? (
+          <CoachBottomNavigation
+            activeTab={getCoachActiveTab(displayScreen)}
+            onTabChange={(tab) => navigateWithTransition((COACH_TAB_TO_SCREEN[tab] || 'coach-dashboard') as Screen)}
+          />
+        ) : (
+          <BottomNavigation
+            activeTab={getClientActiveTab(displayScreen)}
+            onTabChange={(tab) => navigateWithTransition(tab as Screen)}
+          />
+        );
+      })()}
     </View>
   );
 }
@@ -349,15 +419,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: '#FAFAFA',
   },
   screenContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#FAFAFA',
+    ...(Platform.OS === 'web' ? { height: '100vh' as any, maxHeight: '100vh' as any, overflow: 'hidden' as any } : {}),
   },
   screenContent: {
     flex: 1,
-    backgroundColor: colors.background,
+    minHeight: 0,
   },
   transitionOverlay: {
     ...StyleSheet.absoluteFillObject,

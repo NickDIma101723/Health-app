@@ -2,7 +2,7 @@ const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '';
 
 // Custom style for day, Mapbox built-in styles for other times
 const STYLES = {
-  day: 'mapbox://styles/nik0d/cmn4mjkgp000l01qs4exp1tph',
+  day: 'mapbox://styles/mapbox/light-v11',
   dawn: 'mapbox://styles/mapbox/light-v11',
   dusk: 'mapbox://styles/mapbox/navigation-night-v1',
   night: 'mapbox://styles/mapbox/dark-v11',
@@ -10,7 +10,7 @@ const STYLES = {
 
 // Web iframe equivalents
 const WEB_STYLES = {
-  day: 'nik0d/cmn4mjkgp000l01qs4exp1tph',
+  day: 'mapbox/light-v11',
   dawn: 'mapbox/light-v11',
   dusk: 'mapbox/navigation-night-v1',
   night: 'mapbox/dark-v11',

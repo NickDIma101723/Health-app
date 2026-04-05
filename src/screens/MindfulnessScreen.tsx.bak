@@ -1,0 +1,1842 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
+  Animated,
+  Dimensions,
+  Modal,
+  Alert,
+} from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
+import {
+  Wind, Square, Moon, Sun, FlowerLotus, MoonStars, PersonArmsSpread,
+  Timer, Heart, Leaf, Clock, Play, Pause, Stop, Lightbulb, MusicNote,
+  PlayCircle, Sparkle, Fire, CheckCircle, X, Trophy, ChartLineUp, Smiley,
+} from 'phosphor-react-native';
+import { BottomNavigation } from '../components';
+import { useMindfulnessSessions, useMoodLogs } from '../hooks';
+
+const MC = {
+  bg: '#F4F6FB',
+  card: '#FFFFFF',
+  text: '#1A1A24',
+  textDim: '#8A8A9D',
+  border: '#EAEDF4',
+  surfaceMuted: '#F0F1FA',
+  accent: '#7C3AED',
+  accentSoft: 'rgba(124, 58, 237, 0.10)',
+};
+
+const MF = {
+  bold: 'PlusJakartaSans_700Bold',
+  semi: 'PlusJakartaSans_600SemiBold',
+  medium: 'PlusJakartaSans_500Medium',
+  regular: 'PlusJakartaSans_400Regular',
+} as const;
+
+const { width, height } = Dimensions.get('window');
+
+const breathingExercises = [
+  {
+    id: '1',
+    title: 'Deep Breathing',
+    duration: 5,
+    description: 'Calm your mind with slow, deep breaths',
+    bg: '#E8F5E9',
+    tint: '#43A047',
+    difficulty: 'Beginner',
+    instructions: [
+      'Breathe in slowly through your nose for 4 seconds',
+      'Hold your breath for 2 seconds',
+      'Exhale slowly through your mouth for 6 seconds',
+      'Repeat until the timer ends',
+    ],
+  },
+  {
+    id: '2',
+    title: 'Box Breathing',
+    duration: 10,
+    description: 'Balance your nervous system',
+    bg: '#EDE7F6',
+    tint: '#7E57C2',
+    difficulty: 'Intermediate',
+    instructions: [
+      'Breathe in for 4 seconds',
+      'Hold for 4 seconds',
+      'Breathe out for 4 seconds',
+      'Hold for 4 seconds',
+      'Repeat the cycle',
+    ],
+  },
+  {
+    id: '3',
+    title: '4-7-8 Technique',
+    duration: 8,
+    description: 'Reduce anxiety and promote sleep',
+    bg: '#E3F2FD',
+    tint: '#5C6BC0',
+    difficulty: 'Advanced',
+    instructions: [
+      'Breathe in through your nose for 4 seconds',
+      'Hold your breath for 7 seconds',
+      'Exhale completely through your mouth for 8 seconds',
+      'This completes one cycle',
+    ],
+  },
+];
+
+const meditationSessions = [
+  {
+    id: '1',
+    title: 'Morning Focus',
+    duration: 15,
+    type: 'Guided',
+    bg: '#FFF8E1',
+    tint: '#FF9800',
+    description: 'Start your day with clarity and intention',
+  },
+  {
+    id: '2',
+    title: 'Stress Relief',
+    duration: 10,
+    type: 'Ambient',
+    bg: '#E0F2F1',
+    tint: '#26A69A',
+    description: 'Release tension and find inner peace',
+  },
+  {
+    id: '3',
+    title: 'Sleep Meditation',
+    duration: 20,
+    type: 'Guided',
+    bg: '#E8EAF6',
+    tint: '#5C6BC0',
+    description: 'Drift into restful sleep naturally',
+  },
+  {
+    id: '4',
+    title: 'Body Scan',
+    duration: 12,
+    type: 'Guided',
+    bg: '#FCE4EC',
+    tint: '#EC407A',
+    description: 'Connect with your physical sensations',
+  },
+];
+
+const quickPractices = [
+  {
+    id: '1',
+    title: 'One Minute Calm',
+    duration: 1,
+    bg: '#E3F2FD',
+    tint: '#42A5F5',
+    description: 'Quick reset for busy moments',
+  },
+  {
+    id: '2',
+    title: 'Gratitude Moment',
+    duration: 3,
+    bg: '#FCE4EC',
+    tint: '#EC407A',
+    description: 'Appreciate the good in your life',
+  },
+  {
+    id: '3',
+    title: 'Body Check-in',
+    duration: 2,
+    bg: '#E8F5E9',
+    tint: '#43A047',
+    description: 'Notice how you feel right now',
+  },
+];
+
+const getBreathIcon = (id: string, size: number, color: string) => {
+  switch (id) {
+    case '1': return <Wind size={size} color={color} weight="duotone" />;
+    case '2': return <Square size={size} color={color} weight="duotone" />;
+    case '3': return <Moon size={size} color={color} weight="duotone" />;
+    default: return <Wind size={size} color={color} weight="duotone" />;
+  }
+};
+
+const getMeditationIcon = (id: string, size: number, color: string) => {
+  switch (id) {
+    case '1': return <Sun size={size} color={color} weight="duotone" />;
+    case '2': return <FlowerLotus size={size} color={color} weight="duotone" />;
+    case '3': return <MoonStars size={size} color={color} weight="duotone" />;
+    case '4': return <PersonArmsSpread size={size} color={color} weight="duotone" />;
+    default: return <FlowerLotus size={size} color={color} weight="duotone" />;
+  }
+};
+
+const getQuickIcon = (id: string, size: number, color: string) => {
+  switch (id) {
+    case '1': return <Timer size={size} color={color} weight="duotone" />;
+    case '2': return <Heart size={size} color={color} weight="duotone" />;
+    case '3': return <Leaf size={size} color={color} weight="duotone" />;
+    default: return <Timer size={size} color={color} weight="duotone" />;
+  }
+};
+
+interface MindfulnessScreenProps {
+  onNavigate?: (screen: string) => void;
+  openStats?: boolean;
+}
+
+export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate, openStats }) => {
+  const { sessions, stats, startSession: dbStartSession, completeSession, loading: sessionsLoading } = useMindfulnessSessions();
+  const { moodLog, logMood, loading: moodLoading } = useMoodLogs();
+
+  const [activeTab, setActiveTab] = useState<'breathe' | 'meditate' | 'quick'>('breathe');
+  const [sessionActive, setSessionActive] = useState(false);
+  const [activeSession, setActiveSession] = useState<any>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [sessionType, setSessionType] = useState<'breathing' | 'meditation' | 'quick'>('breathing');
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [showStats, setShowStats] = useState(openStats || false);
+  const [breathingPhase, setBreathingPhase] = useState<'in' | 'out'>('in');
+  const [showMoodSelector, setShowMoodSelector] = useState(false);
+  const [selectedMood, setSelectedMood] = useState<'great' | 'good' | 'okay' | 'bad' | 'terrible' | null>(null);
+
+  const completedSessions = stats?.totalSessions || 0;
+  const totalMinutes = stats?.totalMinutes || 0;
+  const currentStreak = stats?.currentStreak || 0;
+
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const breatheAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const breathingLoopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isBreathingActiveRef = useRef(false);
+  const breathingAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    if (openStats) {
+      setShowStats(true);
+    }
+  }, [openStats]);
+
+  useEffect(() => {
+    fadeAnim.setValue(0);
+    slideAnim.setValue(30);
+    
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: false,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 40,
+        friction: 8,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (sessionActive && !isPaused) {
+      timerRef.current = setInterval(() => {
+        setTimeRemaining((prev) => {
+          if (prev <= 1) {
+            handleCompleteSession();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [sessionActive, isPaused]);
+
+  useEffect(() => {
+    if (sessionActive && sessionType === 'breathing') {
+      startBreathingAnimation();
+    } else {
+      isBreathingActiveRef.current = false;
+      
+      if (breathingAnimationRef.current) {
+        breathingAnimationRef.current.stop();
+        breathingAnimationRef.current = null;
+      }
+      
+      if (breathingLoopRef.current) {
+        clearTimeout(breathingLoopRef.current);
+        breathingLoopRef.current = null;
+      }
+      
+      breatheAnim.setValue(0);
+      setBreathingPhase('in');
+    }
+
+    return () => {
+      isBreathingActiveRef.current = false;
+      
+      if (breathingAnimationRef.current) {
+        breathingAnimationRef.current.stop();
+        breathingAnimationRef.current = null;
+      }
+      
+      if (breathingLoopRef.current) {
+        clearTimeout(breathingLoopRef.current);
+        breathingLoopRef.current = null;
+      }
+    };
+  }, [sessionActive, sessionType]);
+
+  const startBreathingAnimation = () => {
+    isBreathingActiveRef.current = false;
+    
+    if (breathingAnimationRef.current) {
+      breathingAnimationRef.current.stop();
+      breathingAnimationRef.current = null;
+    }
+    
+    if (breathingLoopRef.current) {
+      clearTimeout(breathingLoopRef.current);
+      breathingLoopRef.current = null;
+    }
+    
+    breatheAnim.setValue(0);
+    setBreathingPhase('in');
+    
+    isBreathingActiveRef.current = true;
+    
+    const runBreathingCycle = () => {
+      if (!isBreathingActiveRef.current) {
+        return;
+      }
+      
+      setBreathingPhase('in');
+      
+      const inhaleAnim = Animated.timing(breatheAnim, {
+        toValue: 1,
+        duration: 4000,
+        useNativeDriver: false,
+      });
+      
+      breathingAnimationRef.current = inhaleAnim;
+      
+      inhaleAnim.start(({ finished }) => {
+        if (!finished || !isBreathingActiveRef.current) {
+          return;
+        }
+        
+        setBreathingPhase('out');
+        
+        const exhaleAnim = Animated.timing(breatheAnim, {
+          toValue: 0,
+          duration: 6000,
+          useNativeDriver: false,
+        });
+        
+        breathingAnimationRef.current = exhaleAnim;
+        
+        exhaleAnim.start(({ finished }) => {
+          if (!finished || !isBreathingActiveRef.current) {
+            return;
+          }
+          
+          breathingLoopRef.current = setTimeout(() => {
+            if (isBreathingActiveRef.current) {
+              runBreathingCycle();
+            }
+          }, 100);
+        });
+      });
+    };
+
+    runBreathingCycle();
+  };
+
+  const startPulseAnimation = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1000,
+          useNativeDriver: false,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: false,
+        }),
+      ])
+    ).start();
+  };
+
+  const startSession = async (session: any, type: 'breathing' | 'meditation' | 'quick') => {
+    setActiveSession(session);
+    setSessionType(type);
+    setTimeRemaining(session.duration * 60);
+    setSessionActive(true);
+    setIsPaused(false);
+
+    let dbSessionType: 'breathing' | 'meditation' | 'body_scan' | 'visualization' = 'breathing';
+    if (type === 'meditation') {
+      dbSessionType = 'meditation';
+    } else if (type === 'quick') {
+      dbSessionType = 'breathing';
+    } else {
+      dbSessionType = 'breathing';
+    }
+
+    try {
+      const result = await dbStartSession(dbSessionType, session.duration * 60);
+      if (result.data) {
+        setCurrentSessionId(result.data.id);
+      } else if (result.error) {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Error starting session:', error);
+      Alert.alert('Error', 'Failed to start session. Please try again.');
+    }
+
+    if (type === 'meditation' || type === 'quick') {
+      startPulseAnimation();
+    }
+  };
+
+  const pauseSession = () => {
+    const newPausedState = !isPaused;
+    setIsPaused(newPausedState);
+    
+    if (sessionType === 'breathing') {
+      if (newPausedState) {
+        isBreathingActiveRef.current = false;
+        
+        if (breathingAnimationRef.current) {
+          breathingAnimationRef.current.stop();
+          breathingAnimationRef.current = null;
+        }
+        
+        if (breathingLoopRef.current) {
+          clearTimeout(breathingLoopRef.current);
+          breathingLoopRef.current = null;
+        }
+      } else {
+        startBreathingAnimation();
+      }
+    }
+  };
+
+  const stopSession = () => {
+    isBreathingActiveRef.current = false;
+    
+    if (breathingAnimationRef.current) {
+      breathingAnimationRef.current.stop();
+      breathingAnimationRef.current = null;
+    }
+    
+    if (breathingLoopRef.current) {
+      clearTimeout(breathingLoopRef.current);
+      breathingLoopRef.current = null;
+    }
+    
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
+    setSessionActive(false);
+    setActiveSession(null);
+    setIsPaused(false);
+    setBreathingPhase('in');
+    breatheAnim.setValue(0);
+    pulseAnim.setValue(1);
+  };
+
+  const handleCompleteSession = async () => {
+    if (currentSessionId) {
+      try {
+        await completeSession(currentSessionId, undefined, undefined);
+        setCurrentSessionId(null);
+      } catch (error) {
+        console.error('Error completing session:', error);
+        Alert.alert('Error', 'Failed to save session. Please try again.');
+      }
+    }
+    stopSession();
+  };
+
+  const handleMoodLog = async (mood: 'great' | 'good' | 'okay' | 'bad' | 'terrible') => {
+    if (!mood) {
+      console.error('[MindfulnessScreen] No mood provided to handleMoodLog');
+      Alert.alert('Error', 'Please select a mood first.');
+      return;
+    }
+
+    if (!['great', 'good', 'okay', 'bad', 'terrible'].includes(mood)) {
+      console.error('[MindfulnessScreen] Invalid mood provided:', mood);
+      Alert.alert('Error', 'Invalid mood selection. Please try again.');
+      return;
+    }
+
+    try {
+      console.log('[MindfulnessScreen] Logging mood:', mood);
+      const result = await logMood(mood);
+      
+      if (result && result.error) {
+        console.error('[MindfulnessScreen] Mood logging failed:', result.error);
+        setSelectedMood(null);
+        
+        if (result.error.includes('connection')) {
+          Alert.alert(
+            'Connection Error', 
+            'Unable to connect to the server. Please check your internet connection and try again.',
+            [{ text: 'OK', onPress: () => setSelectedMood(null) }]
+          );
+        } else if (result.error.includes('already logged')) {
+          Alert.alert(
+            'Already Logged', 
+            'You have already logged your mood for today. Your mood has been updated.',
+            [{ text: 'OK', onPress: () => {
+              setShowMoodSelector(false);
+              setSelectedMood(null);
+            }}]
+          );
+        } else {
+          Alert.alert(
+            'Error', 
+            result.error,
+            [{ text: 'OK', onPress: () => setSelectedMood(null) }]
+          );
+        }
+        return;
+      }
+
+      console.log('[MindfulnessScreen] Mood logged successfully');
+      setShowMoodSelector(false);
+      setSelectedMood(null);
+    } catch (error: any) {
+      console.error('[MindfulnessScreen] Unexpected error logging mood:', error);
+      setSelectedMood(null);
+      
+      if (error.name === 'NetworkError') {
+        Alert.alert(
+          'Network Error', 
+          'Unable to connect to the server. Please check your internet connection.',
+          [{ text: 'OK' }]
+        );
+      } else if (error.message) {
+        Alert.alert('Error', `Failed to log mood: ${error.message}`);
+      } else {
+        Alert.alert('Error', 'Failed to log mood. Please try again.');
+      }
+    }
+  };
+
+  const getMoodEmoji = (mood: string) => {
+    switch (mood) {
+      case 'great': return '😄';
+      case 'good': return '🙂';
+      case 'okay': return '😐';
+      case 'bad': return '😔';
+      case 'terrible': return '😢';
+      default: return '😐';
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const breathScale = breatheAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.5],
+  });
+
+  const breathOpacity = breatheAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.8],
+  });
+
+  return (
+    <SafeAreaView style={S.container}>
+      <ScrollView
+        style={S.scrollView}
+        contentContainerStyle={S.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
+      >
+        {/* Header */}
+        <View style={S.header}>
+          <View>
+            <Text style={S.headerSub}>Find Your Peace</Text>
+            <Text style={S.headerTitle}>Mindfulness</Text>
+          </View>
+          <TouchableOpacity style={S.statsBtn} onPress={() => setShowStats(true)}>
+            <ChartLineUp size={22} color={MC.accent} weight="bold" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Mood Card */}
+        <View style={S.moodCard}>
+          <View style={S.moodCardHead}>
+            <View style={S.moodIconBox}>
+              <Smiley size={20} color={MC.accent} weight="duotone" />
+            </View>
+            <Text style={S.moodCardTitle}>How are you feeling today?</Text>
+          </View>
+          {moodLoading ? (
+            <Text style={S.moodDim}>Loading...</Text>
+          ) : moodLog ? (
+            <View style={S.moodLogged}>
+              <Text style={S.moodDim}>
+                Today's mood: <Text style={S.moodEmoji}>{getMoodEmoji(moodLog.mood)}</Text>
+              </Text>
+              <TouchableOpacity onPress={() => {
+                setSelectedMood(null);
+                setShowMoodSelector(true);
+              }}>
+                <Text style={S.moodChange}>Change</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={S.moodBtn}
+              onPress={() => {
+                setSelectedMood(null);
+                setShowMoodSelector(true);
+              }}
+            >
+              <Text style={S.moodBtnText}>Log Your Mood</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Tabs */}
+        <View style={S.tabBar}>
+          {(['breathe', 'meditate', 'quick'] as const).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[S.tab, activeTab === tab && S.tabActive]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[S.tabText, activeTab === tab && S.tabTextActive]}>
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Breathe Tab */}
+        {activeTab === 'breathe' && (
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+            <View style={S.section}>
+              <Text style={S.sectionTitle}>Breathing Exercises</Text>
+              <Text style={S.sectionSub}>Regulate your breath, calm your mind</Text>
+
+              {breathingExercises.map((ex) => (
+                <TouchableOpacity
+                  key={ex.id}
+                  style={[S.breathCard, { backgroundColor: ex.bg }]}
+                  activeOpacity={0.85}
+                  onPress={() => startSession(ex, 'breathing')}
+                >
+                  <View style={S.breathRow}>
+                    <View style={[S.breathIconBox, { backgroundColor: `${ex.tint}20` }]}>
+                      {getBreathIcon(ex.id, 28, ex.tint)}
+                    </View>
+                    <View style={S.breathInfo}>
+                      <Text style={[S.breathTitle, { color: ex.tint }]}>{ex.title}</Text>
+                      <Text style={S.breathDesc}>{ex.description}</Text>
+                      <View style={S.breathMeta}>
+                        <Clock size={13} color={MC.textDim} />
+                        <Text style={S.breathMetaText}>{ex.duration} min</Text>
+                        <View style={[S.breathBadge, { backgroundColor: `${ex.tint}18` }]}>
+                          <Text style={[S.breathBadgeText, { color: ex.tint }]}>{ex.difficulty}</Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={[S.breathPlay, { backgroundColor: ex.tint }]}>
+                      <Play size={22} color="#FFF" weight="fill" />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={S.tipsBox}>
+              <Text style={S.tipsTitle}>Breathing Tips</Text>
+              <View style={S.tipRow}>
+                <Lightbulb size={18} color={MC.accent} weight="duotone" />
+                <Text style={S.tipText}>Find a quiet space where you won't be disturbed</Text>
+              </View>
+              <View style={S.tipRow}>
+                <Lightbulb size={18} color={MC.accent} weight="duotone" />
+                <Text style={S.tipText}>Breathe through your nose, out through your mouth</Text>
+              </View>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Meditate Tab */}
+        {activeTab === 'meditate' && (
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+            <View style={S.section}>
+              <Text style={S.sectionTitle}>Meditation Sessions</Text>
+              <Text style={S.sectionSub}>Guided journeys for inner peace</Text>
+
+              <View style={S.meditGrid}>
+                {meditationSessions.map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={S.meditCard}
+                    activeOpacity={0.85}
+                    onPress={() => startSession(s, 'meditation')}
+                  >
+                    <View style={[S.meditIconBox, { backgroundColor: `${s.tint}15` }]}>
+                      {getMeditationIcon(s.id, 28, s.tint)}
+                    </View>
+                    <Text style={S.meditTitle} numberOfLines={2}>{s.title}</Text>
+                    <Text style={S.meditType}>{s.type}</Text>
+                    <View style={S.meditFoot}>
+                      <View style={S.meditDur}>
+                        <Clock size={13} color={MC.textDim} />
+                        <Text style={S.meditDurText}>{s.duration} min</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[S.meditPlay, { backgroundColor: s.tint }]}
+                        onPress={() => startSession(s, 'meditation')}
+                      >
+                        <Play size={16} color="#FFF" weight="fill" />
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={S.section}>
+              <Text style={S.sectionTitle}>Relaxing Songs</Text>
+              <Text style={S.sectionSub}>Soothing sounds to calm your mind</Text>
+
+              {[
+                { title: 'Ocean Waves', artist: 'Nature Sounds · 15 min', bg: '#E3F2FD', tint: '#42A5F5' },
+                { title: 'Forest Rain', artist: 'Ambient Nature · 20 min', bg: '#E8F5E9', tint: '#43A047' },
+                { title: 'Peaceful Piano', artist: 'Instrumental Calm · 12 min', bg: '#EDE7F6', tint: '#7E57C2' },
+                { title: 'Tibetan Bowls', artist: 'Healing Sounds · 25 min', bg: '#FFF8E1', tint: '#FF9800' },
+              ].map((song, i) => (
+                <TouchableOpacity key={i} style={S.songCard} activeOpacity={0.8}>
+                  <View style={[S.songIconBox, { backgroundColor: song.bg }]}>
+                    <MusicNote size={24} color={song.tint} weight="duotone" />
+                  </View>
+                  <View style={S.songInfo}>
+                    <Text style={S.songTitle}>{song.title}</Text>
+                    <Text style={S.songArtist}>{song.artist}</Text>
+                  </View>
+                  <PlayCircle size={36} color={song.tint} weight="fill" />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={S.featuredCard}
+              activeOpacity={0.85}
+              onPress={() => startSession({
+                id: 'featured',
+                title: 'Mindful Walking',
+                duration: 15,
+                type: 'Guided',
+                description: 'Connect with movement and awareness',
+              }, 'meditation')}
+            >
+              <View style={S.featuredRow}>
+                <Sparkle size={28} color={MC.accent} weight="duotone" />
+                <View style={S.featuredText}>
+                  <Text style={S.featuredLabel}>Today's Featured</Text>
+                  <Text style={S.featuredTitle}>Mindful Walking Meditation</Text>
+                </View>
+                <View style={S.featuredBtn}>
+                  <Text style={S.featuredBtnText}>Start</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+
+        {/* Quick Tab */}
+        {activeTab === 'quick' && (
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+            <View style={S.section}>
+              <Text style={S.sectionTitle}>Quick Practices</Text>
+              <Text style={S.sectionSub}>Instant calm, anytime, anywhere</Text>
+
+              {quickPractices.map((p) => (
+                <TouchableOpacity
+                  key={p.id}
+                  style={S.quickCard}
+                  activeOpacity={0.85}
+                  onPress={() => startSession(p, 'quick')}
+                >
+                  <View style={S.quickLeft}>
+                    <View style={[S.quickIconBox, { backgroundColor: p.bg }]}>
+                      {getQuickIcon(p.id, 22, p.tint)}
+                    </View>
+                    <View>
+                      <Text style={S.quickTitle}>{p.title}</Text>
+                      <Text style={S.quickDur}>{p.duration} minute{p.duration > 1 ? 's' : ''}</Text>
+                    </View>
+                  </View>
+                  <PlayCircle size={38} color={p.tint} weight="fill" />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={S.streakCard}>
+              <View style={S.streakHead}>
+                <Fire size={30} color="#FF9800" weight="fill" />
+                <Text style={S.streakNum}>{currentStreak}</Text>
+              </View>
+              <Text style={S.streakLabel}>Day Streak</Text>
+              <Text style={S.streakSub}>Keep going! You're building a great habit</Text>
+            </View>
+
+            <View style={S.benefitsBox}>
+              <Text style={S.benefitsTitle}>Benefits of Quick Practice</Text>
+              {[
+                'Reduces stress in moments',
+                'Improves focus and clarity',
+                'Easy to fit into busy schedules',
+              ].map((b, i) => (
+                <View key={i} style={S.benefitRow}>
+                  <CheckCircle size={18} color={MC.accent} weight="fill" />
+                  <Text style={S.benefitText}>{b}</Text>
+                </View>
+              ))}
+            </View>
+          </Animated.View>
+        )}
+      </ScrollView>
+
+      {/* Session Modal */}
+      <Modal
+        visible={sessionActive}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <View style={S.sessModal}>
+          <SafeAreaView style={S.sessSafe}>
+            <ScrollView
+              contentContainerStyle={S.sessScroll}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              <View style={S.sessHead}>
+                <TouchableOpacity onPress={stopSession} style={S.sessClose}>
+                  <X size={22} color="#FFF" weight="bold" />
+                </TouchableOpacity>
+                <Text style={S.sessHeadTitle}>{activeSession?.title}</Text>
+                <TouchableOpacity onPress={pauseSession} style={S.sessClose}>
+                  {isPaused
+                    ? <Play size={22} color="#FFF" weight="fill" />
+                    : <Pause size={22} color="#FFF" weight="fill" />
+                  }
+                </TouchableOpacity>
+              </View>
+
+              <View style={S.sessBody}>
+                {sessionType === 'breathing' && (
+                  <View style={S.breathAnimContainer}>
+                    <Animated.View
+                      style={[
+                        S.breathAnimCircle,
+                        {
+                          transform: [{ scale: breathScale }],
+                          opacity: breathOpacity,
+                        },
+                      ]}
+                    >
+                      <View style={S.breathAnimInner}>
+                        <Wind size={48} color="rgba(255,255,255,0.9)" weight="duotone" />
+                      </View>
+                    </Animated.View>
+
+                    <Text style={S.breathAnimText}>
+                      {breathingPhase === 'in' ? 'Breathe In' : 'Breathe Out'}
+                    </Text>
+
+                    {activeSession?.instructions && (
+                      <View style={S.instrBox}>
+                        {activeSession.instructions.map((instruction: string, index: number) => (
+                          <View key={index} style={S.instrRow}>
+                            <View style={S.instrDot} />
+                            <Text style={S.instrText}>{instruction}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {(sessionType === 'meditation' || sessionType === 'quick') && (
+                  <View style={S.meditAnimContainer}>
+                    <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                      <Svg width={200} height={200}>
+                        <Circle
+                          cx={100}
+                          cy={100}
+                          r={90}
+                          stroke="#FFF"
+                          strokeWidth={3}
+                          fill="transparent"
+                          opacity={0.3}
+                        />
+                        <Circle
+                          cx={100}
+                          cy={100}
+                          r={70}
+                          stroke="#FFF"
+                          strokeWidth={2}
+                          fill="transparent"
+                          opacity={0.5}
+                        />
+                        <Circle
+                          cx={100}
+                          cy={100}
+                          r={50}
+                          fill="#FFF"
+                          opacity={0.2}
+                        />
+                      </Svg>
+                    </Animated.View>
+
+                    <Text style={S.meditAnimText}>
+                      {activeSession?.description || 'Focus on your breath'}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={S.timerBox}>
+                  <Text style={S.timerText}>{formatTime(timeRemaining)}</Text>
+                  <Text style={S.timerLabel}>Remaining</Text>
+                </View>
+
+                <View style={S.sessControls}>
+                  <TouchableOpacity style={S.ctrlBtn} onPress={pauseSession}>
+                    {isPaused
+                      ? <Play size={28} color="#FFF" weight="fill" />
+                      : <Pause size={28} color="#FFF" weight="fill" />
+                    }
+                    <Text style={S.ctrlBtnText}>{isPaused ? 'Resume' : 'Pause'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={S.ctrlBtn} onPress={stopSession}>
+                    <Stop size={28} color="#FFF" weight="fill" />
+                    <Text style={S.ctrlBtnText}>End</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
+          </SafeAreaView>
+        </View>
+      </Modal>
+
+      {/* Stats Modal */}
+      <Modal
+        visible={showStats}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowStats(false)}
+      >
+        <View style={S.overlay}>
+          <TouchableOpacity
+            style={S.overlayBg}
+            activeOpacity={1}
+            onPress={() => setShowStats(false)}
+          />
+          <View style={S.sheet}>
+            <View style={S.sheetHandle} />
+            <View style={S.sheetHead}>
+              <Text style={S.sheetTitle}>Your Progress</Text>
+              <TouchableOpacity onPress={() => setShowStats(false)}>
+                <X size={22} color={MC.text} weight="bold" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={S.statsGrid}>
+              {[
+                { icon: <CheckCircle size={28} color="#43A047" weight="duotone" />, value: sessionsLoading ? '...' : completedSessions, label: 'Sessions', bg: '#E8F5E9' },
+                { icon: <Clock size={28} color="#42A5F5" weight="duotone" />, value: sessionsLoading ? '...' : totalMinutes, label: 'Minutes', bg: '#E3F2FD' },
+                { icon: <Fire size={28} color="#FF9800" weight="fill" />, value: sessionsLoading ? '...' : currentStreak, label: 'Day Streak', bg: '#FFF8E1' },
+                { icon: <Trophy size={28} color="#7E57C2" weight="duotone" />, value: sessionsLoading ? '...' : Math.floor(completedSessions / 5), label: 'Achievements', bg: '#EDE7F6' },
+              ].map((s, i) => (
+                <View key={i} style={[S.statItem, { backgroundColor: s.bg }]}>
+                  {s.icon}
+                  <Text style={S.statNum}>{s.value}</Text>
+                  <Text style={S.statLabel}>{s.label}</Text>
+                </View>
+              ))}
+            </View>
+
+            <TouchableOpacity style={S.sheetCloseBtn} onPress={() => setShowStats(false)}>
+              <Text style={S.sheetCloseBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Mood Selector Modal */}
+      <Modal
+        visible={showMoodSelector}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowMoodSelector(false)}
+      >
+        <View style={S.overlay}>
+          <TouchableOpacity
+            style={S.overlayBg}
+            activeOpacity={1}
+            onPress={() => {
+              setSelectedMood(null);
+              setShowMoodSelector(false);
+            }}
+          />
+          <View style={S.sheet}>
+            <View style={S.sheetHandle} />
+            <Text style={S.moodSelTitle}>How are you feeling?</Text>
+
+            <View style={S.moodOpts}>
+              {(['great', 'good', 'okay', 'bad', 'terrible'] as const).map((mood) => {
+                const selected = selectedMood === mood;
+                return (
+                  <TouchableOpacity
+                    key={mood}
+                    style={[S.moodOpt, selected && S.moodOptSel]}
+                    onPress={() => {
+                      console.log('Selecting mood:', mood, 'Current selected:', selectedMood);
+                      setSelectedMood(mood);
+                    }}
+                  >
+                    <Text style={S.moodOptEmoji}>{getMoodEmoji(mood)}</Text>
+                    <Text style={[S.moodOptText, selected && S.moodOptTextSel]}>
+                      {mood.charAt(0).toUpperCase() + mood.slice(1)}
+                    </Text>
+                    {selected && <CheckCircle size={22} color={MC.accent} weight="fill" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {selectedMood ? (
+              <TouchableOpacity
+                style={S.moodConfirmBtn}
+                onPress={() => handleMoodLog(selectedMood)}
+              >
+                <Text style={S.moodConfirmText}>
+                  Confirm - I'm feeling {selectedMood}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={S.moodPrompt}>
+                <Text style={S.moodPromptText}>Select a mood above</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={S.moodCancelBtn}
+              onPress={() => {
+                setSelectedMood(null);
+                setShowMoodSelector(false);
+              }}
+            >
+              <Text style={S.moodCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <BottomNavigation activeTab="mindfulness" onTabChange={onNavigate} />
+    </SafeAreaView>
+  );
+};
+
+const S = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: MC.bg,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingTop: 12,
+    paddingBottom: 100,
+    maxWidth: 500,
+    alignSelf: 'center' as const,
+    width: '100%',
+  },
+
+  /* Header */
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+    marginTop: 24,
+  },
+  headerSub: {
+    fontSize: 13,
+    color: MC.textDim,
+    fontFamily: MF.medium,
+    marginBottom: 2,
+  },
+  headerTitle: {
+    fontSize: 28,
+    color: MC.text,
+    fontFamily: MF.bold,
+  },
+  statsBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: MC.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: MC.border,
+  },
+
+  /* Mood Card */
+  moodCard: {
+    backgroundColor: MC.card,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: MC.border,
+  },
+  moodCardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 10,
+  },
+  moodIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: MC.accentSoft,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  moodCardTitle: {
+    fontSize: 15,
+    fontFamily: MF.semi,
+    color: MC.text,
+  },
+  moodDim: {
+    fontSize: 14,
+    color: MC.textDim,
+    fontFamily: MF.medium,
+  },
+  moodEmoji: {
+    fontSize: 20,
+  },
+  moodLogged: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  moodChange: {
+    fontSize: 13,
+    color: MC.accent,
+    fontFamily: MF.semi,
+  },
+  moodBtn: {
+    backgroundColor: MC.accent,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  moodBtnText: {
+    fontSize: 14,
+    color: '#FFF',
+    fontFamily: MF.semi,
+  },
+
+  /* Tabs */
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: MC.surfaceMuted,
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 24,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 11,
+  },
+  tabActive: {
+    backgroundColor: MC.text,
+  },
+  tabText: {
+    fontSize: 13,
+    color: MC.textDim,
+    fontFamily: MF.semi,
+  },
+  tabTextActive: {
+    color: '#FFF',
+  },
+
+  /* Sections */
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    color: MC.text,
+    fontFamily: MF.bold,
+    marginBottom: 4,
+  },
+  sectionSub: {
+    fontSize: 13,
+    color: MC.textDim,
+    fontFamily: MF.medium,
+    marginBottom: 16,
+  },
+
+  /* Breathing Cards */
+  breathCard: {
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 14,
+  },
+  breathRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  breathIconBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  breathInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  breathTitle: {
+    fontSize: 16,
+    fontFamily: MF.bold,
+    marginBottom: 3,
+  },
+  breathDesc: {
+    fontSize: 13,
+    color: MC.textDim,
+    fontFamily: MF.medium,
+    marginBottom: 8,
+  },
+  breathMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  breathMetaText: {
+    fontSize: 12,
+    color: MC.textDim,
+    fontFamily: MF.medium,
+  },
+  breathBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  breathBadgeText: {
+    fontSize: 10,
+    fontFamily: MF.semi,
+  },
+  breathPlay: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+
+  /* Tips */
+  tipsBox: {
+    backgroundColor: MC.accentSoft,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 24,
+  },
+  tipsTitle: {
+    fontSize: 15,
+    color: MC.text,
+    fontFamily: MF.bold,
+    marginBottom: 12,
+  },
+  tipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  tipText: {
+    flex: 1,
+    fontSize: 13,
+    color: MC.text,
+    fontFamily: MF.medium,
+    lineHeight: 20,
+  },
+
+  /* Meditation Grid */
+  meditGrid: {
+    gap: 14,
+  },
+  meditCard: {
+    backgroundColor: MC.card,
+    borderRadius: 18,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: MC.border,
+  },
+  meditIconBox: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  meditTitle: {
+    fontSize: 15,
+    color: MC.text,
+    fontFamily: MF.bold,
+    marginBottom: 4,
+    minHeight: 40,
+  },
+  meditType: {
+    fontSize: 12,
+    color: MC.textDim,
+    fontFamily: MF.medium,
+    marginBottom: 10,
+  },
+  meditFoot: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  meditDur: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  meditDurText: {
+    fontSize: 12,
+    color: MC.textDim,
+    fontFamily: MF.medium,
+  },
+  meditPlay: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  /* Songs */
+  songCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: MC.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: MC.border,
+    marginBottom: 10,
+  },
+  songIconBox: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  songInfo: {
+    flex: 1,
+  },
+  songTitle: {
+    fontSize: 15,
+    fontFamily: MF.semi,
+    color: MC.text,
+    marginBottom: 3,
+  },
+  songArtist: {
+    fontSize: 12,
+    fontFamily: MF.medium,
+    color: MC.textDim,
+  },
+
+  /* Featured */
+  featuredCard: {
+    backgroundColor: MC.accentSoft,
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 24,
+  },
+  featuredRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  featuredText: {
+    flex: 1,
+  },
+  featuredLabel: {
+    fontSize: 12,
+    color: MC.textDim,
+    fontFamily: MF.semi,
+    marginBottom: 3,
+  },
+  featuredTitle: {
+    fontSize: 16,
+    color: MC.text,
+    fontFamily: MF.bold,
+  },
+  featuredBtn: {
+    backgroundColor: MC.accent,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  featuredBtnText: {
+    fontSize: 13,
+    color: '#FFF',
+    fontFamily: MF.semi,
+  },
+
+  /* Quick Cards */
+  quickCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: MC.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: MC.border,
+  },
+  quickLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    flex: 1,
+  },
+  quickIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickTitle: {
+    fontSize: 15,
+    color: MC.text,
+    fontFamily: MF.semi,
+    marginBottom: 2,
+  },
+  quickDur: {
+    fontSize: 12,
+    color: MC.textDim,
+    fontFamily: MF.medium,
+  },
+
+  /* Streak */
+  streakCard: {
+    backgroundColor: MC.card,
+    borderRadius: 18,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: MC.border,
+  },
+  streakHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  streakNum: {
+    fontSize: 44,
+    color: MC.text,
+    fontFamily: MF.bold,
+  },
+  streakLabel: {
+    fontSize: 17,
+    color: MC.text,
+    fontFamily: MF.bold,
+    marginBottom: 4,
+  },
+  streakSub: {
+    fontSize: 13,
+    color: MC.textDim,
+    fontFamily: MF.medium,
+    textAlign: 'center',
+  },
+
+  /* Benefits */
+  benefitsBox: {
+    marginBottom: 24,
+    alignItems: 'center',
+  },
+  benefitsTitle: {
+    fontSize: 15,
+    color: MC.text,
+    fontFamily: MF.bold,
+    marginBottom: 14,
+    textAlign: 'center',
+  },
+  benefitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  benefitText: {
+    fontSize: 13,
+    color: MC.textDim,
+    fontFamily: MF.medium,
+    textAlign: 'center',
+  },
+
+  /* Session Modal */
+  sessModal: {
+    flex: 1,
+    backgroundColor: '#1A1A2E',
+  },
+  sessSafe: {
+    flex: 1,
+  },
+  sessScroll: {
+    flexGrow: 1,
+    paddingBottom: 24,
+  },
+  sessHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  sessClose: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sessHeadTitle: {
+    fontSize: 17,
+    color: '#FFF',
+    fontFamily: MF.bold,
+  },
+  sessBody: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    width: '100%',
+  },
+
+  /* Breathing Animation */
+  breathAnimContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+    width: '100%',
+  },
+  breathAnimCircle: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  breathAnimInner: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  breathAnimText: {
+    fontSize: 30,
+    color: '#FFF',
+    fontFamily: MF.bold,
+    marginBottom: 20,
+    textAlign: 'center',
+    width: '100%',
+  },
+  instrBox: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 10,
+    width: '90%',
+    alignSelf: 'center' as const,
+  },
+  instrRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+    width: '100%',
+  },
+  instrDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    marginRight: 12,
+    marginTop: 6,
+    flexShrink: 0,
+  },
+  instrText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
+    fontFamily: MF.medium,
+    flex: 1,
+    flexWrap: 'wrap',
+    includeFontPadding: false,
+    textAlignVertical: 'top',
+  },
+
+  /* Meditation Animation */
+  meditAnimContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  meditAnimText: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.8)',
+    fontFamily: MF.semi,
+    textAlign: 'center',
+    marginTop: 24,
+    paddingHorizontal: 24,
+  },
+
+  /* Timer */
+  timerBox: {
+    alignItems: 'center',
+    marginBottom: 24,
+    marginTop: 16,
+  },
+  timerText: {
+    fontSize: 60,
+    color: '#FFF',
+    fontFamily: MF.bold,
+  },
+  timerLabel: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: MF.medium,
+  },
+
+  /* Session Controls */
+  sessControls: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  ctrlBtn: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 16,
+    minWidth: 110,
+  },
+  ctrlBtnText: {
+    fontSize: 13,
+    color: '#FFF',
+    fontFamily: MF.semi,
+    marginTop: 6,
+  },
+
+  /* Shared Overlay & Bottom Sheet */
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  overlayBg: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  sheet: {
+    backgroundColor: MC.card,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+    paddingTop: 12,
+    maxHeight: '85%',
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: MC.border,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  sheetHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  sheetTitle: {
+    fontSize: 20,
+    color: MC.text,
+    fontFamily: MF.bold,
+  },
+
+  /* Stats Grid */
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 20,
+  },
+  statItem: {
+    width: '47%',
+    borderRadius: 16,
+    padding: 18,
+    alignItems: 'center',
+    minHeight: 110,
+  },
+  statNum: {
+    fontSize: 30,
+    color: MC.text,
+    fontFamily: MF.bold,
+    marginVertical: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: MC.textDim,
+    fontFamily: MF.medium,
+    textAlign: 'center',
+  },
+  sheetCloseBtn: {
+    backgroundColor: MC.text,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  sheetCloseBtnText: {
+    fontSize: 14,
+    color: '#FFF',
+    fontFamily: MF.semi,
+  },
+
+  /* Mood Selector */
+  moodSelTitle: {
+    fontSize: 20,
+    fontFamily: MF.bold,
+    color: MC.text,
+    marginBottom: 18,
+    textAlign: 'center',
+  },
+  moodOpts: {
+    gap: 10,
+  },
+  moodOpt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    backgroundColor: MC.surfaceMuted,
+    borderRadius: 14,
+    gap: 12,
+  },
+  moodOptSel: {
+    backgroundColor: MC.accentSoft,
+    borderWidth: 2,
+    borderColor: MC.accent,
+  },
+  moodOptEmoji: {
+    fontSize: 28,
+  },
+  moodOptText: {
+    fontSize: 15,
+    fontFamily: MF.semi,
+    color: MC.text,
+    flex: 1,
+  },
+  moodOptTextSel: {
+    color: MC.accent,
+  },
+  moodConfirmBtn: {
+    marginTop: 18,
+    padding: 14,
+    backgroundColor: MC.accent,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  moodConfirmText: {
+    fontSize: 14,
+    color: '#FFF',
+    fontFamily: MF.semi,
+  },
+  moodPrompt: {
+    marginTop: 18,
+    padding: 14,
+    alignItems: 'center',
+  },
+  moodPromptText: {
+    fontSize: 13,
+    color: MC.textDim,
+    fontFamily: MF.medium,
+    fontStyle: 'italic',
+  },
+  moodCancelBtn: {
+    marginTop: 12,
+    padding: 14,
+    backgroundColor: MC.surfaceMuted,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  moodCancelText: {
+    fontSize: 14,
+    color: MC.textDim,
+    fontFamily: MF.semi,
+  },
+});

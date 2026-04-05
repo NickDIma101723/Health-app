@@ -8,11 +8,51 @@ import {
   ScrollView,
   TextInput,
   Dimensions,
+  Image,
+  StatusBar,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, fontSizes, borderRadius } from '../constants/theme';
+import {
+  MagnifyingGlass,
+  X,
+  ForkKnife,
+  Fire,
+  Clock,
+  CookingPot,
+  Cookie,
+  Sun,
+  ArrowLeft,
+  CheckCircle,
+  Users,
+  Timer,
+  Plus,
+  Star,
+  ChartBar,
+} from 'phosphor-react-native';
 import { Recipe, RECIPE_DATABASE, filterRecipesByCalories, filterRecipesByType, searchRecipes } from '../data/recipes';
+
+const { width } = Dimensions.get('window');
+
+const F = {
+  bold: 'PlusJakartaSans_700Bold',
+  semi: 'PlusJakartaSans_600SemiBold',
+  medium: 'PlusJakartaSans_500Medium',
+  regular: 'PlusJakartaSans_400Regular',
+} as const;
+
+const C = {
+  bg: '#F8F8F8',
+  card: '#FFFFFF',
+  dark: '#111111',
+  text: '#111111',
+  dim: '#999999',
+  border: '#F0F0F0',
+  green: '#22C55E',
+  amber: '#F59E0B',
+  blue: '#3B82F6',
+  red: '#EF4444',
+  teal: '#14B8A6',
+  lime: '#D4F940',
+};
 
 interface RecipeBrowserProps {
   visible: boolean;
@@ -22,7 +62,26 @@ interface RecipeBrowserProps {
   mealType?: 'breakfast' | 'lunch' | 'dinner' | 'snack';
 }
 
-const { width } = Dimensions.get('window');
+const MEAL_TYPE_CONFIG: Record<string, { icon: any; color: string; detailBg: string }> = {
+  breakfast: { icon: Sun, color: C.amber, detailBg: '#FFF3E0' },
+  lunch: { icon: ForkKnife, color: C.green, detailBg: '#E8F5E9' },
+  dinner: { icon: CookingPot, color: C.blue, detailBg: '#F3E5F5' },
+  snack: { icon: Cookie, color: '#A855F7', detailBg: '#F3E5F5' },
+};
+
+const DIFFICULTY_COLORS: Record<string, string> = {
+  easy: C.green,
+  medium: C.amber,
+  hard: C.red,
+};
+
+const CARD_THEMES = [
+  { bg: '#F0F7E6', imgBg: '#D4C4E8' },
+  { bg: '#FEF4E8', imgBg: '#C8DDBE' },
+  { bg: '#FFF0F0', imgBg: '#F5C8C8' },
+  { bg: '#EEF1FD', imgBg: '#C8D4F0' },
+  { bg: '#FDF4FF', imgBg: '#E4C8F0' },
+];
 
 export const RecipeBrowser: React.FC<RecipeBrowserProps> = ({
   visible,
@@ -39,40 +98,29 @@ export const RecipeBrowser: React.FC<RecipeBrowserProps> = ({
 
   const getFilteredRecipes = (): Recipe[] => {
     let recipes = RECIPE_DATABASE;
-
-    // Filter by type
     if (selectedType !== 'all') {
       recipes = filterRecipesByType(recipes, selectedType);
     }
-
-    // Filter by search query
     if (searchQuery) {
       recipes = searchRecipes(recipes, searchQuery);
     }
-
-    // Filter by calories if provided
     if (targetCalories) {
       recipes = filterRecipesByCalories(recipes, targetCalories);
     }
-
     return recipes;
   };
 
   const filteredRecipes = getFilteredRecipes();
 
-  const getDifficultyColor = (difficulty: Recipe['difficulty']) => {
-    switch (difficulty) {
-      case 'easy':
-        return colors.success;
-      case 'medium':
-        return colors.accent;
-      case 'hard':
-        return colors.error;
-    }
-  };
+  /* ═══════════════════════════════════════
+     ── RECIPE DETAIL VIEW ──
+     ═══════════════════════════════════════ */
 
   const renderRecipeDetail = () => {
     if (!selectedRecipe) return null;
+    const cfg = MEAL_TYPE_CONFIG[selectedRecipe.type] || MEAL_TYPE_CONFIG.dinner;
+    const MIcon = cfg.icon;
+    const diffColor = DIFFICULTY_COLORS[selectedRecipe.difficulty] || C.amber;
 
     return (
       <Modal
@@ -81,122 +129,96 @@ export const RecipeBrowser: React.FC<RecipeBrowserProps> = ({
         transparent={false}
         onRequestClose={() => setSelectedRecipe(null)}
       >
-        <View style={styles.detailContainer}>
-          <ScrollView style={styles.detailScroll}>
-            {/* Header */}
-            <LinearGradient
-              colors={[colors.primary, colors.primaryDark]}
-              style={styles.detailHeader}
-            >
-              <View style={styles.detailHeaderContent}>
-                <TouchableOpacity
-                  style={styles.backButton}
-                  onPress={() => setSelectedRecipe(null)}
-                >
-                  <MaterialIcons name="arrow-back" size={24} color={colors.textLight} />
-                </TouchableOpacity>
-                <Text style={styles.detailTitle}>{selectedRecipe.name}</Text>
-                <View style={{ width: 40 }} />
-              </View>
-            </LinearGradient>
+        <View style={[st.dtContainer, { backgroundColor: cfg.detailBg }]}>
+          <StatusBar barStyle="dark-content" />
 
-            {/* Description */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailDescription}>{selectedRecipe.description}</Text>
+          {/* Back button */}
+          <TouchableOpacity style={st.dtBackBtn} onPress={() => setSelectedRecipe(null)}>
+            <ArrowLeft size={22} color={C.dark} weight="bold" />
+          </TouchableOpacity>
+
+          <ScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={{ paddingBottom: 20 }}>
+            {/* Centered image */}
+            <View style={st.dtImgWrap}>
+              {selectedRecipe.imageUrl ? (
+                <Image source={{ uri: selectedRecipe.imageUrl }} style={st.dtImg} />
+              ) : (
+                <View style={[st.dtImgFallback, { backgroundColor: cfg.color + '30' }]}>
+                  <MIcon size={80} color={cfg.color} weight="duotone" />
+                </View>
+              )}
             </View>
 
-            {/* Quick Stats */}
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <MaterialIcons name="local-fire-department" size={24} color={colors.accent} />
-                <Text style={styles.statValue}>{selectedRecipe.calories}</Text>
-                <Text style={styles.statLabel}>Calories</Text>
-              </View>
-              <View style={styles.statItem}>
-                <MaterialIcons name="timer" size={24} color={colors.primary} />
-                <Text style={styles.statValue}>
-                  {selectedRecipe.prepTime + selectedRecipe.cookTime}
-                </Text>
-                <Text style={styles.statLabel}>Minutes</Text>
-              </View>
-              <View style={styles.statItem}>
-                <MaterialIcons name="restaurant" size={24} color={colors.teal} />
-                <Text style={styles.statValue}>{selectedRecipe.servings}</Text>
-                <Text style={styles.statLabel}>Servings</Text>
-              </View>
+            {/* Title + description */}
+            <View style={st.dtInfo}>
+              <Text style={st.dtTitle}>{selectedRecipe.name}, {selectedRecipe.calories} Kcal</Text>
+              <Text style={st.dtDesc}>{selectedRecipe.description}</Text>
             </View>
 
-            {/* Macros */}
-            <View style={styles.detailSection}>
-              <Text style={styles.sectionTitle}>Nutrition Per Serving</Text>
-              <View style={styles.macrosGrid}>
-                <View style={styles.macroItem}>
-                  <Text style={styles.macroValue}>{selectedRecipe.protein}g</Text>
-                  <Text style={styles.macroLabel}>Protein</Text>
-                </View>
-                <View style={styles.macroItem}>
-                  <Text style={styles.macroValue}>{selectedRecipe.carbs}g</Text>
-                  <Text style={styles.macroLabel}>Carbs</Text>
-                </View>
-                <View style={styles.macroItem}>
-                  <Text style={styles.macroValue}>{selectedRecipe.fats}g</Text>
-                  <Text style={styles.macroLabel}>Fats</Text>
-                </View>
+            {/* Macro boxes */}
+            <View style={st.dtMacroRow}>
+              <View style={st.dtMacroBox}>
+                <Text style={st.dtMacroLabel}>protein</Text>
+                <Text style={st.dtMacroVal}>{selectedRecipe.protein} g</Text>
+              </View>
+              <View style={st.dtMacroBox}>
+                <Text style={st.dtMacroLabel}>fat</Text>
+                <Text style={st.dtMacroVal}>{selectedRecipe.fats} g</Text>
+              </View>
+              <View style={[st.dtMacroBox, { borderRightWidth: 1.5 }]}>
+                <Text style={st.dtMacroLabel}>carbs</Text>
+                <Text style={st.dtMacroVal}>{selectedRecipe.carbs} g</Text>
               </View>
             </View>
 
             {/* Ingredients */}
-            <View style={styles.detailSection}>
-              <Text style={styles.sectionTitle}>Ingredients</Text>
-              {selectedRecipe.ingredients.map((ingredient, index) => (
-                <View key={index} style={styles.listItem}>
-                  <MaterialIcons name="check-circle" size={20} color={colors.success} />
-                  <Text style={styles.listItemText}>{ingredient}</Text>
+            <View style={st.dtSection}>
+              <Text style={st.dtSecTitle}>ingredients:</Text>
+              {selectedRecipe.ingredients.map((ing, i) => (
+                <View key={i} style={st.dtIngRow}>
+                  <View style={st.dtIngDot} />
+                  <Text style={st.dtIngText}>{ing}</Text>
                 </View>
               ))}
             </View>
 
             {/* Instructions */}
-            <View style={styles.detailSection}>
-              <Text style={styles.sectionTitle}>Instructions</Text>
-              {selectedRecipe.instructions.map((instruction, index) => (
-                <View key={index} style={styles.instructionItem}>
-                  <View style={styles.instructionNumber}>
-                    <Text style={styles.instructionNumberText}>{index + 1}</Text>
+            <View style={st.dtSection}>
+              <Text style={st.dtSecTitle}>instructions:</Text>
+              {selectedRecipe.instructions.map((step, i) => (
+                <View key={i} style={st.dtStepRow}>
+                  <View style={st.dtStepNum}>
+                    <Text style={st.dtStepNumText}>{i + 1}</Text>
                   </View>
-                  <Text style={styles.instructionText}>{instruction}</Text>
+                  <Text style={st.dtStepText}>{step}</Text>
                 </View>
               ))}
             </View>
-
-            <View style={{ height: 100 }} />
           </ScrollView>
 
-          {/* Add to Meal Button */}
-          <View style={styles.detailFooter}>
+          {/* Add button */}
+          <View style={st.dtFooter}>
             <TouchableOpacity
-              style={styles.addButton}
+              style={st.dtAddBtn}
+              activeOpacity={0.85}
               onPress={() => {
                 onSelectRecipe(selectedRecipe);
                 setSelectedRecipe(null);
                 onClose();
               }}
             >
-              <LinearGradient
-                colors={[colors.success, colors.teal]}
-                style={styles.addButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <MaterialIcons name="add-circle" size={24} color={colors.textLight} />
-                <Text style={styles.addButtonText}>Add to My Meals</Text>
-              </LinearGradient>
+              <Plus size={18} color="#FFF" weight="bold" />
+              <Text style={st.dtAddBtnText}>Add to My Meals</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
     );
   };
+
+  /* ═══════════════════════════════════════
+     ── MAIN BROWSER VIEW ──
+     ═══════════════════════════════════════ */
 
   return (
     <>
@@ -206,150 +228,147 @@ export const RecipeBrowser: React.FC<RecipeBrowserProps> = ({
         transparent={false}
         onRequestClose={onClose}
       >
-        <View style={styles.container}>
-          {/* Compact Header */}
-          <View style={styles.header}>
-            <View style={styles.headerTop}>
-              <View style={styles.headerTitleSection}>
-                <MaterialIcons name="restaurant-menu" size={28} color={colors.primary} />
-                <Text style={styles.headerTitle}>Recipe Browser</Text>
-              </View>
-              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <MaterialIcons name="close" size={24} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
+        <View style={st.container}>
+          <StatusBar barStyle="dark-content" />
 
-            {/* Search Bar */}
-            <View style={styles.searchContainer}>
-              <MaterialIcons name="search" size={20} color={colors.textSecondary} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search recipes..."
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholderTextColor={colors.textSecondary}
-              />
-              {searchQuery !== '' && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <MaterialIcons name="close" size={18} color={colors.textSecondary} />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-
-          {/* Type Filter - Below Header */}
-          <View style={styles.filterSection}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScrollContent}>
-              {['all', 'breakfast', 'lunch', 'dinner', 'snack'].map(type => (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.filterChip,
-                    selectedType === type && styles.filterChipActive,
-                  ]}
-                  onPress={() => setSelectedType(type as any)}
-                >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      selectedType === type && styles.filterChipTextActive,
-                    ]}
-                  >
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <View style={styles.resultsCountBadge}>
-              <Text style={styles.resultsCount}>{filteredRecipes.length}</Text>
-            </View>
-          </View>
-
-          {/* Results */}
-          <ScrollView style={styles.resultsScroll} contentContainerStyle={styles.resultsScrollContent}>
-            <View style={styles.resultsContainer}>
-              {filteredRecipes.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <MaterialIcons name="search-off" size={64} color={colors.textSecondary} />
-                  <Text style={styles.emptyStateText}>No recipes found</Text>
-                  <Text style={styles.emptyStateSubtext}>
-                    Try adjusting your filters or search terms
-                  </Text>
+          {/* Recipe Grid */}
+          <ScrollView
+            style={st.list}
+            contentContainerStyle={st.listContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Header */}
+            <View style={st.header}>
+              <View style={st.headerRow}>
+                <View>
+                  <Text style={st.headerTitle}>Recipes</Text>
+                  <Text style={st.headerSub}>{filteredRecipes.length} recipes found</Text>
                 </View>
-              ) : (
-                filteredRecipes.map(recipe => (
+                <TouchableOpacity style={st.closeBtn} onPress={onClose}>
+                  <X size={18} color="#666" weight="bold" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Search */}
+              <View style={st.searchBar}>
+                <MagnifyingGlass size={18} color="#AAA" weight="bold" />
+                <TextInput
+                  style={st.searchInput}
+                  placeholder="Search recipes..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholderTextColor="#BBB"
+                />
+                {searchQuery !== '' && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <X size={16} color="#AAA" weight="bold" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Filter Chips */}
+            <View style={st.filterBar}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={st.filterScroll}
+              >
+                {(['all', 'breakfast', 'lunch', 'dinner', 'snack'] as const).map(type => {
+                  const active = selectedType === type;
+                  const cfg = type !== 'all' ? MEAL_TYPE_CONFIG[type] : null;
+                  const Icon = cfg?.icon || ForkKnife;
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      style={[st.filterChip, active && st.filterChipActive]}
+                      onPress={() => setSelectedType(type)}
+                      activeOpacity={0.7}
+                    >
+                      {type !== 'all' && (
+                        <Icon
+                          size={14}
+                          color={active ? '#FFF' : '#888'}
+                          weight={active ? 'fill' : 'regular'}
+                        />
+                      )}
+                      <Text style={[st.filterChipText, active && st.filterChipTextActive]}>
+                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {filteredRecipes.length === 0 ? (
+              <View style={st.empty}>
+                <MagnifyingGlass size={48} color="#DDD" weight="regular" />
+                <Text style={st.emptyTitle}>No recipes found</Text>
+                <Text style={st.emptySub}>Try different filters or search terms</Text>
+              </View>
+            ) : (
+              filteredRecipes.map((recipe, idx) => {
+                const cfg = MEAL_TYPE_CONFIG[recipe.type] || MEAL_TYPE_CONFIG.dinner;
+                const MIcon = cfg.icon;
+                const theme = CARD_THEMES[idx % CARD_THEMES.length];
+                const diffColor = DIFFICULTY_COLORS[recipe.difficulty] || C.amber;
+                return (
                   <TouchableOpacity
                     key={recipe.id}
-                    style={styles.recipeCard}
+                    style={[st.card, { backgroundColor: theme.bg }]}
                     onPress={() => setSelectedRecipe(recipe)}
+                    activeOpacity={0.9}
                   >
-                    <View style={styles.recipeCardTop}>
-                      <Text style={styles.recipeCardTitle} numberOfLines={2}>
-                        {recipe.name}
+                    {/* Image zone */}
+                    <View style={st.cardImgZone}>
+                      <View style={[st.cardImgTint, { backgroundColor: theme.imgBg }]} />
+                      <View style={st.cardImgWrap}>
+                        {recipe.imageUrl ? (
+                          <Image source={{ uri: recipe.imageUrl }} style={st.cardImg} />
+                        ) : (
+                          <View style={[st.cardImgFallback, { backgroundColor: cfg.color + '18' }]}>
+                            <MIcon size={48} color={cfg.color} weight="duotone" />
+                          </View>
+                        )}
+                      </View>
+                      {/* Category pill */}
+                      <View style={st.cardCatPill}>
+                        <MIcon size={14} color="#555" weight="fill" />
+                        <Text style={st.cardCatPillText}>
+                          {recipe.type.charAt(0).toUpperCase() + recipe.type.slice(1)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Body */}
+                    <View style={st.cardBody}>
+                      <Text style={st.cardTitle} numberOfLines={2}>{recipe.name}</Text>
+                      <Text style={st.cardDesc} numberOfLines={1}>
+                        {recipe.description || `${recipe.type} · ${recipe.calories} calories`}
                       </Text>
-                      <View style={styles.recipeCardBadges}>
-                        <View
-                          style={[
-                            styles.difficultyChip,
-                            { backgroundColor: getDifficultyColor(recipe.difficulty) + '20', borderColor: getDifficultyColor(recipe.difficulty) },
-                          ]}
-                        >
-                          <Text style={[styles.difficultyChipText, { color: getDifficultyColor(recipe.difficulty) }]}>
-                            {recipe.difficulty}
-                          </Text>
-                        </View>
-                        <View style={styles.calorieChip}>
-                          <MaterialIcons name="local-fire-department" size={16} color={colors.accent} />
-                          <Text style={styles.calorieChipText}>{recipe.calories}</Text>
-                        </View>
-                      </View>
-                    </View>
 
-                    <View style={styles.recipeCardMeta}>
-                      <View style={styles.recipeMetaItem}>
-                        <View style={styles.metaIconCircle}>
-                          <MaterialIcons name="schedule" size={14} color={colors.primary} />
+                      {/* Bottom info pills */}
+                      <View style={st.cardPillRow}>
+                        <View style={[st.cardInfoPill, { backgroundColor: '#FFF5E0' }]}>
+                          <Fire size={16} color="#F59E0B" weight="fill" />
+                          <Text style={[st.cardInfoPillText, { color: '#B47408' }]}>{recipe.calories}</Text>
                         </View>
-                        <Text style={styles.recipeMetaText}>{recipe.prepTime + recipe.cookTime} min</Text>
-                      </View>
-                      <View style={styles.recipeMetaItem}>
-                        <View style={styles.metaIconCircle}>
-                          <MaterialIcons name="restaurant-menu" size={14} color={colors.teal} />
+                        <View style={[st.cardInfoPill, { backgroundColor: '#E8F5E8' }]}>
+                          <Clock size={16} color="#4CAF50" weight="fill" />
+                          <Text style={[st.cardInfoPillText, { color: '#2E7D32' }]}>{recipe.prepTime + recipe.cookTime} mins</Text>
                         </View>
-                        <Text style={styles.recipeMetaText}>{recipe.servings} servings</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.recipeMacrosSection}>
-                      <Text style={styles.macrosLabel}>Macros</Text>
-                      <View style={styles.macrosGrid}>
-                        <View style={styles.macroItem}>
-                          <View style={[styles.macroIconBadge, { backgroundColor: colors.primary + '15' }]}>
-                            <MaterialIcons name="fitness-center" size={14} color={colors.primary} />
-                          </View>
-                          <Text style={styles.macroValue}>{recipe.protein}g</Text>
-                          <Text style={styles.macroLabel}>Protein</Text>
-                        </View>
-                        <View style={styles.macroItem}>
-                          <View style={[styles.macroIconBadge, { backgroundColor: colors.secondary + '15' }]}>
-                            <MaterialIcons name="grain" size={14} color={colors.secondary} />
-                          </View>
-                          <Text style={styles.macroValue}>{recipe.carbs}g</Text>
-                          <Text style={styles.macroLabel}>Carbs</Text>
-                        </View>
-                        <View style={styles.macroItem}>
-                          <View style={[styles.macroIconBadge, { backgroundColor: colors.purple + '15' }]}>
-                            <MaterialIcons name="water-drop" size={14} color={colors.purple} />
-                          </View>
-                          <Text style={styles.macroValue}>{recipe.fats}g</Text>
-                          <Text style={styles.macroLabel}>Fats</Text>
+                        <View style={[st.cardInfoPill, { backgroundColor: diffColor + '15' }]}>
+                          <ChartBar size={16} color={diffColor} weight="fill" />
+                          <Text style={[st.cardInfoPillText, { color: diffColor }]}>{recipe.difficulty.charAt(0).toUpperCase() + recipe.difficulty.slice(1)}</Text>
                         </View>
                       </View>
                     </View>
                   </TouchableOpacity>
-                ))
-              )}
-            </View>
+                );
+              })
+            )}
+            <View style={{ height: 40 }} />
           </ScrollView>
         </View>
       </Modal>
@@ -359,396 +378,380 @@ export const RecipeBrowser: React.FC<RecipeBrowserProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+/* ═══════════════════════════════════════════════════
+   ── STYLES ──
+   ═══════════════════════════════════════════════════ */
+
+const st = StyleSheet.create({
+  /* Container */
+  container: { flex: 1, backgroundColor: C.bg },
+
+  /* Header */
   header: {
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingTop: 20,
+    paddingBottom: 16,
   },
-  headerTop: {
+  headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
-  headerTitleSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  headerTitle: {
+    fontFamily: F.bold,
+    fontSize: 28,
+    color: C.text,
+    letterSpacing: -0.8,
   },
-  closeButton: {
+  headerSub: {
+    fontFamily: F.medium,
+    fontSize: 13,
+    color: C.dim,
+    marginTop: 2,
+  },
+  closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.background,
+    backgroundColor: '#F3F3F3',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: fontSizes.lg,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-  },
-  searchContainer: {
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    gap: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: fontSizes.sm,
-    color: colors.textPrimary,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: F.medium,
+    fontSize: 15,
+    color: C.text,
+    padding: 0,
   },
-  filterSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingLeft: spacing.lg,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+
+  /* Filter bar */
+  filterBar: {
+    paddingVertical: 12,
+    marginBottom: 4,
   },
-  filterScrollContent: {
-    paddingRight: spacing.md,
-    gap: spacing.xs,
+  filterScroll: {
+    paddingHorizontal: 20,
+    gap: 8,
   },
   filterChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 100,
+    backgroundColor: '#F3F3F3',
   },
   filterChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: C.dark,
   },
   filterChipText: {
-    fontSize: fontSizes.xs,
-    color: colors.textPrimary,
-    fontFamily: 'Quicksand_600SemiBold',
+    fontFamily: F.semi,
+    fontSize: 13,
+    color: '#888',
   },
   filterChipTextActive: {
-    color: colors.textLight,
+    color: '#FFF',
   },
-  resultsCountBadge: {
-    marginLeft: spacing.md,
-    marginRight: spacing.lg,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.full,
-    minWidth: 32,
+
+  /* Recipe list */
+  list: { flex: 1 },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingTop: 0,
+  },
+
+  /* Empty state */
+  empty: {
     alignItems: 'center',
+    paddingTop: 80,
   },
-  resultsCount: {
-    fontSize: fontSizes.xs,
-    fontWeight: '700',
-    color: colors.textLight,
-    fontFamily: 'Poppins_700Bold',
+  emptyTitle: {
+    fontFamily: F.semi,
+    fontSize: 17,
+    color: '#BBB',
+    marginTop: 16,
   },
-  resultsScroll: {
-    flex: 1,
-  },
-  resultsScrollContent: {
-    padding: spacing.md,
-  },
-  resultsContainer: {
-    gap: spacing.sm,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: spacing.xxl * 2,
-  },
-  emptyStateText: {
-    fontSize: fontSizes.lg,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginTop: spacing.lg,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  emptyStateSubtext: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    fontFamily: 'Quicksand_500Medium',
-  },
-  recipeCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.06)',
-    elevation: 2,
-  },
-  recipeCardTop: {
-    marginBottom: spacing.sm,
-  },
-  recipeCardTitle: {
-    fontSize: fontSizes.md,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-    lineHeight: 22,
-    marginBottom: spacing.xs,
-  },
-  recipeCardBadges: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  difficultyChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-  },
-  difficultyChipText: {
-    fontSize: fontSizes.xs,
-    fontWeight: '600',
-    fontFamily: 'Quicksand_600SemiBold',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  calorieChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.accent + '10',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  calorieChipText: {
-    fontSize: fontSizes.xs,
-    fontWeight: '700',
-    color: colors.accent,
-    fontFamily: 'Poppins_700Bold',
-  },
-  recipeCardMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.sm,
-  },
-  recipeMetaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  metaIconCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  recipeMetaText: {
-    fontSize: fontSizes.xs,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  recipeMacrosSection: {
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  macrosLabel: {
-    fontSize: fontSizes.xs,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_600SemiBold',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: spacing.xs,
-  },
-  macrosGrid: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  macroItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  macroIconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  macroValue: {
-    fontSize: fontSizes.sm,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-  },
-  macroLabel: {
-    fontSize: fontSizes.xs,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-  },
-  macroBarDot: {
-    fontSize: fontSizes.sm,
-    color: colors.border,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  detailContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  detailScroll: {
-    flex: 1,
-  },
-  detailHeader: {
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
-    paddingHorizontal: spacing.lg,
-  },
-  detailHeaderContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  detailTitle: {
-    flex: 1,
-    fontSize: fontSizes.xl,
-    fontWeight: '700',
-    color: colors.textLight,
-    textAlign: 'center',
-    fontFamily: 'Poppins_700Bold',
-  },
-  detailSection: {
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  detailDescription: {
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-    lineHeight: 22,
-    fontFamily: 'Quicksand_500Medium',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: fontSizes.xl,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginTop: spacing.xs,
-    fontFamily: 'Poppins_700Bold',
-  },
-  statLabel: {
-    fontSize: fontSizes.xs,
-    color: colors.textSecondary,
+  emptySub: {
+    fontFamily: F.medium,
+    fontSize: 13,
+    color: '#CCC',
     marginTop: 4,
-    fontFamily: 'Quicksand_500Medium',
   },
-  sectionTitle: {
-    fontSize: fontSizes.lg,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.md,
-    fontFamily: 'Quicksand_600SemiBold',
+
+  /* Recipe card — inspired by reference design */
+  card: {
+    width: '100%',
+    borderRadius: 28,
+    overflow: 'hidden',
+    marginBottom: 18,
   },
-  listItem: {
+  cardImgZone: {
+    width: '100%',
+    height: 220,
+    position: 'relative',
+    padding: 12,
+    paddingBottom: 0,
+  },
+  cardImgTint: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '50%',
+    height: '100%',
+    borderBottomLeftRadius: 60,
+  },
+  cardImgWrap: {
+    flex: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#E8E8E8',
+  },
+  cardImg: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  cardImgFallback: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardCatPill: {
+    position: 'absolute',
+    top: 24,
+    right: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 14,
+    zIndex: 2,
+  },
+  cardCatPillText: {
+    fontFamily: F.semi,
+    fontSize: 14,
+    color: '#444',
+  },
+  cardBody: {
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 18,
+  },
+  cardTitle: {
+    fontFamily: F.bold,
+    fontSize: 21,
+    color: C.text,
+    letterSpacing: -0.4,
+    lineHeight: 27,
+    marginBottom: 4,
+  },
+  cardDesc: {
+    fontFamily: F.medium,
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 16,
+  },
+  cardPillRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cardInfoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 14,
+  },
+  cardInfoPillText: {
+    fontFamily: F.bold,
+    fontSize: 14,
+  },
+
+  /* ═══════════════════════════════════════
+     ── DETAIL VIEW STYLES ──
+     ═══════════════════════════════════════ */
+
+  dtContainer: { flex: 1 },
+
+  dtBackBtn: {
+    position: 'absolute',
+    top: 48,
+    left: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+
+  /* Centered image */
+  dtImgWrap: {
+    alignItems: 'center',
+    paddingTop: 40,
+    paddingBottom: 8,
+  },
+  dtImg: {
+    width: width * 0.75,
+    height: width * 0.75,
+    borderRadius: width * 0.375,
+    resizeMode: 'cover',
+  },
+  dtImgFallback: {
+    width: width * 0.75,
+    height: width * 0.75,
+    borderRadius: width * 0.375,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  /* Title + desc */
+  dtInfo: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 20,
+  },
+  dtTitle: {
+    fontFamily: F.bold,
+    fontSize: 28,
+    color: C.dark,
+    letterSpacing: -0.6,
+    lineHeight: 34,
+    marginBottom: 6,
+  },
+  dtDesc: {
+    fontFamily: F.medium,
+    fontSize: 16,
+    color: '#555',
+    lineHeight: 24,
+  },
+
+  /* Macro boxes */
+  dtMacroRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    gap: 0,
+    marginBottom: 24,
+  },
+  dtMacroBox: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: C.dark,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRightWidth: 0,
+  },
+  dtMacroLabel: {
+    fontFamily: F.medium,
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  dtMacroVal: {
+    fontFamily: F.bold,
+    fontSize: 22,
+    color: C.dark,
+    letterSpacing: -0.4,
+  },
+
+  /* Sections */
+  dtSection: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+  },
+  dtSecTitle: {
+    fontFamily: F.bold,
+    fontSize: 22,
+    color: C.dark,
+    letterSpacing: -0.4,
+    marginBottom: 16,
+  },
+
+  /* Ingredients */
+  dtIngRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: spacing.sm,
-    gap: spacing.sm,
+    gap: 12,
+    marginBottom: 10,
   },
-  listItemText: {
+  dtIngDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.dark,
+    marginTop: 7,
+  },
+  dtIngText: {
+    fontFamily: F.medium,
+    fontSize: 16,
+    color: '#333',
     flex: 1,
-    fontSize: fontSizes.sm,
-    color: colors.textPrimary,
-    lineHeight: 20,
-    fontFamily: 'Quicksand_500Medium',
+    lineHeight: 22,
   },
-  instructionItem: {
+
+  /* Steps */
+  dtStepRow: {
     flexDirection: 'row',
-    marginBottom: spacing.md,
-    gap: spacing.sm,
+    gap: 14,
+    marginBottom: 16,
   },
-  instructionNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
+  dtStepNum: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: C.dark,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 1,
   },
-  instructionNumberText: {
-    fontSize: fontSizes.sm,
-    fontWeight: '600',
-    color: colors.textLight,
-    fontFamily: 'Quicksand_600SemiBold',
+  dtStepNumText: {
+    fontFamily: F.bold,
+    fontSize: 14,
+    color: '#FFF',
   },
-  instructionText: {
+  dtStepText: {
     flex: 1,
-    fontSize: fontSizes.sm,
-    color: colors.textPrimary,
-    lineHeight: 20,
-    fontFamily: 'Quicksand_500Medium',
+    fontFamily: F.medium,
+    fontSize: 16,
+    color: '#333',
+    lineHeight: 24,
   },
-  detailFooter: {
-    padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
+
+  /* Footer */
+  dtFooter: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 30,
   },
-  addButton: {
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-  },
-  addButtonGradient: {
+  dtAddBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
+    gap: 8,
+    backgroundColor: C.dark,
+    height: 56,
+    borderRadius: 18,
   },
-  addButtonText: {
-    fontSize: fontSizes.md,
-    fontWeight: '600',
-    color: colors.textLight,
-    fontFamily: 'Quicksand_600SemiBold',
+  dtAddBtnText: {
+    fontFamily: F.bold,
+    fontSize: 17,
+    color: '#FFF',
+    letterSpacing: -0.2,
   },
 });

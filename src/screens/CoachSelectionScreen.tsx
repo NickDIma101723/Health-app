@@ -7,25 +7,96 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
   Modal,
-  Platform,
+  StatusBar,
+  Dimensions,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import Svg, { Circle } from 'react-native-svg';
+import {
+  ArrowLeft,
+  MagnifyingGlass,
+  X,
+  Star,
+  Users,
+  Barbell,
+  Brain,
+  Scales,
+  SoccerBall,
+  UserCircle,
+  ForkKnife,
+  ArrowRight,
+  ArrowUpRight,
+  PaperPlaneTilt,
+  ClockCountdown,
+  Trophy,
+  ShieldCheck,
+  Heart,
+  Lightning,
+  Sparkle,
+  Clock,
+  CaretRight,
+  Crown,
+  Leaf,
+  GraduationCap,
+  Wind,
+} from 'phosphor-react-native';
 import { useCoaches } from '../hooks';
 import { useCoachRequests } from '../hooks/useCoachRequests';
-import { BackgroundDecorations } from '../components';
+
+const { width } = Dimensions.get('window');
+
+const C = {
+  bg: '#FAFAFA',
+  card: '#FFFFFF',
+  cardDark: '#111111',
+  accent: '#10B981',
+  accentDark: '#059669',
+  lime: '#D4F940',
+  text: '#1A1A1A',
+  dim: '#8C8C8C',
+  border: '#EEEEEE',
+  warmBg: '#F5F0EB',
+  red: '#EF4444',
+  amber: '#F59E0B',
+  blue: '#3B82F6',
+  purple: '#8B5CF6',
+  teal: '#14B8A6',
+  pink: '#EC4899',
+  accentSoft: '#ECFDF5',
+} as const;
+
+const F = {
+  bold: 'PlusJakartaSans_700Bold',
+  semi: 'PlusJakartaSans_600SemiBold',
+  medium: 'PlusJakartaSans_500Medium',
+  regular: 'PlusJakartaSans_400Regular',
+} as const;
+
+const PAD = 20;
+
 
 interface CoachSelectionScreenProps {
   onNavigate?: (screen: string) => void;
   onSelectCoach?: (coachId: string) => void;
 }
 
-export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({ 
-  onNavigate, 
-  onSelectCoach 
+const SPEC_META: Record<string, { icon: any; color: string; bg: string; darkBg: string }> = {
+  'Nutrition':     { icon: ForkKnife,  color: '#F59E0B', bg: '#FEF3C7', darkBg: '#FFF7ED' },
+  'Fitness':       { icon: Barbell,    color: '#10B981', bg: '#ECFDF5', darkBg: '#0D3D2E' },
+  'Mental Health': { icon: Brain,      color: '#8B5CF6', bg: '#F5F3FF', darkBg: '#2E1065' },
+  'Weight Loss':   { icon: Scales,     color: '#EC4899', bg: '#FCE7F3', darkBg: '#831843' },
+  'Sports':        { icon: SoccerBall, color: '#3B82F6', bg: '#EFF6FF', darkBg: '#1E3A5F' },
+  'General':       { icon: UserCircle, color: '#8C8C8C', bg: '#F5F5F5', darkBg: '#333333' },
+};
+
+const getSpecMeta = (spec: string | null) =>
+  SPEC_META[spec || ''] || SPEC_META['General'];
+
+export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
+  onNavigate,
+  onSelectCoach,
 }) => {
   const { coaches, loading, fetchCoaches } = useCoaches();
   const { sendCoachRequest, hasPendingRequestWith, loadUserRequests } = useCoachRequests();
@@ -36,29 +107,20 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
   const [selectedCoach, setSelectedCoach] = useState<any>(null);
   const [showCoachDetail, setShowCoachDetail] = useState(false);
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{
     visible: boolean;
     title: string;
     message: string;
     onConfirm: () => void;
     onCancel?: () => void;
-  }>({
-    visible: false,
-    title: '',
-    message: '',
-    onConfirm: () => {},
-  });
+  }>({ visible: false, title: '', message: '', onConfirm: () => {} });
 
-  // Debounce search query
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300); // 300ms debounce
-
+    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Fetch coaches when screen mounts (only once)
   useEffect(() => {
     if (!hasFetchedOnce) {
       fetchCoaches();
@@ -68,403 +130,443 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
   }, [hasFetchedOnce]);
 
   const specializations = ['Nutrition', 'Fitness', 'Mental Health', 'Weight Loss', 'Sports', 'General'];
+  const activeCoaches = coaches.filter(c => c.is_active);
 
   const filteredCoaches = coaches.filter(coach => {
-    const matchesSearch = 
+    const matchesSearch =
       coach.full_name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
       (coach.specialization || '').toLowerCase().includes(debouncedSearchQuery.toLowerCase());
-    
-    const matchesSpecialization = 
-      !selectedSpecialization || 
-      coach.specialization === selectedSpecialization;
-    
+    const matchesSpecialization =
+      !selectedSpecialization || coach.specialization === selectedSpecialization;
     return matchesSearch && matchesSpecialization && coach.is_active;
   });
 
-  const handleSelectCoach = async (coach: any) => {
+  const handleSelectCoach = (coach: any) => {
     setSelectedCoach(coach);
     setShowCoachDetail(true);
   };
 
   const handleRequestCoach = async (coachId: string, coachName: string) => {
     setShowCoachDetail(false);
-    
-    // Check if already has pending request
+
     if (hasPendingRequestWith(coachId)) {
       setConfirmModal({
         visible: true,
         title: 'Request Pending',
         message: `You already have a pending request with ${coachName}. Please wait for their response.`,
-        onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, visible: false })),
       });
       return;
     }
-    
-    
+
     setConfirmModal({
       visible: true,
       title: 'Request Coach',
-      message: `Send a coaching request to ${coachName}? They will need to accept your request before you can start working together.`,
+      message: `Send a coaching request to ${coachName}? They will need to accept before you can start working together.`,
       onConfirm: async () => {
-        setConfirmModal({ ...confirmModal, visible: false });
+        setConfirmModal(prev => ({ ...prev, visible: false }));
         setRequesting(coachId);
-        
         try {
-          const result = await sendCoachRequest(coachId, `Hi ${coachName}! I'd love to work with you as my health coach. Looking forward to your guidance!`);
+          const result = await sendCoachRequest(
+            coachId,
+            `Hi ${coachName}! I'd love to work with you as my health coach. Looking forward to your guidance!`,
+          );
           if (result.error) {
             setConfirmModal({
               visible: true,
               title: 'Error',
               message: result.error,
-              onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+              onConfirm: () => setConfirmModal(prev => ({ ...prev, visible: false })),
             });
           } else {
-            await loadUserRequests(); 
-            
-            
+            await loadUserRequests();
             setConfirmModal({
               visible: true,
               title: 'Request Sent!',
               message: `Your coaching request has been sent to ${coachName}. You'll be notified when they respond.`,
               onConfirm: () => {
-                setConfirmModal({ ...confirmModal, visible: false });
+                setConfirmModal(prev => ({ ...prev, visible: false }));
                 onNavigate?.('home');
               },
             });
           }
-        } catch (error) {
+        } catch {
           setConfirmModal({
             visible: true,
             title: 'Error',
             message: 'Failed to send request. Please try again.',
-            onConfirm: () => setConfirmModal({ ...confirmModal, visible: false }),
+            onConfirm: () => setConfirmModal(prev => ({ ...prev, visible: false })),
           });
         } finally {
           setRequesting(null);
         }
       },
-      onCancel: () => setConfirmModal({ ...confirmModal, visible: false }),
+      onCancel: () => setConfirmModal(prev => ({ ...prev, visible: false })),
     });
   };
 
-  const getSpecializationIcon = (specialization: string | null) => {
-    switch (specialization) {
-      case 'Nutrition': return 'restaurant';
-      case 'Fitness': return 'fitness-center';
-      case 'Mental Health': return 'psychology';
-      case 'Weight Loss': return 'monitor-weight';
-      case 'Sports': return 'sports';
-      default: return 'person';
-    }
-  };
-
-  const getSpecializationColor = (specialization: string | null) => {
-    switch (specialization) {
-      case 'Nutrition': return colors.accent;
-      case 'Fitness': return colors.primary;
-      case 'Mental Health': return colors.purple;
-      case 'Weight Loss': return colors.secondary;
-      case 'Sports': return colors.success;
-      default: return colors.textSecondary;
-    }
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
-      <BackgroundDecorations />
+    <SafeAreaView style={s.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => onNavigate?.('home')}
-          style={styles.backButton}
-        >
-          <MaterialIcons name="arrow-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.headerSubtitle}>Find Your</Text>
-          <Text style={styles.headerTitle}>Health Coach</Text>
-        </View>
-      </View>
-
-      <View style={styles.content}>
-        <View style={[styles.searchContainer, shadows.sm]}>
-          <MaterialIcons name="search" size={20} color={colors.textSecondary} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search coaches..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor={colors.textSecondary}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <MaterialIcons name="close" size={20} color={colors.textSecondary} />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── HEADER ── */}
+        <Animated.View entering={FadeInDown.duration(500).springify()}>
+          <View style={s.header}>
+            <TouchableOpacity onPress={() => onNavigate?.('home')} style={s.backBtn}>
+              <ArrowLeft size={20} color={C.text} />
             </TouchableOpacity>
-          )}
-        </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.headerSub}>Find Your</Text>
+              <Text style={s.headerTitle}>Health Coach</Text>
+            </View>
+          </View>
+        </Animated.View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
-          contentContainerStyle={styles.filterScrollContent}
-        >
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              !selectedSpecialization && styles.filterChipActive,
-            ]}
-            onPress={() => setSelectedSpecialization(null)}
-          >
-            <Text
-              style={[
-                styles.filterChipText,
-                !selectedSpecialization && styles.filterChipTextActive,
-              ]}
+        {/* ── HERO SECTION ── */}
+        <Animated.View entering={FadeInDown.delay(40).duration(600).springify()}>
+          <View style={s.hero}>
+            <View style={s.heroRow}>
+              {/* Progress Ring */}
+              <View style={s.heroRing}>
+                <Svg width={110} height={110}>
+                  <Circle cx={55} cy={55} r={46} stroke="rgba(0,0,0,0.06)" strokeWidth={9} fill="none" />
+                  <Circle
+                    cx={55} cy={55} r={46}
+                    stroke={C.accent}
+                    strokeWidth={9}
+                    fill="none"
+                    strokeDasharray={2 * Math.PI * 46}
+                    strokeDashoffset={2 * Math.PI * 46 - (2 * Math.PI * 46 * Math.min(100, (activeCoaches.length / 10) * 100)) / 100}
+                    strokeLinecap="round"
+                    transform="rotate(-90 55 55)"
+                  />
+                </Svg>
+                <View style={s.heroRingCenter}>
+                  <GraduationCap size={26} color={C.accent} weight="duotone" />
+                </View>
+              </View>
+
+              <View style={s.heroInfo}>
+                <Text style={s.heroLabel}>AVAILABLE COACHES</Text>
+                <Text style={s.heroValue}>
+                  {activeCoaches.length}
+                  <Text style={s.heroValueUnit}> experts</Text>
+                </Text>
+                <View style={s.heroPill}>
+                  <View style={s.heroPillDot} />
+                  <Text style={s.heroPillText}>{specializations.length} specializations</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Stat strip */}
+            <View style={s.heroStrip}>
+              <View style={s.heroStripItem}>
+                <Text style={s.heroStripVal}>4.9</Text>
+                <Text style={s.heroStripLabel}>avg rating</Text>
+              </View>
+              <View style={s.heroStripDiv} />
+              <View style={s.heroStripItem}>
+                <Text style={s.heroStripVal}>150+</Text>
+                <Text style={s.heroStripLabel}>clients</Text>
+              </View>
+              <View style={s.heroStripDiv} />
+              <View style={s.heroStripItem}>
+                <Text style={s.heroStripVal}>5+</Text>
+                <Text style={s.heroStripLabel}>years exp</Text>
+              </View>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* ── SEARCH ── */}
+        <Animated.View entering={FadeInDown.delay(80).duration(400).springify()} style={{ paddingHorizontal: PAD, marginBottom: 16 }}>
+          <View style={[s.search, searchFocused && s.searchFocused]}>
+            <MagnifyingGlass size={17} color={C.dim} />
+            <TextInput
+              style={s.searchInput}
+              placeholder="Search by name or specialty…"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor={C.dim}
+              selectionColor={C.accent}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <View style={s.searchClear}><X size={11} color={C.dim} weight="bold" /></View>
+              </TouchableOpacity>
+            )}
+          </View>
+        </Animated.View>
+
+        {/* ── TAB BAR (specialisation filter) ── */}
+        <Animated.View entering={FadeInDown.delay(100).duration(500).springify()}>
+          <View style={s.sectionHead}>
+            <Text style={s.sectionTitle}>Browse</Text>
+          </View>
+          <View style={{ marginHorizontal: -PAD, marginBottom: 16 }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingLeft: 40, paddingRight: 40, gap: 8 }}
             >
-              All
-            </Text>
-          </TouchableOpacity>
-          {specializations.map((spec) => (
-            <TouchableOpacity
-              key={spec}
-              style={[
-                styles.filterChip,
-                selectedSpecialization === spec && styles.filterChipActive,
-              ]}
-              onPress={() => setSelectedSpecialization(spec)}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  selectedSpecialization === spec && styles.filterChipTextActive,
-                ]}
+              <TouchableOpacity
+                style={[s.tabChip, !selectedSpecialization && s.tabChipActive]}
+                onPress={() => setSelectedSpecialization(null)}
               >
-                {spec}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+                <Sparkle size={14} color={!selectedSpecialization ? '#FFF' : C.dim} weight={!selectedSpecialization ? 'fill' : 'regular'} style={{ marginRight: 4 }} />
+                <Text style={[s.tabChipText, !selectedSpecialization && s.tabChipTextActive]}>All</Text>
+              </TouchableOpacity>
+              {specializations.map((spec, idx) => {
+                const meta = getSpecMeta(spec);
+                const active = selectedSpecialization === spec;
+                const SpecIcon = meta.icon;
+                return (
+                  <TouchableOpacity
+                    key={spec}
+                    style={[s.tabChip, active && s.tabChipActive]}
+                    onPress={() => setSelectedSpecialization(spec === selectedSpecialization ? null : spec)}
+                  >
+                    <SpecIcon size={14} color={active ? '#FFF' : meta.color} weight={active ? 'fill' : 'regular'} style={{ marginRight: 4 }} />
+                    <Text style={[s.tabChipText, active && s.tabChipTextActive]}>{spec}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </Animated.View>
 
-        <ScrollView
-          style={styles.coachList}
-          contentContainerStyle={styles.coachListContent}
-          showsVerticalScrollIndicator={false}
-        >
+        {/* ── COACH LIST (exercise-card style) ── */}
+        <View style={{ paddingHorizontal: PAD }}>
           {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Loading coaches...</Text>
+            <View style={s.loading}>
+              <View style={s.loadingPulse}>
+                <ActivityIndicator size="large" color={C.accent} />
+              </View>
+              <Text style={s.loadingText}>Finding coaches…</Text>
             </View>
           ) : filteredCoaches.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <MaterialIcons name="person-search" size={64} color={colors.textSecondary} />
-              <Text style={styles.emptyTitle}>No coaches found</Text>
-              <Text style={styles.emptyText}>
-                {searchQuery
-                  ? 'Try adjusting your search'
-                  : 'No coaches available in this category'}
+            <View style={s.empty}>
+              <View style={s.emptyCircle}>
+                <MagnifyingGlass size={30} color={C.dim} />
+              </View>
+              <Text style={s.emptyTitle}>No coaches found</Text>
+              <Text style={s.emptyText}>
+                {searchQuery ? 'Try adjusting your search' : 'No coaches available for this category'}
               </Text>
             </View>
           ) : (
-            filteredCoaches.map((coach) => (
-              <TouchableOpacity
-                key={coach.id}
-                style={[styles.coachCard, shadows.md]}
-                onPress={() => handleSelectCoach(coach)}
-                disabled={requesting === coach.id}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={[
-                    styles.coachAvatar,
-                    { backgroundColor: getSpecializationColor(coach.specialization) + '20' },
-                  ]}
-                >
-                  <MaterialIcons
-                    name={getSpecializationIcon(coach.specialization) as any}
-                    size={40}
-                    color={getSpecializationColor(coach.specialization)}
-                  />
-                </View>
+            filteredCoaches.map((coach, index) => {
+              const meta = getSpecMeta(coach.specialization);
+              const SpecIcon = meta.icon;
+              const isPending = hasPendingRequestWith(coach.id);
+              const isRequesting = requesting === coach.id;
+              // Alternate card backgrounds like MindfulnessScreen exercises
+              const isDark = index % 4 === 2;
+              const isWarm = index % 4 === 1;
+              const cardBg = isDark ? C.cardDark : isWarm ? meta.bg : C.card;
+              const textCol = isDark ? '#FFF' : C.text;
+              const dimCol = isDark ? 'rgba(255,255,255,0.5)' : C.dim;
+              const borderCol = isDark || isWarm ? 'transparent' : C.border;
 
-                <View style={styles.coachInfo}>
-                  <Text style={styles.coachName}>{coach.full_name}</Text>
-                  {coach.specialization && (
-                    <View style={[styles.specializationBadge, { backgroundColor: getSpecializationColor(coach.specialization) + '15' }]}>
-                      <MaterialIcons name="star" size={12} color={getSpecializationColor(coach.specialization)} />
-                      <Text style={[styles.specializationText, { color: getSpecializationColor(coach.specialization) }]}>{coach.specialization}</Text>
+              return (
+                <Animated.View key={coach.id} entering={FadeInDown.delay(180 + index * 50).duration(400).springify()}>
+                  <TouchableOpacity
+                    style={[s.coachCard, { backgroundColor: cardBg, borderColor: borderCol }]}
+                    onPress={() => handleSelectCoach(coach)}
+                    disabled={isRequesting}
+                    activeOpacity={0.85}
+                  >
+                    {/* Icon */}
+                    <View style={[s.coachIcon, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : `${meta.color}18` }]}>
+                      <SpecIcon size={22} color={isDark ? meta.bg : meta.color} weight="duotone" />
                     </View>
-                  )}
-                  {coach.bio && (
-                    <Text style={styles.coachBio} numberOfLines={2}>
-                      {coach.bio}
-                    </Text>
-                  )}
-                  <View style={styles.coachFooter}>
-                    <View style={styles.ratingContainer}>
-                      <MaterialIcons name="star" size={14} color={colors.accent} />
-                      <Text style={styles.ratingText}>4.9</Text>
-                    </View>
-                    <View style={styles.clientsContainer}>
-                      <MaterialIcons name="people" size={14} color={colors.textSecondary} />
-                      <Text style={styles.clientsText}>150+ clients</Text>
-                    </View>
-                  </View>
-                </View>
 
-                <View style={styles.arrowContainer}>
-                  {requesting === coach.id ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : hasPendingRequestWith(coach.id) ? (
-                    
-                    <View style={styles.pendingContainer}>
-                      <MaterialIcons name="schedule" size={16} color={colors.warning} />
-                      <Text style={styles.pendingText}>Pending</Text>
+                    {/* Info */}
+                    <View style={s.coachInfo}>
+                      <Text style={[s.coachName, { color: textCol }]}>{coach.full_name}</Text>
+                      <Text style={[s.coachDesc, { color: dimCol }]}>
+                        {coach.bio || `${coach.specialization || 'General'} specialist`}
+                      </Text>
+                      <View style={s.coachMeta}>
+                        <View style={[s.pill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }]}>
+                          <Clock size={11} color={dimCol} />
+                          <Text style={[s.pillText, { color: dimCol }]}>{coach.specialization || 'General'}</Text>
+                        </View>
+                        <View style={[s.pill, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }]}>
+                          <Star size={11} color={isDark ? C.lime : C.amber} weight="fill" />
+                          <Text style={[s.pillText, { color: dimCol }]}>4.9</Text>
+                        </View>
+                      </View>
                     </View>
-                  ) : (
-                    
-                    <TouchableOpacity
-                      style={styles.arrowButton}
-                      onPress={() => handleRequestCoach(coach.id, coach.full_name)}
-                      activeOpacity={0.7}
-                      disabled={requesting === coach.id}
-                    >
-                      <MaterialIcons name="person-add" size={20} color={colors.primary} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))
+
+                    {/* Action */}
+                    {isRequesting ? (
+                      <ActivityIndicator size="small" color={isDark ? C.lime : C.accent} />
+                    ) : isPending ? (
+                      <View style={[s.pendingBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#FEF3C7' }]}>
+                        <ClockCountdown size={14} color={isDark ? C.lime : C.amber} weight="fill" />
+                      </View>
+                    ) : (
+                      <View style={[s.goBtn, { backgroundColor: isDark ? C.lime : meta.color }]}>
+                        <ArrowUpRight size={16} color={isDark ? C.text : '#FFF'} weight="bold" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </Animated.View>
+              );
+            })
           )}
+        </View>
 
-          <View style={styles.becomeCoachSection}>
-            <View style={[styles.becomeCoachCard, shadows.md]}>
-              <View style={styles.becomeCoachIcon}>
-                <MaterialIcons name="workspace-premium" size={32} color={colors.primary} />
+        {/* ── BECOME A COACH ── */}
+        <Animated.View entering={FadeInDown.delay(400).duration(500).springify()} style={{ paddingHorizontal: PAD, marginTop: 20 }}>
+          <View style={s.ctaCard}>
+            <View style={s.ctaRow}>
+              <View style={s.ctaIconBg}>
+                <Crown size={26} color={C.text} weight="fill" />
               </View>
-              <Text style={styles.becomeCoachTitle}>Want to become a coach?</Text>
-              <Text style={styles.becomeCoachText}>
-                Help others achieve their health goals and share your expertise
-              </Text>
-              <TouchableOpacity
-                style={styles.becomeCoachButton}
-                onPress={() => onNavigate?.('become-coach')}
-              >
-                <Text style={styles.becomeCoachButtonText}>Learn More</Text>
-                <MaterialIcons name="arrow-forward" size={18} color={colors.textLight} />
-              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Text style={s.ctaTitle}>Become a Coach</Text>
+                <Text style={s.ctaDesc}>Share your expertise and help others reach their goals</Text>
+              </View>
             </View>
+            <TouchableOpacity style={s.ctaBtn} onPress={() => onNavigate?.('become-coach')} activeOpacity={0.8}>
+              <Text style={s.ctaBtnText}>Get Started</Text>
+              <ArrowRight size={16} color={C.text} weight="bold" />
+            </TouchableOpacity>
           </View>
-        </ScrollView>
-      </View>
+        </Animated.View>
+      </ScrollView>
 
-      <Modal
-        visible={showCoachDetail}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowCoachDetail(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, shadows.lg]}>
-            <TouchableOpacity 
-              style={styles.closeModal}
-              onPress={() => setShowCoachDetail(false)}
-            >
-              <MaterialIcons name="close" size={24} color={colors.textSecondary} />
+      {/* ── COACH DETAIL MODAL ── */}
+      <Modal visible={showCoachDetail} animationType="slide" transparent onRequestClose={() => setShowCoachDetail(false)}>
+        <View style={s.overlay}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowCoachDetail(false)} />
+          <View style={s.sheet}>
+            <View style={s.sheetHandle} />
+            <TouchableOpacity style={s.sheetClose} onPress={() => setShowCoachDetail(false)}>
+              <X size={18} color={C.dim} weight="bold" />
             </TouchableOpacity>
 
-            {selectedCoach && (
-              <>
-                <View
-                  style={[
-                    styles.modalAvatar,
-                    { backgroundColor: getSpecializationColor(selectedCoach.specialization) + '20' },
-                  ]}
-                >
-                  <MaterialIcons
-                    name={getSpecializationIcon(selectedCoach.specialization) as any}
-                    size={48}
-                    color={getSpecializationColor(selectedCoach.specialization)}
-                  />
-                </View>
-
-                <Text style={styles.modalName}>{selectedCoach.full_name}</Text>
-                
-                {selectedCoach.specialization && (
-                  <View style={styles.modalSpecializationBadge}>
-                    <MaterialIcons
-                      name="star"
-                      size={16}
-                      color={getSpecializationColor(selectedCoach.specialization)}
-                    />
-                    <Text
-                      style={[
-                        styles.modalSpecializationText,
-                        { color: getSpecializationColor(selectedCoach.specialization) },
-                      ]}
-                    >
-                      {selectedCoach.specialization} Specialist
-                    </Text>
+            {selectedCoach && (() => {
+              const meta = getSpecMeta(selectedCoach.specialization);
+              const SpecIcon = meta.icon;
+              const isPending = hasPendingRequestWith(selectedCoach.id);
+              return (
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+                  {/* avatar + name */}
+                  <View style={s.sheetTop}>
+                    <View style={[s.sheetAvatar, { backgroundColor: meta.bg }]}>
+                      <SpecIcon size={40} color={meta.color} weight="duotone" />
+                    </View>
+                    <Text style={s.sheetName}>{selectedCoach.full_name}</Text>
+                    <View style={[s.sheetSpecBadge, { backgroundColor: meta.bg }]}>
+                      <Star size={13} color={meta.color} weight="fill" />
+                      <Text style={[s.sheetSpecText, { color: meta.color }]}>
+                        {selectedCoach.specialization || 'General'} Specialist
+                      </Text>
+                    </View>
                   </View>
-                )}
 
-                {selectedCoach.bio && (
-                  <Text style={styles.modalBio}>{selectedCoach.bio}</Text>
-                )}
+                  {/* Stat cards */}
+                  <View style={s.sheetStats}>
+                    <View style={[s.sheetStatCard, { backgroundColor: C.accentSoft }]}>
+                      <Star size={18} color={C.accent} weight="fill" />
+                      <Text style={s.sheetStatVal}>4.9</Text>
+                      <Text style={s.sheetStatLabel}>Rating</Text>
+                    </View>
+                    <View style={[s.sheetStatCard, { backgroundColor: '#FEF3C7' }]}>
+                      <Users size={18} color={C.amber} weight="fill" />
+                      <Text style={s.sheetStatVal}>150+</Text>
+                      <Text style={s.sheetStatLabel}>Clients</Text>
+                    </View>
+                    <View style={[s.sheetStatCard, { backgroundColor: '#EFF6FF' }]}>
+                      <Trophy size={18} color={C.blue} weight="fill" />
+                      <Text style={s.sheetStatVal}>5+</Text>
+                      <Text style={s.sheetStatLabel}>Years</Text>
+                    </View>
+                  </View>
 
-                <View style={styles.modalActions}>
+                  {/* Bio */}
+                  {selectedCoach.bio && (
+                    <View style={s.sheetBioCard}>
+                      <Text style={s.sheetBioTitle}>About</Text>
+                      <Text style={s.sheetBio}>{selectedCoach.bio}</Text>
+                    </View>
+                  )}
+
+                  {/* Features */}
+                  <View style={s.sheetFeatures}>
+                    {[
+                      { icon: <ShieldCheck size={18} color={C.accent} weight="fill" />, label: 'Verified Coach', bg: C.accentSoft },
+                      { icon: <Heart size={18} color={C.red} weight="fill" />, label: 'Personalized Plans', bg: '#FEE2E2' },
+                      { icon: <Lightning size={18} color={C.amber} weight="fill" />, label: 'Fast Responses', bg: '#FEF3C7' },
+                    ].map((f, i) => (
+                      <View key={i} style={[s.sheetFeatureRow, { backgroundColor: f.bg }]}>
+                        {f.icon}
+                        <Text style={s.sheetFeatureText}>{f.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* CTA */}
                   <TouchableOpacity
-                    style={[styles.modalButton, styles.assignButton]}
+                    style={[s.sheetCta, isPending && { backgroundColor: C.warmBg }]}
                     onPress={() => handleRequestCoach(selectedCoach.id, selectedCoach.full_name)}
+                    activeOpacity={0.8}
                   >
-                    <MaterialIcons name="send" size={20} color={colors.textLight} />
-                    <Text style={styles.assignButtonText}>
-                      {hasPendingRequestWith(selectedCoach.id) ? 'Request Pending' : 'Send Request'}
-                    </Text>
+                    {isPending ? (
+                      <>
+                        <ClockCountdown size={20} color={C.amber} weight="fill" />
+                        <Text style={[s.sheetCtaText, { color: C.amber }]}>Request Pending</Text>
+                      </>
+                    ) : (
+                      <>
+                        <PaperPlaneTilt size={20} color="#FFF" weight="fill" />
+                        <Text style={s.sheetCtaText}>Send Request</Text>
+                      </>
+                    )}
                   </TouchableOpacity>
-                </View>
-              </>
-            )}
+                </ScrollView>
+              );
+            })()}
           </View>
         </View>
       </Modal>
 
-      {}
+      {/* ── CONFIRM MODAL ── */}
       <Modal
         visible={confirmModal.visible}
         transparent
         animationType="fade"
         onRequestClose={() => {
-          if (confirmModal.onCancel) {
-            confirmModal.onCancel();
-          } else {
-            setConfirmModal({ ...confirmModal, visible: false });
-          }
+          if (confirmModal.onCancel) confirmModal.onCancel();
+          else setConfirmModal(prev => ({ ...prev, visible: false }));
         }}
       >
-        <View style={styles.confirmModalOverlay}>
-          <View style={styles.confirmModalContent}>
-            <Text style={styles.confirmModalTitle}>{confirmModal.title}</Text>
-            <Text style={styles.confirmModalMessage}>{confirmModal.message}</Text>
-            
-            <View style={styles.confirmModalButtons}>
+        <View style={s.confirmOverlay}>
+          <View style={s.confirmCard}>
+            <Text style={s.confirmTitle}>{confirmModal.title}</Text>
+            <Text style={s.confirmMsg}>{confirmModal.message}</Text>
+            <View style={s.confirmBtns}>
               {confirmModal.onCancel && (
-                <TouchableOpacity
-                  style={[styles.confirmModalButton, styles.confirmModalCancelButton]}
-                  onPress={confirmModal.onCancel}
-                >
-                  <Text style={styles.confirmModalCancelText}>
+                <TouchableOpacity style={s.confirmCancel} onPress={confirmModal.onCancel}>
+                  <Text style={s.confirmCancelText}>
                     {confirmModal.title === 'Success!' ? 'Stay Here' : 'Cancel'}
                   </Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity
-                style={[styles.confirmModalButton, styles.confirmModalConfirmButton]}
-                onPress={confirmModal.onConfirm}
-              >
-                <Text style={styles.confirmModalConfirmText}>
-                  {confirmModal.title === 'Success!' ? 'Open Chat' : confirmModal.onCancel ? 'Assign' : 'OK'}
+              <TouchableOpacity style={s.confirmOk} onPress={confirmModal.onConfirm}>
+                <Text style={s.confirmOkText}>
+                  {confirmModal.title === 'Success!' ? 'Open Chat' : confirmModal.onCancel ? 'Send' : 'OK'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -475,414 +577,149 @@ export const CoachSelectionScreen: React.FC<CoachSelectionScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
+/* ─────────── STYLES ─────────── */
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.bg },
+
+  // Header
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: PAD, paddingTop: 20, paddingBottom: 8 },
+  backBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center', alignItems: 'center', marginRight: 14,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
+  headerSub: { fontFamily: F.medium, fontSize: 13, color: C.dim, marginBottom: 2 },
+  headerTitle: { fontFamily: F.bold, fontSize: 22, color: C.text, letterSpacing: -0.5 },
+
+  // Hero — warm card with ring (like MindfulnessScreen hero)
+  hero: { backgroundColor: C.warmBg, marginHorizontal: PAD, borderRadius: 28, padding: 24, marginBottom: 20, marginTop: 8 },
+  heroRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  heroRing: { position: 'relative' as const },
+  heroRingCenter: { position: 'absolute' as const, top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' },
+  heroInfo: { flex: 1, marginLeft: 22 },
+  heroLabel: { fontFamily: F.medium, fontSize: 11, color: C.dim, textTransform: 'uppercase' as const, letterSpacing: 0.8, marginBottom: 2 },
+  heroValue: { fontFamily: F.bold, fontSize: 28, color: C.text, letterSpacing: -0.5, marginBottom: 10 },
+  heroValueUnit: { fontFamily: F.regular, fontSize: 16, color: C.dim },
+  heroPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(16,185,129,0.14)',
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 20, alignSelf: 'flex-start' as const,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-    ...shadows.sm,
+  heroPillDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.accent },
+  heroPillText: { fontFamily: F.semi, fontSize: 12, color: C.accent },
+  heroStrip: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
+    backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 16,
+    paddingVertical: 14, paddingHorizontal: 8,
   },
-  headerTextContainer: {
-    flex: 1,
+  heroStripItem: { alignItems: 'center', gap: 3 },
+  heroStripVal: { fontFamily: F.bold, fontSize: 16, color: C.text },
+  heroStripLabel: { fontFamily: F.medium, fontSize: 11, color: C.dim },
+  heroStripDiv: { width: 1, height: 28, backgroundColor: 'rgba(0,0,0,0.08)' },
+
+  // Search
+  search: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.card, paddingHorizontal: 14, paddingVertical: 13,
+    borderRadius: 16, borderWidth: 1.5, borderColor: C.border, gap: 10,
   },
-  headerSubtitle: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
+  searchFocused: { borderColor: C.accent },
+  searchInput: { flex: 1, fontSize: 14, fontFamily: F.medium, color: C.text, padding: 0 },
+  searchClear: { width: 22, height: 22, borderRadius: 11, backgroundColor: C.border, justifyContent: 'center', alignItems: 'center' },
+
+  // Section headers
+  sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: PAD, marginBottom: 14 },
+  sectionTitle: { fontFamily: F.bold, fontSize: 20, color: C.text, letterSpacing: -0.5 },
+  // Tab chips
+  tabChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 20, paddingVertical: 11, borderRadius: 24,
+    backgroundColor: '#F5F5F5', borderWidth: 1, borderColor: '#D4D4D4',
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: fontSizes.md,
-    color: colors.textPrimary,
-    fontFamily: 'Quicksand_500Medium',
-    paddingVertical: spacing.xs,
-  },
-  filterScroll: {
-    marginBottom: spacing.md,
-    maxHeight: 44,
-  },
-  filterScrollContent: {
-    gap: spacing.sm,
-    paddingRight: spacing.lg,
-  },
-  filterChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterChipText: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  filterChipTextActive: {
-    color: colors.textLight,
-  },
-  coachList: {
-    flex: 1,
-  },
-  coachListContent: {
-    paddingBottom: spacing.xl,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xxl,
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xxl,
-  },
-  emptyTitle: {
-    fontSize: fontSizes.lg,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
-  },
-  emptyText: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-    textAlign: 'center',
-    paddingHorizontal: spacing.xl,
-  },
+  tabChipActive: { backgroundColor: C.cardDark, borderColor: C.cardDark },
+  tabChipText: { fontFamily: F.medium, fontSize: 13, color: '#333' },
+  tabChipTextActive: { color: '#FFF', fontFamily: F.semi },
+
+  // Coach cards (exercise-card style, like MindfulnessScreen)
   coachCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    gap: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(100, 150, 255, 0.08)',
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 24, padding: 16, marginBottom: 10,
+    borderWidth: 1, gap: 14,
   },
-  coachAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
+  coachIcon: { width: 52, height: 52, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  coachInfo: { flex: 1, gap: 3 },
+  coachName: { fontFamily: F.bold, fontSize: 16, letterSpacing: -0.3 },
+  coachDesc: { fontFamily: F.regular, fontSize: 12, lineHeight: 17 },
+  coachMeta: { flexDirection: 'row', gap: 6, marginTop: 4 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  pillText: { fontFamily: F.medium, fontSize: 11 },
+  goBtn: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center' },
+  pendingBadge: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center' },
+
+  // Empty / Loading
+  loading: { justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
+  loadingPulse: { width: 60, height: 60, borderRadius: 30, backgroundColor: C.accentSoft, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
+  loadingText: { fontFamily: F.medium, fontSize: 14, color: C.dim },
+  empty: { justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
+  emptyCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  emptyTitle: { fontFamily: F.bold, fontSize: 17, color: C.text, marginBottom: 6 },
+  emptyText: { fontFamily: F.regular, fontSize: 13, color: C.dim, textAlign: 'center', paddingHorizontal: 32 },
+
+  // Become-a-Coach CTA
+  ctaCard: { backgroundColor: C.cardDark, borderRadius: 24, padding: 24 },
+  ctaRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 18 },
+  ctaIconBg: { width: 52, height: 52, borderRadius: 18, backgroundColor: C.lime, justifyContent: 'center', alignItems: 'center' },
+  ctaTitle: { fontFamily: F.bold, fontSize: 18, color: '#FFF', letterSpacing: -0.3, marginBottom: 4 },
+  ctaDesc: { fontFamily: F.regular, fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 18 },
+  ctaBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: C.lime, paddingVertical: 14, borderRadius: 20,
   },
-  coachInfo: {
-    flex: 1,
-    gap: spacing.xs,
+  ctaBtnText: { fontFamily: F.semi, fontSize: 15, color: C.text },
+
+  // ── Detail Sheet (bottom sheet style) ──
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: C.card, borderTopLeftRadius: 32, borderTopRightRadius: 32,
+    paddingHorizontal: 24, paddingBottom: 30, maxHeight: '85%',
   },
-  coachName: {
-    fontSize: fontSizes.lg,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
+  sheetHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: '#E0E0E0', marginTop: 12, marginBottom: 8 },
+  sheetClose: { alignSelf: 'flex-end', padding: 8 },
+
+  sheetTop: { alignItems: 'center', marginBottom: 20 },
+  sheetAvatar: { width: 88, height: 88, borderRadius: 44, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
+  sheetName: { fontFamily: F.bold, fontSize: 22, color: C.text, letterSpacing: -0.5, marginBottom: 8, textAlign: 'center' },
+  sheetSpecBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18 },
+  sheetSpecText: { fontFamily: F.semi, fontSize: 13 },
+
+  sheetStats: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  sheetStatCard: { flex: 1, alignItems: 'center', paddingVertical: 16, borderRadius: 20, gap: 6 },
+  sheetStatVal: { fontFamily: F.bold, fontSize: 18, color: C.text },
+  sheetStatLabel: { fontFamily: F.medium, fontSize: 11, color: C.dim },
+
+  sheetBioCard: { backgroundColor: C.bg, borderRadius: 20, padding: 20, marginBottom: 20 },
+  sheetBioTitle: { fontFamily: F.bold, fontSize: 15, color: C.text, marginBottom: 8 },
+  sheetBio: { fontFamily: F.regular, fontSize: 14, color: C.dim, lineHeight: 22 },
+
+  sheetFeatures: { flexDirection: 'row', gap: 8, marginBottom: 24, flexWrap: 'wrap' },
+  sheetFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16 },
+  sheetFeatureText: { fontFamily: F.medium, fontSize: 12, color: C.text },
+
+  sheetCta: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: C.cardDark, paddingVertical: 16, borderRadius: 20,
   },
-  specializationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 4,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: borderRadius.full,
-  },
-  specializationText: {
-    fontSize: 11,
-    fontFamily: 'Quicksand_600SemiBold',
-    fontWeight: '600',
-  },
-  coachBio: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-    lineHeight: 18,
-    marginTop: spacing.xs,
-  },
-  coachFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: spacing.xs,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  ratingText: {
-    fontSize: fontSizes.xs,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textPrimary,
-  },
-  clientsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  clientsText: {
-    fontSize: fontSizes.xs,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-  },
-  arrowContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  arrowButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primaryPale,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pendingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 4,
-    borderRadius: borderRadius.sm,
-    backgroundColor: colors.warning + '20',
-  },
-  pendingText: {
-    fontSize: 11,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.warning,
-  },
-  becomeCoachSection: {
-    marginTop: spacing.lg,
-  },
-  becomeCoachCard: {
-    backgroundColor: colors.primaryPale,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  becomeCoachIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.textLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  becomeCoachTitle: {
-    fontSize: fontSizes.lg,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  becomeCoachText: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-    textAlign: 'center',
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  becomeCoachButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    gap: spacing.xs,
-  },
-  becomeCoachButtonText: {
-    fontSize: fontSizes.md,
-    color: colors.textLight,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    width: '100%',
-    maxWidth: 400,
-    alignItems: 'center',
-  },
-  closeModal: {
-    position: 'absolute',
-    top: spacing.md,
-    right: spacing.md,
-    padding: spacing.xs,
-    zIndex: 1,
-  },
-  modalAvatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    marginTop: spacing.lg,
-  },
-  modalName: {
-    fontSize: fontSizes.xl,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    fontFamily: 'Poppins_700Bold',
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  modalSpecializationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  modalSpecializationText: {
-    fontSize: fontSizes.sm,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  modalBio: {
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-    fontFamily: 'Quicksand_500Medium',
-    lineHeight: 22,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  modalActions: {
-    width: '100%',
-    gap: spacing.sm,
-  },
-  modalButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
-  },
-  assignButton: {
-    backgroundColor: colors.primary,
-  },
-  assignButtonText: {
-    fontSize: fontSizes.md,
-    color: colors.textLight,
-    fontFamily: 'Quicksand_600SemiBold',
-  },
-  
-  confirmModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  confirmModalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    width: '100%',
-    maxWidth: 400,
-    ...shadows.lg,
-  },
-  confirmModalTitle: {
-    fontSize: fontSizes.xl,
-    fontFamily: 'Poppins_700Bold',
-    color: colors.textPrimary,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  confirmModalMessage: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_500Medium',
-    color: colors.textSecondary,
-    marginBottom: spacing.xl,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  confirmModalButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  confirmModalButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmModalCancelButton: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  confirmModalConfirmButton: {
-    backgroundColor: colors.primary,
-  },
-  confirmModalCancelText: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textPrimary,
-  },
-  confirmModalConfirmText: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Quicksand_600SemiBold',
-    color: colors.textLight,
-  },
+  sheetCtaText: { fontFamily: F.semi, fontSize: 16, color: '#FFF' },
+
+  // Confirm modal
+  confirmOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  confirmCard: { backgroundColor: C.card, borderRadius: 24, padding: 28, width: '100%', maxWidth: 400 },
+  confirmTitle: { fontFamily: F.bold, fontSize: 20, color: C.text, marginBottom: 12, textAlign: 'center' },
+  confirmMsg: { fontFamily: F.regular, fontSize: 14, color: C.dim, marginBottom: 24, textAlign: 'center', lineHeight: 22 },
+  confirmBtns: { flexDirection: 'row', gap: 12 },
+  confirmCancel: { flex: 1, paddingVertical: 14, borderRadius: 16, alignItems: 'center', backgroundColor: C.bg, borderWidth: 1, borderColor: C.border },
+  confirmOk: { flex: 1, paddingVertical: 14, borderRadius: 16, alignItems: 'center', backgroundColor: C.accent },
+  confirmCancelText: { fontFamily: F.semi, fontSize: 15, color: C.text },
+  confirmOkText: { fontFamily: F.semi, fontSize: 15, color: '#FFF' },
 });

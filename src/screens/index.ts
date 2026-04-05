@@ -20,3 +20,5 @@ export { CreateWorkoutPlanScreen } from './CreateWorkoutPlanScreen';
 export { ClientWorkoutPlansScreen } from './ClientWorkoutPlansScreen';
 export { CreateNutritionPlanScreen } from './CreateNutritionPlanScreen';
 export { ClientProgressAnalyticsScreen } from './ClientProgressAnalyticsScreen';
+export { RunningScreen } from './RunningScreen';
+export { MusicScreen } from './MusicScreen';

@@ -37,15 +37,15 @@ export const colors = {
 };
 
 export const gradients = {
-  primary: ['#7C3AED', '#A78BFA'],
-  primaryBold: ['#5B21B6', '#7C3AED'],
-  secondary: ['#FF477E', '#FF6B9A'],
-  accent: ['#00F0FF', '#0088FF'],
-  purple: ['#7C3AED', '#FF477E'],
-  ocean: ['#0088FF', '#00F0FF'],
-  sunset: ['#FF512F', '#DD2476'],
-  greenGlow: ['#B8FF00', '#00F0FF'],
-  coral: ['#FF477E', '#FF512F'],
+  primary: ['#7C3AED', '#A78BFA'] as const,
+  primaryBold: ['#5B21B6', '#7C3AED'] as const,
+  secondary: ['#FF477E', '#FF6B9A'] as const,
+  accent: ['#00F0FF', '#0088FF'] as const,
+  purple: ['#7C3AED', '#FF477E'] as const,
+  ocean: ['#0088FF', '#00F0FF'] as const,
+  sunset: ['#FF512F', '#DD2476'] as const,
+  greenGlow: ['#B8FF00', '#00F0FF'] as const,
+  coral: ['#FF477E', '#FF512F'] as const,
 };
 
 export const spacing = {
