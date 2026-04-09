@@ -160,8 +160,8 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
   const totalMinutes = stats?.totalMinutes || 0;
   const currentStreak = stats?.currentStreak || 0;
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
   const breatheAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

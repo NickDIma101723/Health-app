@@ -85,9 +85,9 @@ export const useActivities = () => {
         .select('*')
         .eq('user_id', user.id)
         .eq('week_start_date', weekStart)
-        .single();
+        .maybeSingle();
 
-      if (fetchError && fetchError.code === 'PGRST116') {
+      if (!data && !fetchError) {
         const { data: newData, error: insertError } = await supabase
           .from('weekly_goals')
           .insert({

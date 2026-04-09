@@ -379,7 +379,7 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
       </ScrollView>
       
       <CoachBottomNavigation 
-        activeTab="coach-dashboard" 
+        activeTab="dashboard" 
         onTabChange={(tab) => onNavigate?.(tab)} 
       />
 
