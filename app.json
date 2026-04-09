@@ -40,9 +40,7 @@
       }
     },
     "plugins": [
-      "expo-router",
-      "@rnmapbox/maps",
-      "expo-web-browser"
+      "expo-router"
     ],
     "owner": "niko-studios"
   }
