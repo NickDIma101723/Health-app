@@ -126,6 +126,15 @@ export const useActivities = () => {
 
       if (insertError) throw insertError;
       
+      setActivities(prev => {
+        const exists = prev.some(a => a.id === data.id);
+        if (exists) return prev;
+        return [...prev, data].sort((a, b) => {
+          const dateCompare = a.date.localeCompare(b.date);
+          if (dateCompare !== 0) return dateCompare;
+          return a.time.localeCompare(b.time);
+        });
+      });
       
       return { data, error: null };
     } catch (err: any) {
@@ -137,6 +146,9 @@ export const useActivities = () => {
   const updateActivity = async (id: string, updates: ActivityUpdate) => {
     if (!user) return { data: null, error: 'No user logged in' };
 
+    // Optimistic update
+    setActivities(prev => prev.map(a => a.id === id ? { ...a, ...updates } as Activity : a));
+
     try {
       const { data, error: updateError } = await supabase
         .from('activities')
@@ -146,8 +158,13 @@ export const useActivities = () => {
         .select()
         .single();
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        // Fetch fresh on failure
+        fetchActivities();
+        throw updateError;
+      }
       
+      setActivities(prev => prev.map(a => a.id === id ? data : a));
       
       return { data, error: null };
     } catch (err: any) {
@@ -168,6 +185,7 @@ export const useActivities = () => {
 
       if (deleteError) throw deleteError;
       
+      setActivities(prev => prev.filter(a => a.id !== id));
       
       return { error: null };
     } catch (err: any) {
@@ -191,17 +209,23 @@ export const useActivities = () => {
 
     await updateActivity(id, { status: newStatus });
 
-    if (activity.activity_type === 'workout' && weeklyGoals) {
-      const wasCompleted = oldStatus === 'completed';
-      const isNowCompleted = newStatus === 'completed';
+    const wasCompleted = oldStatus === 'completed';
+    const isNowCompleted = newStatus === 'completed';
+
+    if (weeklyGoals && wasCompleted !== isNowCompleted) {
+      let updateKey: keyof WeeklyGoals | null = null;
       
-      if (!wasCompleted && isNowCompleted) {
+      switch (activity.activity_type) {
+        case 'workout': updateKey = 'workouts_current'; break;
+        case 'meal': updateKey = 'meals_current'; break;
+        case 'mindfulness': updateKey = 'meditation_current'; break;
+        case 'habit': updateKey = 'habits_current'; break;
+      }
+
+      if (updateKey) {
+        const increment = isNowCompleted ? 1 : -1;
         await updateWeeklyGoals({
-          workouts_current: weeklyGoals.workouts_current + 1,
-        });
-      } else if (wasCompleted && !isNowCompleted) {
-        await updateWeeklyGoals({
-          workouts_current: Math.max(0, weeklyGoals.workouts_current - 1),
+          [updateKey]: Math.max(0, Number(weeklyGoals[updateKey]) + increment)
         });
       }
     }
@@ -225,6 +249,8 @@ export const useActivities = () => {
   const updateWeeklyGoals = async (updates: Partial<WeeklyGoals>) => {
     if (!user || !weeklyGoals) return { error: 'No weekly goals found' };
 
+    setWeeklyGoals(prev => prev ? { ...prev, ...updates } : null);
+
     try {
       const { data, error: updateError } = await supabase
         .from('weekly_goals')
@@ -233,7 +259,10 @@ export const useActivities = () => {
         .select()
         .single();
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        fetchWeeklyGoals();
+        throw updateError;
+      }
       
       setWeeklyGoals(data);
       

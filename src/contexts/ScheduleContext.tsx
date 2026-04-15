@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export type ActivityStatus = 'incomplete' | 'completed' | 'failed';
 
+import { colors } from '../constants/theme';
+
 export type ActivityType = 'workout' | 'meal' | 'mindfulness' | 'appointment' | 'habit' | 'custom';
 
 export interface Activity {
@@ -67,7 +69,7 @@ const defaultTemplates: ActivityTemplate[] = [
     description: 'Start your day with a refreshing run',
     duration: 30,
     type: 'workout',
-    color: '#6FCF97',
+    color: colors.mint,
     icon: 'directions-run',
     defaultTime: '07:00',
   },
@@ -77,7 +79,7 @@ const defaultTemplates: ActivityTemplate[] = [
     description: 'Gentle stretching and flexibility',
     duration: 45,
     type: 'workout',
-    color: '#9B59B6',
+    color: colors.purple,
     icon: 'self-improvement',
     defaultTime: '12:00',
   },
@@ -87,7 +89,7 @@ const defaultTemplates: ActivityTemplate[] = [
     description: 'Mindful breathing and reflection',
     duration: 15,
     type: 'mindfulness',
-    color: '#9B59B6',
+    color: colors.purple,
     icon: 'spa',
     defaultTime: '06:30',
   },
@@ -97,7 +99,7 @@ const defaultTemplates: ActivityTemplate[] = [
     description: 'Nutritious meal to fuel your day',
     duration: 20,
     type: 'meal',
-    color: '#F39C12',
+    color: colors.orange,
     icon: 'restaurant',
     defaultTime: '08:00',
   },
@@ -107,7 +109,7 @@ const defaultTemplates: ActivityTemplate[] = [
     description: 'Balanced midday meal',
     duration: 30,
     type: 'meal',
-    color: '#F39C12',
+    color: colors.orange,
     icon: 'lunch-dining',
     defaultTime: '13:00',
   },
@@ -117,7 +119,7 @@ const defaultTemplates: ActivityTemplate[] = [
     description: 'Evening meal',
     duration: 30,
     type: 'meal',
-    color: '#F39C12',
+    color: colors.orange,
     icon: 'dinner-dining',
     defaultTime: '19:00',
   },
@@ -127,7 +129,7 @@ const defaultTemplates: ActivityTemplate[] = [
     description: 'Virtual session with your coach',
     duration: 30,
     type: 'appointment',
-    color: '#3498DB',
+    color: colors.info,
     icon: 'video-call',
     defaultTime: '15:00',
   },
@@ -137,7 +139,7 @@ const defaultTemplates: ActivityTemplate[] = [
     description: 'Stay hydrated',
     duration: 5,
     type: 'habit',
-    color: '#3498DB',
+    color: colors.info,
     icon: 'local-drink',
     defaultTime: '10:00',
   },
@@ -147,7 +149,7 @@ const defaultTemplates: ActivityTemplate[] = [
     description: 'Light cardio before bed',
     duration: 20,
     type: 'workout',
-    color: '#6FCF97',
+    color: colors.mint,
     icon: 'directions-walk',
     defaultTime: '20:00',
   },
@@ -157,7 +159,7 @@ const defaultTemplates: ActivityTemplate[] = [
     description: 'Build muscle and strength',
     duration: 60,
     type: 'workout',
-    color: '#6FCF97',
+    color: colors.mint,
     icon: 'fitness-center',
     defaultTime: '17:00',
   },

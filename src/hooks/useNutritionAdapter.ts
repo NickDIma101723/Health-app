@@ -124,8 +124,6 @@ export const useNutritionAdapter = () => {
     const result = await dbAddMeal(insertData);
     if (result.error) {
       console.error('Failed to add meal:', result.error);
-    } else {
-      await refetch();
     }
   };
 
@@ -147,14 +145,11 @@ export const useNutritionAdapter = () => {
     const result = await dbUpdateMeal(id, dbUpdates);
     if (result.error) {
       console.error('Failed to update meal:', result.error);
-    } else {
-      await refetch();
     }
   };
 
   const deleteMeal = async (id: string) => {
     await dbDeleteMeal(id);
-    await refetch();
   };
 
   const addWaterIntake = async (amount: number) => {
@@ -170,8 +165,6 @@ export const useNutritionAdapter = () => {
 
     if (result.error) {
       console.error('Failed to add water intake:', result.error);
-    } else {
-      await refetch();
     }
   };
 
@@ -179,8 +172,6 @@ export const useNutritionAdapter = () => {
     const result = await dbDeleteWaterIntake(id);
     if (result.error) {
       console.error('Failed to delete water intake:', result.error);
-    } else {
-      await refetch();
     }
   };
 
@@ -188,8 +179,6 @@ export const useNutritionAdapter = () => {
     const result = await dbUpdateGoals(newGoals);
     if (result.error) {
       console.error('Failed to update goals:', result.error);
-    } else {
-      await refetch();
     }
   };
 

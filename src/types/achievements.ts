@@ -49,7 +49,7 @@ export const DEFAULT_ACHIEVEMENTS: Omit<Achievement, 'id' | 'created_at'>[] = [
     name: "First Steps",
     description: "Complete your first workout activity",
     icon: "👟",
-    badge_color: "#6FCF97",
+    badge_color: "#7C3AED",
     criteria: {
       type: 'activity_count',
       target_value: 1,
@@ -74,7 +74,7 @@ export const DEFAULT_ACHIEVEMENTS: Omit<Achievement, 'id' | 'created_at'>[] = [
     name: "Weekly Warrior",
     description: "Complete 5 workouts in a week",
     icon: "🔥",
-    badge_color: "#FFB085",
+    badge_color: "#00F0FF",
     criteria: {
       type: 'activity_count',
       target_value: 5,
@@ -99,7 +99,7 @@ export const DEFAULT_ACHIEVEMENTS: Omit<Achievement, 'id' | 'created_at'>[] = [
     name: "Nutrition Expert",
     description: "Log 30 meals",
     icon: "🥗",
-    badge_color: "#7BDCB5",
+    badge_color: "#FF477E",
     criteria: {
       type: 'meal_log',
       target_value: 30,
@@ -111,7 +111,7 @@ export const DEFAULT_ACHIEVEMENTS: Omit<Achievement, 'id' | 'created_at'>[] = [
     name: "Step Counter",
     description: "Take 10,000 steps in a day",
     icon: "👣",
-    badge_color: "#9B87F5",
+    badge_color: "#2D1B69",
     criteria: {
       type: 'steps',
       target_value: 10000,

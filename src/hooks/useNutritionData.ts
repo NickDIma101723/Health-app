@@ -203,6 +203,16 @@ export const useNutritionData = () => {
 
       if (insertError) throw insertError;
       
+      setMeals(prev => {
+        const exists = prev.some(m => m.id === data.id);
+        if (exists) return prev;
+        return [...prev, data].sort((a, b) => {
+          const dateCompare = a.date.localeCompare(b.date);
+          if (dateCompare !== 0) return dateCompare;
+          return a.time.localeCompare(b.time);
+        });
+      });
+      
       return { data, error: null };
     } catch (err: any) {
       console.error('Error adding meal:', err);
@@ -213,6 +223,8 @@ export const useNutritionData = () => {
   const updateMeal = async (id: string, updates: MealUpdate) => {
     if (!user) return { error: 'Not authenticated' };
 
+    setMeals(prev => prev.map(m => m.id === id ? { ...m, ...updates } as Meal : m));
+
     try {
       const { data, error: updateError } = await supabase
         .from('meals')
@@ -222,8 +234,12 @@ export const useNutritionData = () => {
         .select()
         .single();
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        fetchMeals();
+        throw updateError;
+      }
       
+      setMeals(prev => prev.map(m => m.id === id ? data : m));
       return { data, error: null };
     } catch (err: any) {
       console.error('Error updating meal:', err);
@@ -287,6 +303,16 @@ export const useNutritionData = () => {
 
       if (insertError) throw insertError;
       
+      setWaterIntakes(prev => {
+        const exists = prev.some(w => w.id === data.id);
+        if (exists) return prev;
+        return [...prev, data].sort((a, b) => {
+          const dateCompare = a.date.localeCompare(b.date);
+          if (dateCompare !== 0) return dateCompare;
+          return a.time.localeCompare(b.time);
+        });
+      });
+      
       return { data, error: null };
     } catch (err: any) {
       console.error('Error adding water intake:', err);
@@ -297,6 +323,8 @@ export const useNutritionData = () => {
   const deleteWaterIntake = async (id: string) => {
     if (!user) return { error: 'Not authenticated' };
 
+    setWaterIntakes(prev => prev.filter(w => w.id !== id));
+
     try {
       const { error: deleteError } = await supabase
         .from('water_intake')
@@ -304,7 +332,10 @@ export const useNutritionData = () => {
         .eq('id', id)
         .eq('user_id', user.id);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        fetchWaterIntakes();
+        throw deleteError;
+      }
       
       return { error: null };
     } catch (err: any) {
@@ -316,6 +347,8 @@ export const useNutritionData = () => {
   const updateNutritionGoals = async (updates: Omit<NutritionGoalsUpdate, 'user_id'>) => {
     if (!user || !nutritionGoals) return { error: 'Not authenticated or no goals found' };
 
+    setNutritionGoals(prev => prev ? { ...prev, ...updates } as NutritionGoals : prev);
+
     try {
       const { data, error: updateError } = await supabase
         .from('nutrition_goals')
@@ -324,8 +357,12 @@ export const useNutritionData = () => {
         .select()
         .single();
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        fetchNutritionGoals();
+        throw updateError;
+      }
       
+      setNutritionGoals(data);
       return { data, error: null };
     } catch (err: any) {
       console.error('Error updating nutrition goals:', err);
