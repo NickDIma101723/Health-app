@@ -783,9 +783,9 @@ export const CoachClientDetailScreen: React.FC<CoachClientDetailScreenProps> = (
             <Text style={styles.sectionTitle}>Recent Activities</Text>
             {activityLogs.map((activity) => {
               const getActivityColor = () => {
-                if (activity.activity_type === 'workout') return { primary: '#11998e', light: '#38ef7d' };
-                if (activity.activity_type === 'meal') return { primary: '#f093fb', light: '#f5576c' };
-                if (activity.activity_type === 'mindfulness') return { primary: '#667eea', light: '#764ba2' };
+                if (activity.activity_type === 'workout') return { primary: colors.success, light: colors.success };
+                if (activity.activity_type === 'meal') return { primary: colors.secondary, light: colors.secondaryLight };
+                if (activity.activity_type === 'mindfulness') return { primary: colors.primary, light: colors.primaryLight };
                 return { primary: colors.primary, light: colors.primaryLight };
               };
               
@@ -940,9 +940,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   headerBackButton: {
     width: 44,

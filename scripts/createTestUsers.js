@@ -1,10 +1,11 @@
 const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
 
 // Test script to create a sample user profile for testing
 // Make sure to set your Supabase credentials
 
-const supabaseUrl = 'YOUR_SUPABASE_URL'; // Replace with your actual URL
-const supabaseKey = 'YOUR_SUPABASE_ANON_KEY'; // Replace with your actual anon key
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'YOUR_SUPABASE_URL'; // Replace with your actual URL
+const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY'; // Replace with your actual anon key
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 

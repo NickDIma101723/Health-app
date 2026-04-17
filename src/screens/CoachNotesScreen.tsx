@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
-import { BackgroundDecorations } from '../components';
+import { BackgroundDecorations, GlassCard } from '../components';
 import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -269,7 +269,7 @@ export const CoachNotesScreen: React.FC<CoachNotesScreenProps> = ({
             {notes.map((note) => {
               const typeInfo = getNoteTypeInfo(note.note_type);
               return (
-                <View key={note.id} style={styles.noteCard}>
+                <GlassCard key={note.id} style={styles.noteCard}>
                   <View style={styles.noteHeader}>
                     <View style={[styles.noteTypeBadge, { backgroundColor: typeInfo.color + '20' }]}>
                       <MaterialIcons name={typeInfo.icon as any} size={16} color={typeInfo.color} />
@@ -308,7 +308,7 @@ export const CoachNotesScreen: React.FC<CoachNotesScreenProps> = ({
                       </TouchableOpacity>
                     </View>
                   </View>
-                </View>
+                </GlassCard>
               );
             })}
           </View>
@@ -433,9 +433,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   headerBackButton: {
     width: 44,

@@ -27,17 +27,17 @@ import { pickImageFromGallery, uploadMediaToStorage } from '../lib/mediaUpload';
 import { useNetworkStatus } from '../hooks';
 
 const PC = {
-  bg: '#F4F6FB',
-  card: '#FFFFFF',
-  accent: '#FF477E',
-  accentSecondary: '#7C3AED',
-  accentSoft: 'rgba(124, 58, 237, 0.12)',
-  text: '#1A1A24',
-  textLight: '#FFFFFF',
-  textDim: '#8A8A9D',
-  border: '#EAEDF4',
-  surfaceMuted: '#F0F1FA',
-  danger: '#FF4757',
+  bg: colors.background,
+  card: colors.card,
+  accent: colors.primary,
+  accentSecondary: colors.secondary,
+  accentSoft: colors.primaryPale,
+  text: colors.textPrimary,
+  textLight: colors.textPrimary,
+  textDim: colors.textSecondary,
+  border: colors.border,
+  surfaceMuted: colors.surface,
+  danger: colors.error,
 };
 
 const PF = {

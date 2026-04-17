@@ -55,7 +55,7 @@ const F = {
   regular: 'PlusJakartaSans_400Regular',
 } as const;
 
-const S = {
+const defaultTheme = {
   bg: '#FAFAFA',
   card: '#FFFFFF',
   dark: '#111111',
@@ -70,17 +70,29 @@ const S = {
   purple: '#8B5CF6',
   warmBg: '#F5F0EB',
   teal: '#14B8A6',
-} as const;
+};
+const clientTheme = defaultTheme;
+const coachTheme = {
+  ...defaultTheme,
+  bg: '#0D0D14',
+  card: '#1A1A28',
+  text: '#FFFFFF',
+  dim: '#8C8C8C',
+  border: '#2A2A3C',
+  warmBg: '#1A1A28',
+  dark: '#111111',
+  cardDark: '#111111',
+};
 
 interface NutritionScreenProps {
   onNavigate?: (screen: string) => void;
 }
 
 const MEAL_TYPES = [
-  { type: 'breakfast' as const, label: 'Breakfast', Icon: Sun, color: S.amber },
-  { type: 'lunch' as const, label: 'Lunch', Icon: ForkKnife, color: S.green },
-  { type: 'dinner' as const, label: 'Dinner', Icon: CookingPot, color: S.blue },
-  { type: 'snack' as const, label: 'Snack', Icon: Cookie, color: S.purple },
+  { type: 'breakfast' as const, label: 'Breakfast', Icon: Sun, color: defaultTheme.amber },
+  { type: 'lunch' as const, label: 'Lunch', Icon: ForkKnife, color: defaultTheme.green },
+  { type: 'dinner' as const, label: 'Dinner', Icon: CookingPot, color: defaultTheme.blue },
+  { type: 'snack' as const, label: 'Snack', Icon: Cookie, color: defaultTheme.purple },
 ];
 
 const WATER_AMOUNTS = [250, 350, 500, 750];
@@ -101,7 +113,10 @@ const CARD_THEMES = [
 ];
 
 export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) => {
-  const { user } = useAuth();
+  const { user, currentMode } = useAuth();
+  const S = currentMode === 'coach' ? coachTheme : clientTheme;
+  const st = React.useMemo(() => getStyles(S), [currentMode]);
+
   const {
     meals,
     waterIntakes,
@@ -999,7 +1014,7 @@ export const NutritionScreen: React.FC<NutritionScreenProps> = ({ onNavigate }) 
    ── STYLES ──
    ═══════════════════════════════════════════════════════════ */
 
-const st = StyleSheet.create({
+const getStyles = (S: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: S.bg },
 
   /* Header */

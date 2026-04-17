@@ -31,7 +31,7 @@ import { supabase } from '../lib/supabase';
 
 const { width } = Dimensions.get('window');
 
-const C = {
+const defaultTheme = {
   bg: '#FAFAFA',
   card: '#FFFFFF',
   cardDark: '#111111',
@@ -42,7 +42,19 @@ const C = {
   border: '#EEEEEE',
   warmBg: '#F5F0EB',
   red: '#EF4444',
-} as const;
+};
+const clientTheme = defaultTheme;
+const coachTheme = {
+  ...defaultTheme,
+  bg: '#0D0D14',
+  card: '#1A1A28',
+  text: '#FFFFFF',
+  dim: '#8C8C8C',
+  border: '#2A2A3C',
+  warmBg: '#1A1A28',
+  dark: '#111111',
+  cardDark: '#111111',
+};
 
 const F = {
   bold: 'PlusJakartaSans_700Bold',
@@ -76,6 +88,8 @@ const AVATAR_COLORS = [
 
 export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) => {
   const { user, currentMode, coachData } = useAuth();
+  const C = currentMode === 'coach' ? coachTheme : clientTheme;
+  const styles = React.useMemo(() => getStyles(C), [currentMode]);
   const { messages } = useMessages();
   const { myCoach } = useCoaches();
   const [searchQuery, setSearchQuery] = useState('');
@@ -380,7 +394,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ onNavigate }) =>
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (C: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   headerArea: { paddingHorizontal: PAD, paddingTop: 24, paddingBottom: 16, backgroundColor: C.bg },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },

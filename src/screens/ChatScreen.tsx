@@ -63,7 +63,7 @@ import {
 
 const { width, height: screenHeight } = Dimensions.get('window');
 
-const C = {
+const defaultTheme = {
   bg: '#FAFAFA',
   card: '#FFFFFF',
   cardDark: '#111111',
@@ -78,7 +78,19 @@ const C = {
   blue: '#3B82F6',
   purple: '#8B5CF6',
   accentSoft: '#ECFDF5',
-} as const;
+};
+const clientTheme = defaultTheme;
+const coachTheme = {
+  ...defaultTheme,
+  bg: '#0D0D14',
+  card: '#1A1A28',
+  text: '#FFFFFF',
+  dim: '#8C8C8C',
+  border: '#2A2A3C',
+  warmBg: '#1A1A28',
+  dark: '#111111',
+  cardDark: '#111111',
+};
 
 const F = {
   bold: 'PlusJakartaSans_700Bold',
@@ -110,7 +122,7 @@ interface ChatScreenProps {
   returnTo?: string;
 }
 
-const DateSeparator = ({ date }: { date: string }) => (
+const DateSeparator = ({ date, styles }: { date: string, styles: any }) => (
   <View style={styles.dateSeparator}>
     <View style={styles.dateSeparatorLine} />
     <View style={styles.dateSeparatorBadge}>
@@ -121,6 +133,10 @@ const DateSeparator = ({ date }: { date: string }) => (
 );
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId, clientName, returnTo }) => {
+  const { currentMode } = useAuth();
+  const C = currentMode === 'coach' ? coachTheme : clientTheme;
+  const styles = React.useMemo(() => getStyles(C), [currentMode]);
+
   const { user, isCoach, coachData } = useAuth();
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [clientsList, setClientsList] = useState<any[]>([]);
@@ -438,7 +454,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId, cl
         ) : (
           getMessageGroups().map((group, gi) => (
             <View key={gi}>
-              <DateSeparator date={group.date} />
+              <DateSeparator date={group.date} styles={styles} />
               {group.messages.map((message, mi) => renderMessage(message, mi, group.messages))}
             </View>
           ))
@@ -838,7 +854,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ onNavigate, clientId, cl
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (C: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
 
   // Header

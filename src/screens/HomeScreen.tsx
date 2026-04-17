@@ -33,7 +33,7 @@ import { T } from '../tamagui.config';
 
 const { width, height } = Dimensions.get('window');
 
-const C = {
+const defaultTheme = {
   bg:         '#FAFAFA',
   card:       '#FFFFFF',
   cardDark:   '#111111',
@@ -47,6 +47,18 @@ const C = {
   white:      '#FFFFFF',
   separator:  '#EEEEEE',
   lime:       '#D4F940',
+};
+const clientTheme = defaultTheme;
+const coachTheme = {
+  ...defaultTheme,
+  bg: '#0D0D14',
+  card: '#1A1A28',
+  text: '#FFFFFF',
+  dim: '#8C8C8C',
+  border: '#2A2A3C',
+  warmBg: '#1A1A28',
+  dark: '#111111',
+  cardDark: '#111111',
 };
 
 const F = {
@@ -92,20 +104,23 @@ const SvgProgressBar = ({ width: barW, height: barH, pct, trackColor, fillColor 
 };
 
 // ── Frosted glass button ──
-const GlassButton = ({ label, dark = false }: { label: string; dark?: boolean }) => (
+const GlassButton = ({ label, dark = false }: { label: string; dark?: boolean }) => { const {currentMode} = useAuth(); const C = currentMode === 'coach' ? coachTheme : clientTheme; return (
   <YStack borderRadius={19} overflow="hidden">
     <BlurView intensity={40} tint={dark ? 'light' : 'dark'} style={{ paddingHorizontal: 17, paddingVertical: 9 }}>
       <TText style={{ fontFamily: F.semi, fontSize: 13, color: dark ? '#FFF' : C.text }}>{label}</TText>
     </BlurView>
   </YStack>
-);
+);}
 
 interface HomeScreenProps {
   onNavigate?: (screen: string) => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
-  const { user } = useAuth();
+  const { user, currentMode } = useAuth();
+  const C = currentMode === 'coach' ? coachTheme : clientTheme;
+  const styles = React.useMemo(() => getStyles(C), [currentMode]);
+
   const { metrics } = useHealthMetrics();
   const { goals } = useUserGoals();
   const { getDailyNutrition, goals: nutritionGoals } = useNutritionAdapter();
@@ -208,7 +223,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                   </TText>
                 </YStack>
               </XStack>
-              <PlatformPressable style={st.iconBtn} onPress={() => setShowNotifications(true)}>
+              <PlatformPressable style={styles.iconBtn} onPress={() => setShowNotifications(true)}>
                 <Bell size={20} color={C.text} weight={unreadCount > 0 ? 'fill' : 'regular'} />
                 {unreadCount > 0 && (
                   <YStack position="absolute" top={-2} right={-2} minWidth={18} height={18} borderRadius={9}
@@ -623,7 +638,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   );
 };
 
-const st = StyleSheet.create({
+const getStyles = (C: any) => StyleSheet.create({
   avatar: { width: 44, height: 44, borderRadius: 22 },
   iconBtn: {
     width: 44, height: 44, borderRadius: 22, backgroundColor: '#F5F5F5',

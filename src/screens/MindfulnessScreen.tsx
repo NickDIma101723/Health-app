@@ -22,7 +22,7 @@ import {
 } from 'phosphor-react-native';
 import { useMindfulnessSessions, useMoodLogs } from '../hooks';
 
-const MC = {
+const defaultTheme = {
   bg: '#FAFAFA',
   card: '#FFFFFF',
   cardDark: '#111111',
@@ -40,6 +40,18 @@ const MC = {
   teal: '#14B8A6',
   amber: '#F59E0B',
   blue: '#3B82F6',
+};
+const clientTheme = defaultTheme;
+const coachTheme = {
+  ...defaultTheme,
+  bg: '#0D0D14',
+  card: '#1A1A28',
+  text: '#FFFFFF',
+  dim: '#8C8C8C',
+  border: '#2A2A3C',
+  warmBg: '#1A1A28',
+  dark: '#111111',
+  cardDark: '#111111',
 };
 
 const MF = {
@@ -199,7 +211,13 @@ interface MindfulnessScreenProps {
   openStats?: boolean;
 }
 
+import { useAuth } from '../contexts/AuthContext';
+
 export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate, openStats }) => {
+  const { currentMode } = useAuth();
+  const MC = currentMode === 'coach' ? coachTheme : clientTheme;
+  const S = React.useMemo(() => getStyles(MC), [currentMode]);
+
   const { sessions, stats, startSession: dbStartSession, completeSession, loading: sessionsLoading } = useMindfulnessSessions();
   const { moodLog, logMood, loading: moodLoading } = useMoodLogs();
 
@@ -1068,7 +1086,7 @@ export const MindfulnessScreen: React.FC<MindfulnessScreenProps> = ({ onNavigate
 
 const PAD_H = 20;
 
-const S = StyleSheet.create({
+const getStyles = (MC: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: MC.bg },
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: 110 },
