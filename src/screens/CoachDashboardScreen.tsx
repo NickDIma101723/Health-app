@@ -10,12 +10,13 @@ import {
   RefreshControl,
   Alert,
   Modal,
+  Image,
 } from 'react-native';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { BackgroundDecorations } from '../components';
-import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
+import { colors, spacing, fontSizes, borderRadius, shadows, gradients } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { useCoachRequests } from '../hooks/useCoachRequests';
 import { supabase } from '../lib/supabase';
@@ -48,6 +49,7 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
     activeToday: 0,
     needsAttention: 0,
   });
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (coachData) {
@@ -55,6 +57,23 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
       loadCoachRequests(); 
     }
   }, [coachData]);
+
+  useEffect(() => {
+    const loadAvatar = async () => {
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('avatar_url')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (data?.avatar_url) {
+          setAvatarUrl(data.avatar_url);
+        }
+      }
+    };
+    loadAvatar();
+  }, [user]);
 
   const loadClients = async () => {
     if (!coachData) {
@@ -210,10 +229,24 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
       <BackgroundDecorations />
 
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerSubtitle}>Coach Portal</Text>
-          <Text style={styles.headerTitle}>{coachData?.full_name || 'Coach'}</Text>
-        </View>
+        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => onNavigate?.('profile')} activeOpacity={0.8}>
+          {avatarUrl ? (
+            <Image 
+              source={{ uri: avatarUrl }} 
+              style={{ width: 44, height: 44, borderRadius: 22, marginRight: spacing.md, borderWidth: 1, borderColor: colors.border }} 
+            />
+          ) : (
+            <View style={{ width: 44, height: 44, borderRadius: 22, marginRight: spacing.md, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border }}>
+              <Text style={{ color: colors.textPrimary, fontFamily: 'Poppins_600SemiBold', fontSize: fontSizes.md }}>
+                {coachData?.full_name?.charAt(0) || 'C'}
+              </Text>
+            </View>
+          )}
+          <View>
+            <Text style={styles.headerSubtitle}>Coach Portal</Text>
+            <Text style={styles.headerTitle}>{coachData?.full_name || 'Coach'}</Text>
+          </View>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <MaterialIcons name="logout" size={22} color={colors.error} />
         </TouchableOpacity>
@@ -233,13 +266,13 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
         >
           <View style={styles.statsContainer}>
             <LinearGradient
-              colors={['#667eea', '#764ba2'] as [string, string, ...string[]]}
+              colors={gradients.primary}
               style={styles.statWidget}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
             <View style={styles.widgetIconBadge}>
-              <MaterialIcons name="people" size={28} color={colors.textLight} />
+              <MaterialIcons name="people" size={28} color={colors.textPrimary} />
             </View>
             <Text style={styles.widgetValue}>{stats.totalClients}</Text>
             <Text style={styles.widgetLabel}>Total Clients</Text>
@@ -247,13 +280,13 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
           </LinearGradient>
 
           <LinearGradient
-            colors={['#11998e', '#38ef7d'] as [string, string, ...string[]]}
+            colors={gradients.accent}
             style={styles.statWidget}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
             <View style={styles.widgetIconBadge}>
-              <MaterialIcons name="fitness-center" size={28} color={colors.textLight} />
+              <MaterialIcons name="fitness-center" size={28} color={colors.textPrimary} />
             </View>
             <Text style={styles.widgetValue}>{stats.activeToday}</Text>
             <Text style={styles.widgetLabel}>Active Today</Text>
@@ -261,13 +294,13 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
           </LinearGradient>
 
           <LinearGradient
-            colors={['#f093fb', '#f5576c'] as [string, string, ...string[]]}
+            colors={gradients.secondary}
             style={styles.statWidget}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
             <View style={styles.widgetIconBadge}>
-              <MaterialIcons name="notifications-active" size={28} color={colors.textLight} />
+              <MaterialIcons name="notifications-active" size={28} color={colors.textPrimary} />
             </View>
             <Text style={styles.widgetValue}>{stats.needsAttention}</Text>
             <Text style={styles.widgetLabel}>Needs Attention</Text>
@@ -329,14 +362,14 @@ export const CoachDashboardScreen: React.FC<CoachDashboardScreenProps> = ({ onNa
                 activeOpacity={0.7}
               >
                 <LinearGradient
-                  colors={['rgba(102, 126, 234, 0.1)', 'rgba(118, 75, 162, 0.05)']} 
+                  colors={[colors.cardGlass, colors.surface]} 
                   style={styles.clientCardGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
                   <View style={styles.clientCardLeft}>
                     <LinearGradient
-                      colors={['#FF6B9D', '#C06C84'] as [string, string, ...string[]]}
+                      colors={gradients.purple}
                       style={styles.clientAvatar}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
@@ -431,9 +464,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   headerSubtitle: {
     fontSize: fontSizes.sm,

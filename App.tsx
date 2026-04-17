@@ -55,8 +55,8 @@ const { width, height: windowHeight } = Dimensions.get('window');
 
 type Screen = 'splash' | 'login' | 'register' | 'home' | 'mindfulness' | 'mindfulness-insights' | 'chat' | 'chat-list' | 'individual-chat' | 'schedule' | 'nutrition' | 'nutrition-calculator' | 'barcode-scanner' | 'profile' | 'coach-dashboard' | 'coach-client-detail' | 'coach-notes' | 'assign-client' | 'coach-requests' | 'coach-selection' | 'become-coach' | 'create-workout-plan' | 'client-workout-plans' | 'create-nutrition-plan' | 'client-progress-analytics' | 'activity-map' | 'running' | 'music';
 
-const CLIENT_NAV_SCREENS = new Set<Screen>(['home', 'schedule', 'running', 'chat', 'chat-list', 'individual-chat', 'nutrition', 'mindfulness', 'mindfulness-insights', 'music', 'profile']);
-const COACH_NAV_SCREENS = new Set<Screen>(['coach-dashboard', 'schedule', 'coach-requests', 'chat', 'chat-list', 'individual-chat', 'profile']);
+const CLIENT_NAV_SCREENS = new Set<Screen>(['home', 'schedule', 'running', 'chat', 'chat-list', 'individual-chat', 'nutrition', 'mindfulness', 'mindfulness-insights', 'music']);
+const COACH_NAV_SCREENS = new Set<Screen>(['coach-dashboard', 'schedule', 'coach-requests', 'chat', 'chat-list', 'individual-chat']);
 
 const getClientActiveTab = (screen: Screen): TabType => {
   switch (screen) {

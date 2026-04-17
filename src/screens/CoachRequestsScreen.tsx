@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
-import { BackgroundDecorations } from '../components';
+import { BackgroundDecorations, GlassCard } from '../components';
 import { useCoachRequests } from '../hooks/useCoachRequests';
 
 interface CoachRequestsScreenProps {
@@ -197,7 +197,7 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
   };
 
   const renderRequestCard = (request: any, isPending: boolean = true) => (
-    <View key={request.id} style={[styles.requestCard, shadows.sm]}>
+    <GlassCard key={request.id} style={styles.requestCard}>
       <View style={styles.requestHeader}>
         <View style={styles.clientAvatar}>
           <Text style={styles.clientAvatarText}>
@@ -296,7 +296,7 @@ export const CoachRequestsScreen: React.FC<CoachRequestsScreenProps> = ({ onNavi
           Responded on {formatDate(request.responded_at)}
         </Text>
       )}
-    </View>
+    </GlassCard>
   );
 
   return (
@@ -435,10 +435,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    ...shadows.sm,
   },
   backButton: {
     width: 40,

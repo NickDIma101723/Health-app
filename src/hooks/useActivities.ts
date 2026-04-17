@@ -126,6 +126,15 @@ export const useActivities = () => {
 
       if (insertError) throw insertError;
       
+      setActivities(prev => {
+        const exists = prev.some(a => a.id === data.id);
+        if (exists) return prev;
+        return [...prev, data].sort((a, b) => {
+          const dateCompare = a.date.localeCompare(b.date);
+          if (dateCompare !== 0) return dateCompare;
+          return a.time.localeCompare(b.time);
+        });
+      });
       
       return { data, error: null };
     } catch (err: any) {
@@ -148,6 +157,7 @@ export const useActivities = () => {
 
       if (updateError) throw updateError;
       
+      setActivities(prev => prev.map(a => a.id === id ? data : a));
       
       return { data, error: null };
     } catch (err: any) {
@@ -168,6 +178,7 @@ export const useActivities = () => {
 
       if (deleteError) throw deleteError;
       
+      setActivities(prev => prev.filter(a => a.id !== id));
       
       return { error: null };
     } catch (err: any) {
@@ -188,6 +199,9 @@ export const useActivities = () => {
 
     const oldStatus = activity.status;
     const newStatus = statusCycle[activity.status];
+
+    // Optimistic UI update
+    setActivities(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
 
     await updateActivity(id, { status: newStatus });
 

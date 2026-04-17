@@ -50,86 +50,78 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
   return R * c;
 }
 
-function getMapStyle() {
-  const hour = new Date().getHours();
-  return (hour >= 6 && hour < 18) ? 'mapbox://styles/mapbox/light-v11' : 'mapbox://styles/mapbox/dark-v11';
-}
-
 function buildMapHtml(token: string, lat: number, lon: number) {
-  const style = getMapStyle();
-  const isDark = style.includes('dark');
+  const isDark = false;
   const dotBg = isDark ? '#111' : '#FFF';
   const dotBorder = '#D4F940';
   return `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
-<link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
-<style>body{margin:0;padding:0}#map{position:absolute;top:0;bottom:0;width:100%}
-.user-dot{width:16px;height:16px;border-radius:50%;background:${dotBg};border:3px solid ${dotBorder};box-shadow:0 0 8px rgba(212,249,64,0.4)}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+body{margin:0;padding:0}
+#map{position:absolute;top:0;bottom:0;width:100%;background:#FAFAFA;}
+.user-dot{width:16px;height:16px;border-radius:50%;background:${dotBg};border:3px solid ${dotBorder};box-shadow:0 0 8px rgba(212,249,64,0.4);margin-left:-8px;margin-top:-8px;}
 .user-dot.tracking{animation:pulse 1.5s infinite}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(212,249,64,0.35)}70%{box-shadow:0 0 0 12px rgba(212,249,64,0)}100%{box-shadow:0 0 0 0 rgba(212,249,64,0)}}
-.start-marker{width:24px;height:24px;border-radius:50%;background:#4CAF50;border:3px solid #FFF;display:flex;align-items:center;justify-content:center;font-size:12px;color:#FFF;font-weight:bold}
-.end-marker{width:24px;height:24px;border-radius:50%;background:#111;border:3px solid #FFF;display:flex;align-items:center;justify-content:center}
+.start-marker{width:24px;height:24px;border-radius:50%;background:#D4F940;border:3px solid #111;display:flex;align-items:center;justify-content:center;font-size:12px;color:#111;font-weight:bold;margin-left:-12px;margin-top:-12px;}
+.end-marker{width:24px;height:24px;border-radius:50%;background:#111;border:3px solid #FFF;display:flex;align-items:center;justify-content:center;margin-left:-12px;margin-top:-12px;}
 .end-marker svg{width:12px;height:12px;fill:#FFF}
 </style>
 </head><body>
 <div id="map"></div>
 <script>
-mapboxgl.accessToken='${token}';
-const map=new mapboxgl.Map({container:'map',style:'${style}',center:[${lon},${lat}],zoom:15,attributionControl:false,collectResourceTiming:false,transformRequest:(url,resourceType)=>{if(url.includes('events.mapbox.com')){return{url:'data:,'};}return{url};}});
-let userMarker=null,startMarker=null,endMarker=null,isTracking=false;
+const map=L.map('map',{zoomControl:false}).setView([${lat},${lon}],15);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+  attribution:'&copy; <a href="https://osm.org/copyright">OSM</a>'
+}).addTo(map);
 
-map.on('load',()=>{
-  map.addSource('route',{type:'geojson',data:{type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[]}}});
-  map.addLayer({id:'route-glow',type:'line',source:'route',paint:{'line-color':'#D4F940','line-width':12,'line-opacity':0.12}});
-  map.addLayer({id:'route-line',type:'line',source:'route',paint:{'line-color':'#D4F940','line-width':4,'line-opacity':0.9},layout:{'line-cap':'round','line-join':'round'}});
-  
-  const el=document.createElement('div');el.className='user-dot';
-  userMarker=new mapboxgl.Marker({element:el}).setLngLat([${lon},${lat}]).addTo(map);
-});
+let userMarker=null,startMarker=null,endMarker=null,isTracking=false;
+let routeGlow=L.polyline([],{color:'#D4F940',weight:12,opacity:0.15}).addTo(map);
+let routeLine=L.polyline([],{color:'#D4F940',weight:4,opacity:0.9}).addTo(map);
+
+const createDivIcon = (className, html='') => L.divIcon({className, html, iconSize:null});
+userMarker=L.marker([${lat},${lon}],{icon:createDivIcon('user-dot')}).addTo(map);
 
 window.addEventListener('message',(e)=>{
   const d=e.data;
   if(!d||!d.type)return;
   
   if(d.type==='updateLocation'){
-    if(userMarker)userMarker.setLngLat([d.lon,d.lat]);
-    if(d.follow)map.flyTo({center:[d.lon,d.lat],zoom:17,duration:800});
+    userMarker.setLatLng([d.lat,d.lon]);
+    if(d.follow)map.setView([d.lat,d.lon],17,{animate:true});
   }
   
   if(d.type==='updateRoute'){
-    const src=map.getSource('route');
-    if(src)src.setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:d.coords}});
+    const latlngs = d.coords.map(c=>[c[1],c[0]]);
+    routeGlow.setLatLngs(latlngs);
+    routeLine.setLatLngs(latlngs);
   }
   
   if(d.type==='setTracking'){
     isTracking=d.value;
-    if(userMarker){
-      const el=userMarker.getElement();
-      if(isTracking)el.classList.add('tracking');else el.classList.remove('tracking');
-    }
+    const el=userMarker.getElement();
+    if(el){if(isTracking)el.classList.add('tracking');else el.classList.remove('tracking');}
   }
   
   if(d.type==='addStartMarker'){
-    if(startMarker)startMarker.remove();
-    const el=document.createElement('div');el.className='start-marker';el.innerHTML='\u25B6';
-    startMarker=new mapboxgl.Marker({element:el}).setLngLat([d.lon,d.lat]).addTo(map);
+    if(startMarker)map.removeLayer(startMarker);
+    startMarker=L.marker([d.lat,d.lon],{icon:createDivIcon('start-marker','▶')}).addTo(map);
   }
   
   if(d.type==='addEndMarker'){
-    if(endMarker)endMarker.remove();
-    const el=document.createElement('div');el.className='end-marker';
-    el.innerHTML='<svg viewBox="0 0 24 24"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>';
-    endMarker=new mapboxgl.Marker({element:el}).setLngLat([d.lon,d.lat]).addTo(map);
+    if(endMarker)map.removeLayer(endMarker);
+    const svg='<svg viewBox="0 0 24 24"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>';
+    endMarker=L.marker([d.lat,d.lon],{icon:createDivIcon('end-marker',svg)}).addTo(map);
   }
   
   if(d.type==='fitBounds'){
-    map.fitBounds([[d.sw[0],d.sw[1]],[d.ne[0],d.ne[1]]],{padding:60,duration:600});
+    map.fitBounds([[d.sw[1],d.sw[0]],[d.ne[1],d.ne[0]]],{padding:[60,60],animate:true});
   }
   
   if(d.type==='centerOn'){
-    map.flyTo({center:[d.lon,d.lat],zoom:17,duration:500});
+    map.setView([d.lat,d.lon],17,{animate:true});
   }
 });
 </script>
@@ -320,9 +312,13 @@ export const ActivityMapScreen = ({ onNavigate }: { onNavigate: (screen: string)
     return `${paceM}'${paceS < 10 ? '0' : ''}${paceS}"`;
   };
 
-  const lat = currentLocation?.latitude || 37.79050;
-  const lon = currentLocation?.longitude || -122.4344;
-  const mapHtml = buildMapHtml(MAPBOX_TOKEN, lat, lon);
+  const initialLoc = useRef<{lat: number, lon: number} | null>(null);
+  if (currentLocation && !initialLoc.current) {
+      initialLoc.current = { lat: currentLocation.latitude, lon: currentLocation.longitude };
+  }
+  const lat = initialLoc.current?.lat || 37.79050;
+  const lon = initialLoc.current?.lon || -122.4344;
+  const mapHtml = React.useMemo(() => buildMapHtml(MAPBOX_TOKEN, lat, lon), [lat, lon]);
 
   const ActivityIcon = ({ type, size, color }: { type: ActivityType; size: number; color: string }) => {
     const Icon = ACTIVITY_ICONS[type];

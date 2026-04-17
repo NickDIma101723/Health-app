@@ -523,7 +523,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         'userMode',
         'lastModeCheck',
         'supabase.auth.token',
-        'sb-fkmthgmwrvzgygdqoqvq-auth-token', // Supabase stores tokens with project reference
       ];
       
       await Promise.all(keys.map(key => AsyncStorage.removeItem(key)));

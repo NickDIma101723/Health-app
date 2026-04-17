@@ -18,6 +18,8 @@ import { BackgroundDecorations } from '../components';
 import { colors, spacing, fontSizes, borderRadius, shadows } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { useWorkoutPlans } from '../hooks/useWorkoutPlans';
+import { supabase } from '../lib/supabase';
+import { Users } from 'phosphor-react-native';
 
 interface CreateWorkoutPlanScreenProps {
   route?: any;
@@ -165,6 +167,64 @@ export const CreateWorkoutPlanScreen: React.FC<CreateWorkoutPlanScreenProps> = (
   const { coachData } = useAuth();
   const clientId = propClientId || route?.params?.clientId;
 
+  
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(clientId || null);
+  const [clients, setClients] = useState<any[]>([]);
+  const [loadingClients, setLoadingClients] = useState(false);
+
+  useEffect(() => {
+    if (!clientId && coachData?.id) {
+      loadClients();
+    }
+  }, [coachData]);
+
+  const loadClients = async () => {
+    setLoadingClients(true);
+    const { data: assignments } = await supabase
+      .from('coach_client_assignments')
+      .select('client_user_id')
+      .eq('coach_id', coachData!.id)
+      .eq('is_active', true);
+    
+    if (assignments && assignments.length > 0) {
+      const ids = assignments.map((a: any) => a.client_user_id);
+      const { data: profiles } = await supabase.from('profiles').select('*').in('user_id', ids);
+      if (profiles) setClients(profiles);
+    }
+    setLoadingClients(false);
+  };
+
+  if (!selectedClientId) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => handleBack()} style={styles.headerBackButton}>
+            <MaterialIcons name="arrow-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Select Client</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <ScrollView style={{ padding: 20 }}>
+          <Text style={{ fontSize: 16, color: colors.textSecondary, marginBottom: 20 }}>Who is this workout plan for?</Text>
+          {loadingClients ? (
+            <Text style={{ color: colors.textPrimary }}>Loading clients...</Text>
+          ) : clients.length === 0 ? (
+            <Text style={{ color: colors.textPrimary }}>No active clients found.</Text>
+          ) : (
+            clients.map(c => (
+              <TouchableOpacity key={c.user_id} style={{ padding: 15, backgroundColor: colors.surface, borderRadius: 12, marginBottom: 10, flexDirection: 'row', alignItems: 'center' }} onPress={() => setSelectedClientId(c.user_id)}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 15 }}>
+                  <Users color="#fff" size={20} />
+                </View>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>{c.full_name || 'Client'}</Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   const [planName, setPlanName] = useState('');
   const [planDescription, setPlanDescription] = useState('');
   const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([]);
@@ -258,7 +318,7 @@ export const CreateWorkoutPlanScreen: React.FC<CreateWorkoutPlanScreenProps> = (
     try {
       const planData = {
         coach_id: coachData.id,
-        client_id: clientId,
+        client_id: selectedClientId,
         name: planName,
         description: planDescription,
         workout_days: workoutDays,
@@ -555,9 +615,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   headerBackButton: {
     width: 44,

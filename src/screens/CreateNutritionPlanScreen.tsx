@@ -34,6 +34,7 @@ import {
 } from 'phosphor-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { Users } from 'phosphor-react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -158,6 +159,64 @@ export const CreateNutritionPlanScreen: React.FC<CreateNutritionPlanScreenProps>
   const { coachData } = useAuth();
   const clientId = propClientId || route?.params?.clientId;
 
+  
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(clientId || null);
+  const [clients, setClients] = useState<any[]>([]);
+  const [loadingClients, setLoadingClients] = useState(false);
+
+  React.useEffect(() => {
+    if (!clientId && coachData?.id) {
+      loadClients();
+    }
+  }, [coachData, clientId]);
+
+  const loadClients = async () => {
+    setLoadingClients(true);
+    const { data: assignments } = await supabase
+      .from('coach_client_assignments')
+      .select('client_user_id')
+      .eq('coach_id', coachData!.id)
+      .eq('is_active', true);
+    
+    if (assignments && assignments.length > 0) {
+      const ids = assignments.map(a => a.client_user_id);
+      const { data: profiles } = await supabase.from('profiles').select('*').in('user_id', ids);
+      if (profiles) setClients(profiles);
+    }
+    setLoadingClients(false);
+  };
+
+  if (!selectedClientId) {
+    return (
+      <SafeAreaView style={st.container}>
+        <View style={st.header}>
+          <TouchableOpacity onPress={() => handleBack()} style={st.backBtn}>
+            <ArrowLeft color={S.text} size={24} />
+          </TouchableOpacity>
+          <Text style={st.headerTitle}>Select Client</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <ScrollView style={{ padding: 20 }}>
+          <Text style={{ fontSize: 16, color: S.dim, marginBottom: 20 }}>Who is this nutrition plan for?</Text>
+          {loadingClients ? (
+            <Text style={{ color: S.text }}>Loading clients...</Text>
+          ) : clients.length === 0 ? (
+            <Text style={{ color: S.text }}>No active clients found.</Text>
+          ) : (
+            clients.map(c => (
+              <TouchableOpacity key={c.user_id} style={{ padding: 15, backgroundColor: S.card, borderRadius: 12, marginBottom: 10, flexDirection: 'row', alignItems: 'center' }} onPress={() => setSelectedClientId(c.user_id)}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: S.amber, alignItems: 'center', justifyContent: 'center', marginRight: 15 }}>
+                  <Users color="#111" size={20} />
+                </View>
+                <Text style={{ fontSize: 16, fontFamily: F.bold, color: S.text }}>{c.full_name || 'Client'}</Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   const [planName, setPlanName] = useState('');
   const [planDescription, setPlanDescription] = useState('');
   const [targetCalories, setTargetCalories] = useState('2000');
@@ -224,7 +283,7 @@ export const CreateNutritionPlanScreen: React.FC<CreateNutritionPlanScreenProps>
     try {
       const nutritionPlan = {
         coach_id: coachData?.id,
-        client_id: clientId,
+        client_id: selectedClientId,
         name: planName,
         description: planDescription,
         target_calories: parseInt(targetCalories) || 2000,
