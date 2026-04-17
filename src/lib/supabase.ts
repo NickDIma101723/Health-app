@@ -1,8 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-const rawSupabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() || '';
-const rawSupabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() || '';
+const expoExtra =
+  (Constants.expoConfig?.extra as Record<string, string | undefined> | undefined) ||
+  (Constants.manifest2?.extra as Record<string, string | undefined> | undefined) ||
+  {};
+
+const rawSupabaseUrl =
+  process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() ||
+  expoExtra.EXPO_PUBLIC_SUPABASE_URL?.trim() ||
+  expoExtra.SUPABASE_URL?.trim() ||
+  '';
+const rawSupabaseAnonKey =
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
+  expoExtra.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
+  expoExtra.SUPABASE_ANON_KEY?.trim() ||
+  '';
 
 const isPlaceholder = (value: string) => {
   const lower = value.toLowerCase();
